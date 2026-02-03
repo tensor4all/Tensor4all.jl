@@ -59,10 +59,10 @@ jobs:
             Pkg.instantiate()
             Pkg.build()
           '
-          # On Linux, set LD_LIBRARY_PATH to prefer system libs for runtime
-          # This avoids conflicts between Julia's bundled libcurl and system HDF5's libcurl dependency
+          # On Linux, preload system libcurl to avoid symbol conflicts with Julia's bundled version
+          # System HDF5 requires CURL_OPENSSL_4 symbol which Julia's libcurl lacks
           if [[ "$RUNNER_OS" == "Linux" ]]; then
-            export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
+            export LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libcurl.so.4"
           fi
           julia --project=. -e 'using Pkg; Pkg.test()'
 
