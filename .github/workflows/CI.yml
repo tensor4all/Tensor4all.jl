@@ -33,11 +33,16 @@ jobs:
 
       - name: Install HDF5 (Ubuntu)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libhdf5-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libhdf5-dev pkg-config
+          echo "HDF5_DIR=/usr" >> $GITHUB_ENV
 
       - name: Install HDF5 (macOS)
         if: runner.os == 'macOS'
-        run: brew install hdf5
+        run: |
+          brew install hdf5 pkg-config
+          echo "HDF5_DIR=$(brew --prefix hdf5)" >> $GITHUB_ENV
 
       - uses: julia-actions/setup-julia@v2
         with:
@@ -51,8 +56,13 @@ jobs:
             using Pkg
             Pkg.instantiate()
             Pkg.build()
-            Pkg.test()
           '
+          # On Linux, set LD_LIBRARY_PATH to prefer system libs for runtime
+          # This avoids conflicts between Julia's bundled libcurl and system HDF5's libcurl dependency
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
+          fi
+          julia --project=. -e 'using Pkg; Pkg.test()'
 
       - name: Process coverage
         if: matrix.coverage
