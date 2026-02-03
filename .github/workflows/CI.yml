@@ -37,24 +37,16 @@ jobs:
 
       - uses: julia-actions/cache@v2
 
-      - name: Get HDF5_jll paths (Ubuntu)
+      - name: Install HDF5 (Ubuntu)
         if: runner.os == 'Linux'
         run: |
-          # Use Julia's HDF5_jll to avoid libcurl conflicts with system HDF5
-          julia -e '
-            using Pkg
-            Pkg.add("HDF5_jll")
-            using HDF5_jll
-            hdf5_root = dirname(dirname(HDF5_jll.libhdf5_path))
-            lib_dir = joinpath(hdf5_root, "lib")
-            include_dir = joinpath(hdf5_root, "include")
-            open(ENV["GITHUB_ENV"], "a") do f
-              println(f, "HDF5_DIR=$hdf5_root")
-              println(f, "HDF5_LIB_DIR=$lib_dir")
-              println(f, "HDF5_INCLUDE_DIR=$include_dir")
-              println(f, "HDF5_NO_PKG_CONFIG=1")
-            end
-          '
+          sudo apt-get update
+          sudo apt-get install -y libhdf5-dev pkg-config patchelf
+          # Set HDF5 paths for Rust build
+          echo "HDF5_INCLUDE_DIR=/usr/include/hdf5/serial" >> $GITHUB_ENV
+          echo "HDF5_LIB_DIR=/usr/lib/x86_64-linux-gnu/hdf5/serial" >> $GITHUB_ENV
+          # Set RPATH so the built library finds system libcurl at runtime
+          echo "RUSTFLAGS=-C link-args=-Wl,-rpath,/usr/lib/x86_64-linux-gnu" >> $GITHUB_ENV
 
       - name: Install HDF5 (macOS)
         if: runner.os == 'macOS'
