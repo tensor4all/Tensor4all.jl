@@ -53,18 +53,17 @@ jobs:
       - uses: julia-actions/cache@v2
 
       - name: Build and test
+        env:
+          # Tell Julia's HDF5.jl to use system HDF5 instead of HDF5_jll
+          # This ensures both our Rust library and Julia use the same HDF5
+          JULIA_HDF5_PATH: ${{ runner.os == 'Linux' && '/usr/lib/x86_64-linux-gnu/hdf5/serial' || '' }}
         run: |
           julia --project=. -e '
             using Pkg
             Pkg.instantiate()
             Pkg.build()
+            Pkg.test()
           '
-          # On Linux, preload system libcurl to avoid symbol conflicts with Julia's bundled version
-          # System HDF5 requires CURL_OPENSSL_4 symbol which Julia's libcurl lacks
-          if [[ "$RUNNER_OS" == "Linux" ]]; then
-            export LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libcurl.so.4"
-          fi
-          julia --project=. -e 'using Pkg; Pkg.test()'
 
       - name: Process coverage
         if: matrix.coverage
