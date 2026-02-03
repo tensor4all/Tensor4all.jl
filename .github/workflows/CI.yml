@@ -37,16 +37,17 @@ jobs:
 
       - uses: julia-actions/cache@v2
 
-      - name: Install HDF5 (Ubuntu)
+      - name: Install HDF5 via micromamba (Ubuntu)
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libhdf5-dev pkg-config patchelf
-          # Set HDF5 paths for Rust build
-          echo "HDF5_INCLUDE_DIR=/usr/include/hdf5/serial" >> $GITHUB_ENV
-          echo "HDF5_LIB_DIR=/usr/lib/x86_64-linux-gnu/hdf5/serial" >> $GITHUB_ENV
-          # Set RPATH so the built library finds system libcurl at runtime
-          echo "RUSTFLAGS=-C link-args=-Wl,-rpath,/usr/lib/x86_64-linux-gnu" >> $GITHUB_ENV
+          # Install micromamba
+          curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
+          ./bin/micromamba create -n hdf5env hdf5 -c conda-forge -y
+
+          # Get paths from micromamba environment
+          HDF5_ROOT=$(./bin/micromamba run -n hdf5env printenv CONDA_PREFIX)
+          echo "HDF5_DIR=$HDF5_ROOT" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=$HDF5_ROOT/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
 
       - name: Install HDF5 (macOS)
         if: runner.os == 'macOS'
