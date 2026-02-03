@@ -36,7 +36,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libhdf5-dev pkg-config
-          echo "HDF5_DIR=/usr" >> $GITHUB_ENV
+          # Ubuntu installs HDF5 headers/libs in serial subdirectory
+          echo "HDF5_INCLUDE_DIR=/usr/include/hdf5/serial" >> $GITHUB_ENV
+          echo "HDF5_LIB_DIR=/usr/lib/x86_64-linux-gnu/hdf5/serial" >> $GITHUB_ENV
 
       - name: Install HDF5 (macOS)
         if: runner.os == 'macOS'
