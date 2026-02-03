@@ -45,9 +45,11 @@ jobs:
             using Pkg
             Pkg.add("HDF5_jll")
             using HDF5_jll
-            hdf5_dir = dirname(dirname(HDF5_jll.libhdf5_path))
+            lib_dir = dirname(HDF5_jll.libhdf5_path)
+            include_dir = joinpath(dirname(lib_dir), "include")
             open(ENV["GITHUB_ENV"], "a") do f
-              println(f, "HDF5_DIR=$hdf5_dir")
+              println(f, "HDF5_LIB_DIR=$lib_dir")
+              println(f, "HDF5_INCLUDE_DIR=$include_dir")
             end
           '
 
