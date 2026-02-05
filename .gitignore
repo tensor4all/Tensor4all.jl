@@ -6,3 +6,5 @@ deps/*.dylib
 deps/*.so
 deps/*.dll
 deps/build.log
+
+extern/
