@@ -33,7 +33,7 @@ The shared library is installed to:
 /path/to/Tensor4all.jl/deps/libtensor4all_capi.{dylib,so,dll}
 ```
 
-### Option 2: Add from another environment or global
+### Option 2: Develop from another environment or global
 
 ```julia
 using Pkg
@@ -46,6 +46,19 @@ The shared library is installed to:
 /path/to/Tensor4all.jl/deps/libtensor4all_capi.{dylib,so,dll}
 ```
 (Same location as the source — `Pkg.develop` symlinks to the local directory.)
+
+### Option 3: Add from another environment (e.g., from GitHub URL)
+
+```julia
+using Pkg
+Pkg.add(url="https://github.com/tensor4all/Tensor4all.jl.git")
+Pkg.build("Tensor4all")  # Automatically compiles the Rust backend
+```
+
+The shared library is installed to:
+```
+~/.julia/packages/Tensor4all/<hash>/deps/libtensor4all_capi.{dylib,so,dll}
+```
 
 ### Rust source resolution
 
