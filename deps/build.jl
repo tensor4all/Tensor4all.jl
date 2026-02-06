@@ -12,7 +12,7 @@ using Libdl
 using RustToolChain: cargo
 
 # Configuration
-const TENSOR4ALL_RS_VERSION = "main"  # Branch, tag, or commit hash
+const TENSOR4ALL_RS_VERSION = "feat/hdf5-init-capi"  # Branch, tag, or commit hash
 const TENSOR4ALL_RS_REPO = "https://github.com/tensor4all/tensor4all-rs.git"
 
 # Paths
