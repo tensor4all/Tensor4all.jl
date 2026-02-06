@@ -1396,8 +1396,42 @@ function t4a_crossinterpolate2_f64(
 end
 
 # ============================================================================
-# HDF5 save/load functions
+# HDF5 initialization and save/load functions
 # ============================================================================
+
+"""
+    t4a_hdf5_init(library_path::AbstractString) -> Cint
+
+Initialize the HDF5 library by loading it from the specified path.
+This must be called before using any HDF5 functions.
+
+# Arguments
+- `library_path`: Path to the HDF5 shared library (e.g., libhdf5.so or libhdf5.dylib)
+
+# Returns
+`T4A_SUCCESS` (0) on success, or an error code on failure.
+"""
+function t4a_hdf5_init(library_path::AbstractString)
+    return ccall(
+        (:t4a_hdf5_init, libpath()),
+        Cint,
+        (Cstring,),
+        library_path
+    )
+end
+
+"""
+    t4a_hdf5_is_initialized() -> Bool
+
+Check if the HDF5 library is initialized and ready to use.
+"""
+function t4a_hdf5_is_initialized()
+    return ccall(
+        (:t4a_hdf5_is_initialized, libpath()),
+        Bool,
+        ()
+    )
+end
 
 """
     t4a_hdf5_save_itensor(filepath::AbstractString, name::AbstractString, tensor::Ptr{Cvoid}) -> Cint

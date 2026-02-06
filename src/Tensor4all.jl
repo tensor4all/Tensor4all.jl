@@ -43,6 +43,7 @@ t4a_idx2 = Tensor4all.Index(it_idx2)
 module Tensor4all
 
 using LinearAlgebra
+using HDF5
 
 include("C_API.jl")
 
@@ -962,5 +963,18 @@ include("QuanticsTCI.jl")
 # Quantics transformation operators (shift, flip, phase rotation, cumsum, Fourier).
 # Use: using Tensor4all.QuanticsTransform
 include("QuanticsTransform.jl")
+
+# ============================================================================
+# Module Initialization
+# ============================================================================
+
+function __init__()
+    # Initialize HDF5 in the Rust backend using the library loaded by HDF5.jl.
+    # HDF5.jl has already loaded libhdf5 and all its dependencies (libaec, MPI, libcurl).
+    # We pass the library path to Rust so it can use the same library via dlopen.
+    libhdf5_path = HDF5.API.libhdf5
+    status = C_API.t4a_hdf5_init(libhdf5_path)
+    C_API.check_status(status)
+end
 
 end # module
