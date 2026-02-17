@@ -235,6 +235,46 @@ t4a_idx2 = convert(Tensor4all.Index, it_idx2)
 # Same conversions work for Tensor ↔ ITensor
 ```
 
+## Debugging
+
+### Rust backtraces
+
+When a Rust-side error occurs, Tensor4all.jl automatically includes a Rust
+backtrace in the error message (via `RUST_BACKTRACE=1`).  The release build
+ships with debug info (`[optimized + debuginfo]`), so backtraces show file
+names and line numbers:
+
+```
+ERROR: Tensor4all C API error: Internal error: Invalid pivot: ...
+
+Rust backtrace:
+   0: tensor4all_capi::set_last_error
+             at .../src/lib.rs:91:14
+   1: tensor4all_capi::err_status
+             at .../src/lib.rs:105:5
+   2: tensor4all_capi::tensorci::t4a_crossinterpolate2_f64::{{closure}}
+             at .../src/tensorci.rs:477:23
+   ...
+```
+
+You can control this behaviour with the `RUST_BACKTRACE` environment variable:
+
+| Value   | Effect |
+|---------|--------|
+| *(unset)* | Tensor4all.jl sets it to `1` automatically |
+| `0`     | Disable Rust backtraces |
+| `1`     | Show backtraces with file/line info (default) |
+| `full`  | Show backtraces with additional detail |
+
+### Debug build
+
+By default, `Pkg.build` compiles the Rust backend in release mode (optimised +
+debug info).  To build without optimisations (for full backtrace fidelity), set:
+
+```bash
+TENSOR4ALL_BUILD_DEBUG=1 julia -e 'using Pkg; Pkg.build("Tensor4all")'
+```
+
 ## Troubleshooting
 
 ### Error: "tensor4all-capi library not found"

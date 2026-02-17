@@ -969,6 +969,13 @@ include("QuanticsTransform.jl")
 # ============================================================================
 
 function __init__()
+    # Enable Rust backtraces by default so that error messages from the C API
+    # include a stack trace.  Users can override by setting RUST_BACKTRACE
+    # themselves (e.g. "0" to disable, "full" for extra detail).
+    if !haskey(ENV, "RUST_BACKTRACE")
+        ENV["RUST_BACKTRACE"] = "1"
+    end
+
     # Initialize HDF5 in the Rust backend using the library loaded by HDF5.jl.
     # HDF5.jl has already loaded libhdf5 and all its dependencies (libaec, MPI, libcurl).
     # We pass the library path to Rust so it can use the same library via dlopen.

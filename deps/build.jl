@@ -67,18 +67,28 @@ end
     build_library(rust_dir::String)
 
 Build tensor4all-capi in the specified Rust workspace directory.
+
+Set `TENSOR4ALL_BUILD_DEBUG=1` to build in debug mode (unoptimized, with full
+debug symbols).  The default is a release build.
 """
 function build_library(rust_dir::String)
-    println("Building tensor4all-capi...")
+    is_debug = get(ENV, "TENSOR4ALL_BUILD_DEBUG", "") in ("1", "true", "yes")
+    profile = is_debug ? "debug" : "release"
+
+    println("Building tensor4all-capi ($profile)...")
     println("  Rust source: $rust_dir")
     println("  Using cargo from RustToolChain.jl")
 
     cd(rust_dir) do
-        run(`$(cargo()) build -p tensor4all-capi --release`)
+        if is_debug
+            run(`$(cargo()) build -p tensor4all-capi`)
+        else
+            run(`$(cargo()) build -p tensor4all-capi --release`)
+        end
     end
 
     # Find the built library
-    src_lib = joinpath(rust_dir, "target", "release", LIB_NAME)
+    src_lib = joinpath(rust_dir, "target", profile, LIB_NAME)
     if !isfile(src_lib)
         error("Built library not found at: $src_lib")
     end
