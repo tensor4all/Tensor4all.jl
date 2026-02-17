@@ -10,6 +10,12 @@ module C_API
 
 using Libdl
 
+# Helper to look up a C API symbol by name from the loaded library.
+# Returns a Ptr{Cvoid} function pointer that ccall can use directly.
+# This avoids passing a function-call expression as the library argument
+# in ccall tuples, which Julia >= 1.13 no longer allows.
+_sym(name::Symbol) = Libdl.dlsym(libhandle(), name)
+
 # Status codes (must match Rust side)
 const T4A_SUCCESS = Cint(0)
 const T4A_NULL_POINTER = Cint(-1)
@@ -66,7 +72,7 @@ Returns an empty string if no error has occurred.
 function last_error_message()
     out_len = Ref{Csize_t}(0)
     status = ccall(
-        (:t4a_last_error_message, libpath()),
+        _sym(:t4a_last_error_message),
         Cint,
         (Ptr{UInt8}, Csize_t, Ptr{Csize_t}),
         C_NULL,
@@ -77,7 +83,7 @@ function last_error_message()
 
     buf = Vector{UInt8}(undef, out_len[])
     status = ccall(
-        (:t4a_last_error_message, libpath()),
+        _sym(:t4a_last_error_message),
         Cint,
         (Ptr{UInt8}, Csize_t, Ptr{Csize_t}),
         buf,
@@ -133,7 +139,7 @@ Create a new index with the given dimension.
 """
 function t4a_index_new(dim::Integer)
     return ccall(
-        (:t4a_index_new, libpath()),
+        _sym(:t4a_index_new),
         Ptr{Cvoid},
         (Csize_t,),
         Csize_t(dim)
@@ -147,7 +153,7 @@ Create a new index with the given dimension and comma-separated tags.
 """
 function t4a_index_new_with_tags(dim::Integer, tags::AbstractString)
     return ccall(
-        (:t4a_index_new_with_tags, libpath()),
+        _sym(:t4a_index_new_with_tags),
         Ptr{Cvoid},
         (Csize_t, Cstring),
         Csize_t(dim),
@@ -162,7 +168,7 @@ Create a new index with specified dimension, ID, and tags.
 """
 function t4a_index_new_with_id(dim::Integer, id::UInt64, tags::AbstractString)
     return ccall(
-        (:t4a_index_new_with_id, libpath()),
+        _sym(:t4a_index_new_with_id),
         Ptr{Cvoid},
         (Csize_t, UInt64, Cstring),
         Csize_t(dim),
@@ -179,7 +185,7 @@ Release an index (called by finalizer).
 function t4a_index_release(ptr::Ptr{Cvoid})
     ptr == C_NULL && return
     ccall(
-        (:t4a_index_release, libpath()),
+        _sym(:t4a_index_release),
         Cvoid,
         (Ptr{Cvoid},),
         ptr
@@ -193,7 +199,7 @@ Clone an index.
 """
 function t4a_index_clone(ptr::Ptr{Cvoid})
     return ccall(
-        (:t4a_index_clone, libpath()),
+        _sym(:t4a_index_clone),
         Ptr{Cvoid},
         (Ptr{Cvoid},),
         ptr
@@ -207,7 +213,7 @@ Check if an index pointer is valid.
 """
 function t4a_index_is_assigned(ptr::Ptr{Cvoid})
     result = ccall(
-        (:t4a_index_is_assigned, libpath()),
+        _sym(:t4a_index_is_assigned),
         Cint,
         (Ptr{Cvoid},),
         ptr
@@ -226,7 +232,7 @@ Get the dimension of an index.
 """
 function t4a_index_dim(ptr::Ptr{Cvoid}, out_dim::Ref{Csize_t})
     return ccall(
-        (:t4a_index_dim, libpath()),
+        _sym(:t4a_index_dim),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}),
         ptr,
@@ -241,7 +247,7 @@ Get the 64-bit ID of an index (compatible with ITensors.jl's IDType = UInt64).
 """
 function t4a_index_id(ptr::Ptr{Cvoid}, out_id::Ref{UInt64})
     return ccall(
-        (:t4a_index_id, libpath()),
+        _sym(:t4a_index_id),
         Cint,
         (Ptr{Cvoid}, Ptr{UInt64}),
         ptr,
@@ -256,7 +262,7 @@ Get tags as a comma-separated string.
 """
 function t4a_index_get_tags(ptr::Ptr{Cvoid}, buf, buf_len::Integer, out_len::Ref{Csize_t})
     return ccall(
-        (:t4a_index_get_tags, libpath()),
+        _sym(:t4a_index_get_tags),
         Cint,
         (Ptr{Cvoid}, Ptr{UInt8}, Csize_t, Ptr{Csize_t}),
         ptr,
@@ -277,7 +283,7 @@ Add a tag to an index.
 """
 function t4a_index_add_tag(ptr::Ptr{Cvoid}, tag::AbstractString)
     return ccall(
-        (:t4a_index_add_tag, libpath()),
+        _sym(:t4a_index_add_tag),
         Cint,
         (Ptr{Cvoid}, Cstring),
         ptr,
@@ -292,7 +298,7 @@ Set all tags from a comma-separated string.
 """
 function t4a_index_set_tags_csv(ptr::Ptr{Cvoid}, tags::AbstractString)
     return ccall(
-        (:t4a_index_set_tags_csv, libpath()),
+        _sym(:t4a_index_set_tags_csv),
         Cint,
         (Ptr{Cvoid}, Cstring),
         ptr,
@@ -308,7 +314,7 @@ Returns 1 if yes, 0 if no, negative on error.
 """
 function t4a_index_has_tag(ptr::Ptr{Cvoid}, tag::AbstractString)
     return ccall(
-        (:t4a_index_has_tag, libpath()),
+        _sym(:t4a_index_has_tag),
         Cint,
         (Ptr{Cvoid}, Cstring),
         ptr,
@@ -338,7 +344,7 @@ Release a tensor (called by finalizer).
 function t4a_tensor_release(ptr::Ptr{Cvoid})
     ptr == C_NULL && return
     ccall(
-        (:t4a_tensor_release, libpath()),
+        _sym(:t4a_tensor_release),
         Cvoid,
         (Ptr{Cvoid},),
         ptr
@@ -352,7 +358,7 @@ Clone a tensor.
 """
 function t4a_tensor_clone(ptr::Ptr{Cvoid})
     return ccall(
-        (:t4a_tensor_clone, libpath()),
+        _sym(:t4a_tensor_clone),
         Ptr{Cvoid},
         (Ptr{Cvoid},),
         ptr
@@ -366,7 +372,7 @@ Check if a tensor pointer is valid.
 """
 function t4a_tensor_is_assigned(ptr::Ptr{Cvoid})
     result = ccall(
-        (:t4a_tensor_is_assigned, libpath()),
+        _sym(:t4a_tensor_is_assigned),
         Cint,
         (Ptr{Cvoid},),
         ptr
@@ -385,7 +391,7 @@ Get the rank (number of indices) of a tensor.
 """
 function t4a_tensor_get_rank(ptr::Ptr{Cvoid}, out_rank::Ref{Csize_t})
     return ccall(
-        (:t4a_tensor_get_rank, libpath()),
+        _sym(:t4a_tensor_get_rank),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}),
         ptr,
@@ -400,7 +406,7 @@ Get the dimensions of a tensor.
 """
 function t4a_tensor_get_dims(ptr::Ptr{Cvoid}, out_dims::Vector{Csize_t}, buf_len::Integer)
     return ccall(
-        (:t4a_tensor_get_dims, libpath()),
+        _sym(:t4a_tensor_get_dims),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t),
         ptr,
@@ -417,7 +423,7 @@ Caller is responsible for releasing the returned indices.
 """
 function t4a_tensor_get_indices(ptr::Ptr{Cvoid}, out_indices::Vector{Ptr{Cvoid}}, buf_len::Integer)
     return ccall(
-        (:t4a_tensor_get_indices, libpath()),
+        _sym(:t4a_tensor_get_indices),
         Cint,
         (Ptr{Cvoid}, Ptr{Ptr{Cvoid}}, Csize_t),
         ptr,
@@ -433,7 +439,7 @@ Get the storage kind of a tensor.
 """
 function t4a_tensor_get_storage_kind(ptr::Ptr{Cvoid}, out_kind::Ref{Cint})
     return ccall(
-        (:t4a_tensor_get_storage_kind, libpath()),
+        _sym(:t4a_tensor_get_storage_kind),
         Cint,
         (Ptr{Cvoid}, Ptr{Cint}),
         ptr,
@@ -449,7 +455,7 @@ If buf is C_NULL, only out_len is written (to query required length).
 """
 function t4a_tensor_get_data_f64(ptr::Ptr{Cvoid}, buf, buf_len::Integer, out_len::Ref{Csize_t})
     return ccall(
-        (:t4a_tensor_get_data_f64, libpath()),
+        _sym(:t4a_tensor_get_data_f64),
         Cint,
         (Ptr{Cvoid}, Ptr{Cdouble}, Csize_t, Ptr{Csize_t}),
         ptr,
@@ -467,7 +473,7 @@ If buf_re or buf_im is C_NULL, only out_len is written (to query required length
 """
 function t4a_tensor_get_data_c64(ptr::Ptr{Cvoid}, buf_re, buf_im, buf_len::Integer, out_len::Ref{Csize_t})
     return ccall(
-        (:t4a_tensor_get_data_c64, libpath()),
+        _sym(:t4a_tensor_get_data_c64),
         Cint,
         (Ptr{Cvoid}, Ptr{Cdouble}, Ptr{Cdouble}, Csize_t, Ptr{Csize_t}),
         ptr,
@@ -489,7 +495,7 @@ Create a new dense f64 tensor from indices and data in row-major order.
 """
 function t4a_tensor_new_dense_f64(rank::Integer, index_ptrs::Vector{Ptr{Cvoid}}, dims::Vector{Csize_t}, data::Vector{Cdouble})
     return ccall(
-        (:t4a_tensor_new_dense_f64, libpath()),
+        _sym(:t4a_tensor_new_dense_f64),
         Ptr{Cvoid},
         (Csize_t, Ptr{Ptr{Cvoid}}, Ptr{Csize_t}, Ptr{Cdouble}, Csize_t),
         Csize_t(rank),
@@ -508,7 +514,7 @@ Create a new dense complex64 tensor from indices and real/imag data in row-major
 function t4a_tensor_new_dense_c64(rank::Integer, index_ptrs::Vector{Ptr{Cvoid}}, dims::Vector{Csize_t}, data_re::Vector{Cdouble}, data_im::Vector{Cdouble})
     @assert length(data_re) == length(data_im) "Real and imaginary data must have same length"
     return ccall(
-        (:t4a_tensor_new_dense_c64, libpath()),
+        _sym(:t4a_tensor_new_dense_c64),
         Ptr{Cvoid},
         (Csize_t, Ptr{Ptr{Cvoid}}, Ptr{Csize_t}, Ptr{Cdouble}, Ptr{Cdouble}, Csize_t),
         Csize_t(rank),
@@ -527,7 +533,7 @@ Create a one-hot tensor with value 1.0 at the specified positions (0-indexed).
 """
 function t4a_tensor_onehot(rank::Integer, index_ptrs::Vector{Ptr{Cvoid}}, vals::Vector{Csize_t})
     return ccall(
-        (:t4a_tensor_onehot, libpath()),
+        _sym(:t4a_tensor_onehot),
         Ptr{Cvoid},
         (Csize_t, Ptr{Ptr{Cvoid}}, Ptr{Csize_t}, Csize_t),
         Csize_t(rank),
@@ -549,7 +555,7 @@ Release a tree tensor network (called by finalizer).
 function t4a_treetn_release(ptr::Ptr{Cvoid})
     ptr == C_NULL && return
     ccall(
-        (:t4a_treetn_release, libpath()),
+        _sym(:t4a_treetn_release),
         Cvoid,
         (Ptr{Cvoid},),
         ptr
@@ -563,7 +569,7 @@ Clone a tree tensor network.
 """
 function t4a_treetn_clone(ptr::Ptr{Cvoid})
     return ccall(
-        (:t4a_treetn_clone, libpath()),
+        _sym(:t4a_treetn_clone),
         Ptr{Cvoid},
         (Ptr{Cvoid},),
         ptr
@@ -577,7 +583,7 @@ Check if a tree tensor network pointer is valid.
 """
 function t4a_treetn_is_assigned(ptr::Ptr{Cvoid})
     result = ccall(
-        (:t4a_treetn_is_assigned, libpath()),
+        _sym(:t4a_treetn_is_assigned),
         Cint,
         (Ptr{Cvoid},),
         ptr
@@ -597,7 +603,7 @@ Node names are assigned as 0, 1, ..., n_tensors-1.
 """
 function t4a_treetn_new(tensors, n_tensors::Integer, out)
     return ccall(
-        (:t4a_treetn_new, libpath()),
+        _sym(:t4a_treetn_new),
         Cint,
         (Ptr{Ptr{Cvoid}}, Csize_t, Ptr{Ptr{Cvoid}}),
         tensors,
@@ -617,7 +623,7 @@ Get the number of vertices (nodes) in the tree tensor network.
 """
 function t4a_treetn_num_vertices(ptr::Ptr{Cvoid}, out::Ref{Csize_t})
     return ccall(
-        (:t4a_treetn_num_vertices, libpath()),
+        _sym(:t4a_treetn_num_vertices),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}),
         ptr,
@@ -632,7 +638,7 @@ Get the number of edges (bonds) in the tree tensor network.
 """
 function t4a_treetn_num_edges(ptr::Ptr{Cvoid}, out::Ref{Csize_t})
     return ccall(
-        (:t4a_treetn_num_edges, libpath()),
+        _sym(:t4a_treetn_num_edges),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}),
         ptr,
@@ -647,7 +653,7 @@ Get the tensor at a specific vertex (0-indexed).
 """
 function t4a_treetn_tensor(ptr::Ptr{Cvoid}, vertex::Integer, out)
     return ccall(
-        (:t4a_treetn_tensor, libpath()),
+        _sym(:t4a_treetn_tensor),
         Cint,
         (Ptr{Cvoid}, Csize_t, Ptr{Ptr{Cvoid}}),
         ptr,
@@ -663,7 +669,7 @@ Set the tensor at a specific vertex (0-indexed).
 """
 function t4a_treetn_set_tensor(ptr::Ptr{Cvoid}, vertex::Integer, tensor::Ptr{Cvoid})
     return ccall(
-        (:t4a_treetn_set_tensor, libpath()),
+        _sym(:t4a_treetn_set_tensor),
         Cint,
         (Ptr{Cvoid}, Csize_t, Ptr{Cvoid}),
         ptr,
@@ -679,7 +685,7 @@ Get the neighbors of a vertex.
 """
 function t4a_treetn_neighbors(ptr::Ptr{Cvoid}, vertex::Integer, out_buf, buf_size::Integer, n_out::Ref{Csize_t})
     return ccall(
-        (:t4a_treetn_neighbors, libpath()),
+        _sym(:t4a_treetn_neighbors),
         Cint,
         (Ptr{Cvoid}, Csize_t, Ptr{Csize_t}, Csize_t, Ptr{Csize_t}),
         ptr,
@@ -697,7 +703,7 @@ Get the link (bond) index on the edge between two vertices.
 """
 function t4a_treetn_linkind(ptr::Ptr{Cvoid}, v1::Integer, v2::Integer, out)
     return ccall(
-        (:t4a_treetn_linkind, libpath()),
+        _sym(:t4a_treetn_linkind),
         Cint,
         (Ptr{Cvoid}, Csize_t, Csize_t, Ptr{Ptr{Cvoid}}),
         ptr,
@@ -714,7 +720,7 @@ Get the site (physical) indices at a vertex.
 """
 function t4a_treetn_siteinds(ptr::Ptr{Cvoid}, vertex::Integer, out_buf, buf_size::Integer, n_out::Ref{Csize_t})
     return ccall(
-        (:t4a_treetn_siteinds, libpath()),
+        _sym(:t4a_treetn_siteinds),
         Cint,
         (Ptr{Cvoid}, Csize_t, Ptr{Ptr{Cvoid}}, Csize_t, Ptr{Csize_t}),
         ptr,
@@ -732,7 +738,7 @@ Get the bond dimension on the edge between two vertices.
 """
 function t4a_treetn_bond_dim(ptr::Ptr{Cvoid}, v1::Integer, v2::Integer, out::Ref{Csize_t})
     return ccall(
-        (:t4a_treetn_bond_dim, libpath()),
+        _sym(:t4a_treetn_bond_dim),
         Cint,
         (Ptr{Cvoid}, Csize_t, Csize_t, Ptr{Csize_t}),
         ptr,
@@ -753,7 +759,7 @@ Get the link index between vertex i and i+1 (MPS convention, 0-indexed).
 """
 function t4a_treetn_linkind_at(ptr::Ptr{Cvoid}, i::Integer, out)
     return ccall(
-        (:t4a_treetn_linkind_at, libpath()),
+        _sym(:t4a_treetn_linkind_at),
         Cint,
         (Ptr{Cvoid}, Csize_t, Ptr{Ptr{Cvoid}}),
         ptr,
@@ -769,7 +775,7 @@ Get the bond dimension between vertex i and i+1 (MPS convention, 0-indexed).
 """
 function t4a_treetn_bond_dim_at(ptr::Ptr{Cvoid}, i::Integer, out::Ref{Csize_t})
     return ccall(
-        (:t4a_treetn_bond_dim_at, libpath()),
+        _sym(:t4a_treetn_bond_dim_at),
         Cint,
         (Ptr{Cvoid}, Csize_t, Ptr{Csize_t}),
         ptr,
@@ -786,7 +792,7 @@ Writes n-1 bond dimensions.
 """
 function t4a_treetn_bond_dims(ptr::Ptr{Cvoid}, out, n::Integer)
     return ccall(
-        (:t4a_treetn_bond_dims, libpath()),
+        _sym(:t4a_treetn_bond_dims),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t),
         ptr,
@@ -802,7 +808,7 @@ Get the maximum bond dimension of an MPS-like TreeTN.
 """
 function t4a_treetn_maxbonddim(ptr::Ptr{Cvoid}, out::Ref{Csize_t})
     return ccall(
-        (:t4a_treetn_maxbonddim, libpath()),
+        _sym(:t4a_treetn_maxbonddim),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}),
         ptr,
@@ -822,7 +828,7 @@ Uses QR decomposition (Unitary canonical form) by default.
 """
 function t4a_treetn_orthogonalize(ptr::Ptr{Cvoid}, vertex::Integer)
     return ccall(
-        (:t4a_treetn_orthogonalize, libpath()),
+        _sym(:t4a_treetn_orthogonalize),
         Cint,
         (Ptr{Cvoid}, Csize_t),
         ptr,
@@ -838,7 +844,7 @@ form: 0=Unitary, 1=LU, 2=CI
 """
 function t4a_treetn_orthogonalize_with(ptr::Ptr{Cvoid}, vertex::Integer, form::Integer)
     return ccall(
-        (:t4a_treetn_orthogonalize_with, libpath()),
+        _sym(:t4a_treetn_orthogonalize_with),
         Cint,
         (Ptr{Cvoid}, Csize_t, Cint),
         ptr,
@@ -854,7 +860,7 @@ Get the canonical (orthogonality) region of the tree tensor network.
 """
 function t4a_treetn_ortho_center(ptr::Ptr{Cvoid}, out_vertices, buf_size::Integer, n_out::Ref{Csize_t})
     return ccall(
-        (:t4a_treetn_ortho_center, libpath()),
+        _sym(:t4a_treetn_ortho_center),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t, Ptr{Csize_t}),
         ptr,
@@ -871,7 +877,7 @@ Get the canonical form used for the tree tensor network.
 """
 function t4a_treetn_canonical_form(ptr::Ptr{Cvoid}, out)
     return ccall(
-        (:t4a_treetn_canonical_form, libpath()),
+        _sym(:t4a_treetn_canonical_form),
         Cint,
         (Ptr{Cvoid}, Ptr{Cint}),
         ptr,
@@ -893,7 +899,7 @@ maxdim: maximum bond dimension (0 for no limit)
 """
 function t4a_treetn_truncate(ptr::Ptr{Cvoid}, rtol::Float64, cutoff::Float64, maxdim::Integer)
     return ccall(
-        (:t4a_treetn_truncate, libpath()),
+        _sym(:t4a_treetn_truncate),
         Cint,
         (Ptr{Cvoid}, Cdouble, Cdouble, Csize_t),
         ptr,
@@ -910,7 +916,7 @@ Compute the inner product of two tree tensor networks.
 """
 function t4a_treetn_inner(a::Ptr{Cvoid}, b::Ptr{Cvoid}, out_re::Ref{Cdouble}, out_im::Ref{Cdouble})
     return ccall(
-        (:t4a_treetn_inner, libpath()),
+        _sym(:t4a_treetn_inner),
         Cint,
         (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cdouble}, Ptr{Cdouble}),
         a,
@@ -927,7 +933,7 @@ Compute the norm of the tree tensor network.
 """
 function t4a_treetn_norm(ptr::Ptr{Cvoid}, out::Ref{Cdouble})
     return ccall(
-        (:t4a_treetn_norm, libpath()),
+        _sym(:t4a_treetn_norm),
         Cint,
         (Ptr{Cvoid}, Ptr{Cdouble}),
         ptr,
@@ -942,7 +948,7 @@ Compute the log-norm of the tree tensor network.
 """
 function t4a_treetn_lognorm(ptr::Ptr{Cvoid}, out::Ref{Cdouble})
     return ccall(
-        (:t4a_treetn_lognorm, libpath()),
+        _sym(:t4a_treetn_lognorm),
         Cint,
         (Ptr{Cvoid}, Ptr{Cdouble}),
         ptr,
@@ -957,7 +963,7 @@ Add two tree tensor networks using direct-sum construction.
 """
 function t4a_treetn_add(a::Ptr{Cvoid}, b::Ptr{Cvoid}, out)
     return ccall(
-        (:t4a_treetn_add, libpath()),
+        _sym(:t4a_treetn_add),
         Cint,
         (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Ptr{Cvoid}}),
         a,
@@ -975,7 +981,7 @@ method: 0=Zipup, 1=Fit, 2=Naive
 function t4a_treetn_contract(a::Ptr{Cvoid}, b::Ptr{Cvoid}, method::Integer,
                              rtol::Float64, cutoff::Float64, maxdim::Integer, out)
     return ccall(
-        (:t4a_treetn_contract, libpath()),
+        _sym(:t4a_treetn_contract),
         Cint,
         (Ptr{Cvoid}, Ptr{Cvoid}, Cint, Cdouble, Cdouble, Csize_t, Ptr{Ptr{Cvoid}}),
         a,
@@ -995,7 +1001,7 @@ Convert tree tensor network to a dense tensor by contracting all link indices.
 """
 function t4a_treetn_to_dense(ptr::Ptr{Cvoid}, out)
     return ccall(
-        (:t4a_treetn_to_dense, libpath()),
+        _sym(:t4a_treetn_to_dense),
         Cint,
         (Ptr{Cvoid}, Ptr{Ptr{Cvoid}}),
         ptr,
@@ -1012,7 +1018,7 @@ function t4a_treetn_linsolve(operator::Ptr{Cvoid}, rhs::Ptr{Cvoid}, init::Ptr{Cv
                              a0::Float64, a1::Float64, nsweeps::Integer,
                              rtol::Float64, cutoff::Float64, maxdim::Integer, out)
     return ccall(
-        (:t4a_treetn_linsolve, libpath()),
+        _sym(:t4a_treetn_linsolve),
         Cint,
         (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid},
          Cdouble, Cdouble, Csize_t,
@@ -1036,7 +1042,7 @@ Release a SimpleTT tensor train.
 function t4a_simplett_f64_release(ptr::Ptr{Cvoid})
     ptr == C_NULL && return
     ccall(
-        (:t4a_simplett_f64_release, libpath()),
+        _sym(:t4a_simplett_f64_release),
         Cvoid,
         (Ptr{Cvoid},),
         ptr
@@ -1050,7 +1056,7 @@ Clone a SimpleTT tensor train.
 """
 function t4a_simplett_f64_clone(ptr::Ptr{Cvoid})
     return ccall(
-        (:t4a_simplett_f64_clone, libpath()),
+        _sym(:t4a_simplett_f64_clone),
         Ptr{Cvoid},
         (Ptr{Cvoid},),
         ptr
@@ -1068,7 +1074,7 @@ Create a constant SimpleTT tensor train.
 """
 function t4a_simplett_f64_constant(site_dims::Vector{Csize_t}, value::Float64)
     return ccall(
-        (:t4a_simplett_f64_constant, libpath()),
+        _sym(:t4a_simplett_f64_constant),
         Ptr{Cvoid},
         (Ptr{Csize_t}, Csize_t, Cdouble),
         site_dims,
@@ -1084,7 +1090,7 @@ Create a zero SimpleTT tensor train.
 """
 function t4a_simplett_f64_zeros(site_dims::Vector{Csize_t})
     return ccall(
-        (:t4a_simplett_f64_zeros, libpath()),
+        _sym(:t4a_simplett_f64_zeros),
         Ptr{Cvoid},
         (Ptr{Csize_t}, Csize_t),
         site_dims,
@@ -1103,7 +1109,7 @@ Get the number of sites.
 """
 function t4a_simplett_f64_len(ptr::Ptr{Cvoid}, out_len::Ref{Csize_t})
     return ccall(
-        (:t4a_simplett_f64_len, libpath()),
+        _sym(:t4a_simplett_f64_len),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}),
         ptr,
@@ -1118,7 +1124,7 @@ Get the site dimensions.
 """
 function t4a_simplett_f64_site_dims(ptr::Ptr{Cvoid}, out_dims::Vector{Csize_t})
     return ccall(
-        (:t4a_simplett_f64_site_dims, libpath()),
+        _sym(:t4a_simplett_f64_site_dims),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t),
         ptr,
@@ -1134,7 +1140,7 @@ Get the link (bond) dimensions.
 """
 function t4a_simplett_f64_link_dims(ptr::Ptr{Cvoid}, out_dims::Vector{Csize_t})
     return ccall(
-        (:t4a_simplett_f64_link_dims, libpath()),
+        _sym(:t4a_simplett_f64_link_dims),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t),
         ptr,
@@ -1150,7 +1156,7 @@ Get the maximum bond dimension (rank).
 """
 function t4a_simplett_f64_rank(ptr::Ptr{Cvoid}, out_rank::Ref{Csize_t})
     return ccall(
-        (:t4a_simplett_f64_rank, libpath()),
+        _sym(:t4a_simplett_f64_rank),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}),
         ptr,
@@ -1165,7 +1171,7 @@ Evaluate the tensor train at a given multi-index.
 """
 function t4a_simplett_f64_evaluate(ptr::Ptr{Cvoid}, indices::Vector{Csize_t}, out_value::Ref{Cdouble})
     return ccall(
-        (:t4a_simplett_f64_evaluate, libpath()),
+        _sym(:t4a_simplett_f64_evaluate),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t, Ptr{Cdouble}),
         ptr,
@@ -1182,7 +1188,7 @@ Compute the sum over all indices.
 """
 function t4a_simplett_f64_sum(ptr::Ptr{Cvoid}, out_value::Ref{Cdouble})
     return ccall(
-        (:t4a_simplett_f64_sum, libpath()),
+        _sym(:t4a_simplett_f64_sum),
         Cint,
         (Ptr{Cvoid}, Ptr{Cdouble}),
         ptr,
@@ -1197,7 +1203,7 @@ Compute the Frobenius norm.
 """
 function t4a_simplett_f64_norm(ptr::Ptr{Cvoid}, out_value::Ref{Cdouble})
     return ccall(
-        (:t4a_simplett_f64_norm, libpath()),
+        _sym(:t4a_simplett_f64_norm),
         Cint,
         (Ptr{Cvoid}, Ptr{Cdouble}),
         ptr,
@@ -1221,7 +1227,7 @@ function t4a_simplett_f64_site_tensor(
     out_right_dim::Ref{Csize_t}
 )
     return ccall(
-        (:t4a_simplett_f64_site_tensor, libpath()),
+        _sym(:t4a_simplett_f64_site_tensor),
         Cint,
         (Ptr{Cvoid}, Csize_t, Ptr{Cdouble}, Csize_t, Ptr{Csize_t}, Ptr{Csize_t}, Ptr{Csize_t}),
         ptr,
@@ -1246,7 +1252,7 @@ Release a TensorCI2 object.
 function t4a_tci2_f64_release(ptr::Ptr{Cvoid})
     ptr == C_NULL && return
     ccall(
-        (:t4a_tci2_f64_release, libpath()),
+        _sym(:t4a_tci2_f64_release),
         Cvoid,
         (Ptr{Cvoid},),
         ptr
@@ -1260,7 +1266,7 @@ Create a new TensorCI2 object.
 """
 function t4a_tci2_f64_new(local_dims::Vector{Csize_t})
     return ccall(
-        (:t4a_tci2_f64_new, libpath()),
+        _sym(:t4a_tci2_f64_new),
         Ptr{Cvoid},
         (Ptr{Csize_t}, Csize_t),
         local_dims,
@@ -1279,7 +1285,7 @@ Get the number of sites.
 """
 function t4a_tci2_f64_len(ptr::Ptr{Cvoid}, out_len::Ref{Csize_t})
     return ccall(
-        (:t4a_tci2_f64_len, libpath()),
+        _sym(:t4a_tci2_f64_len),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}),
         ptr,
@@ -1294,7 +1300,7 @@ Get the current rank (maximum bond dimension).
 """
 function t4a_tci2_f64_rank(ptr::Ptr{Cvoid}, out_rank::Ref{Csize_t})
     return ccall(
-        (:t4a_tci2_f64_rank, libpath()),
+        _sym(:t4a_tci2_f64_rank),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}),
         ptr,
@@ -1309,7 +1315,7 @@ Get the link (bond) dimensions.
 """
 function t4a_tci2_f64_link_dims(ptr::Ptr{Cvoid}, out_dims::Vector{Csize_t})
     return ccall(
-        (:t4a_tci2_f64_link_dims, libpath()),
+        _sym(:t4a_tci2_f64_link_dims),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t),
         ptr,
@@ -1325,7 +1331,7 @@ Get the maximum sample value encountered.
 """
 function t4a_tci2_f64_max_sample_value(ptr::Ptr{Cvoid}, out_value::Ref{Cdouble})
     return ccall(
-        (:t4a_tci2_f64_max_sample_value, libpath()),
+        _sym(:t4a_tci2_f64_max_sample_value),
         Cint,
         (Ptr{Cvoid}, Ptr{Cdouble}),
         ptr,
@@ -1340,7 +1346,7 @@ Get the maximum bond error from the last sweep.
 """
 function t4a_tci2_f64_max_bond_error(ptr::Ptr{Cvoid}, out_value::Ref{Cdouble})
     return ccall(
-        (:t4a_tci2_f64_max_bond_error, libpath()),
+        _sym(:t4a_tci2_f64_max_bond_error),
         Cint,
         (Ptr{Cvoid}, Ptr{Cdouble}),
         ptr,
@@ -1359,7 +1365,7 @@ Add global pivots to the TCI. Pivots are stored as a flat array.
 """
 function t4a_tci2_f64_add_global_pivots(ptr::Ptr{Cvoid}, pivots::Vector{Csize_t}, n_pivots::Integer, n_sites::Integer)
     return ccall(
-        (:t4a_tci2_f64_add_global_pivots, libpath()),
+        _sym(:t4a_tci2_f64_add_global_pivots),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t, Csize_t),
         ptr,
@@ -1380,7 +1386,7 @@ Convert a TCI to a SimpleTT TensorTrain.
 """
 function t4a_tci2_f64_to_tensor_train(ptr::Ptr{Cvoid})
     return ccall(
-        (:t4a_tci2_f64_to_tensor_train, libpath()),
+        _sym(:t4a_tci2_f64_to_tensor_train),
         Ptr{Cvoid},
         (Ptr{Cvoid},),
         ptr
@@ -1415,7 +1421,7 @@ function t4a_crossinterpolate2_f64(
     out_final_error::Ref{Cdouble}
 )
     return ccall(
-        (:t4a_crossinterpolate2_f64, libpath()),
+        _sym(:t4a_crossinterpolate2_f64),
         Cint,
         (Ptr{Csize_t}, Csize_t, Ptr{Csize_t}, Csize_t, Ptr{Cvoid}, Ptr{Cvoid},
          Cdouble, Csize_t, Csize_t, Ptr{Ptr{Cvoid}}, Ptr{Cdouble}),
@@ -1451,7 +1457,7 @@ This must be called before using any HDF5 functions.
 """
 function t4a_hdf5_init(library_path::AbstractString)
     return ccall(
-        (:t4a_hdf5_init, libpath()),
+        _sym(:t4a_hdf5_init),
         Cint,
         (Cstring,),
         library_path
@@ -1465,7 +1471,7 @@ Check if the HDF5 library is initialized and ready to use.
 """
 function t4a_hdf5_is_initialized()
     return ccall(
-        (:t4a_hdf5_is_initialized, libpath()),
+        _sym(:t4a_hdf5_is_initialized),
         Bool,
         ()
     )
@@ -1478,7 +1484,7 @@ Save a tensor as an ITensors.jl-compatible ITensor in an HDF5 file.
 """
 function t4a_hdf5_save_itensor(filepath::AbstractString, name::AbstractString, tensor::Ptr{Cvoid})
     return ccall(
-        (:t4a_hdf5_save_itensor, libpath()),
+        _sym(:t4a_hdf5_save_itensor),
         Cint,
         (Cstring, Cstring, Ptr{Cvoid}),
         filepath,
@@ -1494,7 +1500,7 @@ Load a tensor from an ITensors.jl-compatible ITensor in an HDF5 file.
 """
 function t4a_hdf5_load_itensor(filepath::AbstractString, name::AbstractString, out::Ref{Ptr{Cvoid}})
     return ccall(
-        (:t4a_hdf5_load_itensor, libpath()),
+        _sym(:t4a_hdf5_load_itensor),
         Cint,
         (Cstring, Cstring, Ptr{Ptr{Cvoid}}),
         filepath,
@@ -1510,7 +1516,7 @@ Save a tree tensor network (MPS) as an ITensorMPS.jl-compatible MPS in an HDF5 f
 """
 function t4a_hdf5_save_mps(filepath::AbstractString, name::AbstractString, ttn::Ptr{Cvoid})
     return ccall(
-        (:t4a_hdf5_save_mps, libpath()),
+        _sym(:t4a_hdf5_save_mps),
         Cint,
         (Cstring, Cstring, Ptr{Cvoid}),
         filepath,
@@ -1527,7 +1533,7 @@ Returns a `t4a_treetn` handle.
 """
 function t4a_hdf5_load_mps(filepath::AbstractString, name::AbstractString, out::Ref{Ptr{Cvoid}})
     return ccall(
-        (:t4a_hdf5_load_mps, libpath()),
+        _sym(:t4a_hdf5_load_mps),
         Cint,
         (Cstring, Cstring, Ptr{Ptr{Cvoid}}),
         filepath,
@@ -1549,7 +1555,7 @@ const UNFOLDING_INTERLEAVED = Cint(1)
 """
 function t4a_qgrid_disc_new(ndims::Integer, rs_arr, lower_arr, upper_arr, unfolding::Integer, out)
     return ccall(
-        (:t4a_qgrid_disc_new, libpath()),
+        _sym(:t4a_qgrid_disc_new),
         Cint,
         (Csize_t, Ptr{Csize_t}, Ptr{Cdouble}, Ptr{Cdouble}, Cint, Ptr{Ptr{Cvoid}}),
         Csize_t(ndims),
@@ -1564,7 +1570,7 @@ end
 function t4a_qgrid_disc_release(ptr::Ptr{Cvoid})
     ptr == C_NULL && return
     ccall(
-        (:t4a_qgrid_disc_release, libpath()),
+        _sym(:t4a_qgrid_disc_release),
         Cvoid,
         (Ptr{Cvoid},),
         ptr
@@ -1573,7 +1579,7 @@ end
 
 function t4a_qgrid_disc_clone(ptr::Ptr{Cvoid})
     return ccall(
-        (:t4a_qgrid_disc_clone, libpath()),
+        _sym(:t4a_qgrid_disc_clone),
         Ptr{Cvoid},
         (Ptr{Cvoid},),
         ptr
@@ -1582,7 +1588,7 @@ end
 
 function t4a_qgrid_disc_ndims(ptr::Ptr{Cvoid}, out::Ref{Csize_t})
     return ccall(
-        (:t4a_qgrid_disc_ndims, libpath()),
+        _sym(:t4a_qgrid_disc_ndims),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}),
         ptr,
@@ -1592,7 +1598,7 @@ end
 
 function t4a_qgrid_disc_rs(ptr::Ptr{Cvoid}, out_arr, buf_size::Integer)
     return ccall(
-        (:t4a_qgrid_disc_rs, libpath()),
+        _sym(:t4a_qgrid_disc_rs),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t),
         ptr,
@@ -1603,7 +1609,7 @@ end
 
 function t4a_qgrid_disc_local_dims(ptr::Ptr{Cvoid}, out_arr, buf_size::Integer, n_out::Ref{Csize_t})
     return ccall(
-        (:t4a_qgrid_disc_local_dims, libpath()),
+        _sym(:t4a_qgrid_disc_local_dims),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t, Ptr{Csize_t}),
         ptr,
@@ -1615,7 +1621,7 @@ end
 
 function t4a_qgrid_disc_lower_bound(ptr::Ptr{Cvoid}, out_arr, buf_size::Integer)
     return ccall(
-        (:t4a_qgrid_disc_lower_bound, libpath()),
+        _sym(:t4a_qgrid_disc_lower_bound),
         Cint,
         (Ptr{Cvoid}, Ptr{Cdouble}, Csize_t),
         ptr,
@@ -1626,7 +1632,7 @@ end
 
 function t4a_qgrid_disc_upper_bound(ptr::Ptr{Cvoid}, out_arr, buf_size::Integer)
     return ccall(
-        (:t4a_qgrid_disc_upper_bound, libpath()),
+        _sym(:t4a_qgrid_disc_upper_bound),
         Cint,
         (Ptr{Cvoid}, Ptr{Cdouble}, Csize_t),
         ptr,
@@ -1637,7 +1643,7 @@ end
 
 function t4a_qgrid_disc_grid_step(ptr::Ptr{Cvoid}, out_arr, buf_size::Integer)
     return ccall(
-        (:t4a_qgrid_disc_grid_step, libpath()),
+        _sym(:t4a_qgrid_disc_grid_step),
         Cint,
         (Ptr{Cvoid}, Ptr{Cdouble}, Csize_t),
         ptr,
@@ -1649,7 +1655,7 @@ end
 function t4a_qgrid_disc_origcoord_to_quantics(ptr::Ptr{Cvoid}, coord_arr, ndims::Integer,
                                                 out_arr, buf_size::Integer, n_out::Ref{Csize_t})
     return ccall(
-        (:t4a_qgrid_disc_origcoord_to_quantics, libpath()),
+        _sym(:t4a_qgrid_disc_origcoord_to_quantics),
         Cint,
         (Ptr{Cvoid}, Ptr{Cdouble}, Csize_t, Ptr{Int64}, Csize_t, Ptr{Csize_t}),
         ptr,
@@ -1664,7 +1670,7 @@ end
 function t4a_qgrid_disc_quantics_to_origcoord(ptr::Ptr{Cvoid}, quantics_arr, n_quantics::Integer,
                                                 out_arr, buf_size::Integer)
     return ccall(
-        (:t4a_qgrid_disc_quantics_to_origcoord, libpath()),
+        _sym(:t4a_qgrid_disc_quantics_to_origcoord),
         Cint,
         (Ptr{Cvoid}, Ptr{Int64}, Csize_t, Ptr{Cdouble}, Csize_t),
         ptr,
@@ -1678,7 +1684,7 @@ end
 function t4a_qgrid_disc_origcoord_to_grididx(ptr::Ptr{Cvoid}, coord_arr, ndims::Integer,
                                                out_arr, buf_size::Integer)
     return ccall(
-        (:t4a_qgrid_disc_origcoord_to_grididx, libpath()),
+        _sym(:t4a_qgrid_disc_origcoord_to_grididx),
         Cint,
         (Ptr{Cvoid}, Ptr{Cdouble}, Csize_t, Ptr{Int64}, Csize_t),
         ptr,
@@ -1692,7 +1698,7 @@ end
 function t4a_qgrid_disc_grididx_to_origcoord(ptr::Ptr{Cvoid}, grididx_arr, ndims::Integer,
                                                out_arr, buf_size::Integer)
     return ccall(
-        (:t4a_qgrid_disc_grididx_to_origcoord, libpath()),
+        _sym(:t4a_qgrid_disc_grididx_to_origcoord),
         Cint,
         (Ptr{Cvoid}, Ptr{Int64}, Csize_t, Ptr{Cdouble}, Csize_t),
         ptr,
@@ -1706,7 +1712,7 @@ end
 function t4a_qgrid_disc_grididx_to_quantics(ptr::Ptr{Cvoid}, grididx_arr, ndims::Integer,
                                               out_arr, buf_size::Integer, n_out::Ref{Csize_t})
     return ccall(
-        (:t4a_qgrid_disc_grididx_to_quantics, libpath()),
+        _sym(:t4a_qgrid_disc_grididx_to_quantics),
         Cint,
         (Ptr{Cvoid}, Ptr{Int64}, Csize_t, Ptr{Int64}, Csize_t, Ptr{Csize_t}),
         ptr,
@@ -1721,7 +1727,7 @@ end
 function t4a_qgrid_disc_quantics_to_grididx(ptr::Ptr{Cvoid}, quantics_arr, n_quantics::Integer,
                                               out_arr, buf_size::Integer, n_out::Ref{Csize_t})
     return ccall(
-        (:t4a_qgrid_disc_quantics_to_grididx, libpath()),
+        _sym(:t4a_qgrid_disc_quantics_to_grididx),
         Cint,
         (Ptr{Cvoid}, Ptr{Int64}, Csize_t, Ptr{Int64}, Csize_t, Ptr{Csize_t}),
         ptr,
@@ -1739,7 +1745,7 @@ end
 
 function t4a_qgrid_int_new(ndims::Integer, rs_arr, origin_arr, unfolding::Integer, out)
     return ccall(
-        (:t4a_qgrid_int_new, libpath()),
+        _sym(:t4a_qgrid_int_new),
         Cint,
         (Csize_t, Ptr{Csize_t}, Ptr{Int64}, Cint, Ptr{Ptr{Cvoid}}),
         Csize_t(ndims),
@@ -1753,7 +1759,7 @@ end
 function t4a_qgrid_int_release(ptr::Ptr{Cvoid})
     ptr == C_NULL && return
     ccall(
-        (:t4a_qgrid_int_release, libpath()),
+        _sym(:t4a_qgrid_int_release),
         Cvoid,
         (Ptr{Cvoid},),
         ptr
@@ -1762,7 +1768,7 @@ end
 
 function t4a_qgrid_int_clone(ptr::Ptr{Cvoid})
     return ccall(
-        (:t4a_qgrid_int_clone, libpath()),
+        _sym(:t4a_qgrid_int_clone),
         Ptr{Cvoid},
         (Ptr{Cvoid},),
         ptr
@@ -1771,7 +1777,7 @@ end
 
 function t4a_qgrid_int_ndims(ptr::Ptr{Cvoid}, out::Ref{Csize_t})
     return ccall(
-        (:t4a_qgrid_int_ndims, libpath()),
+        _sym(:t4a_qgrid_int_ndims),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}),
         ptr,
@@ -1781,7 +1787,7 @@ end
 
 function t4a_qgrid_int_rs(ptr::Ptr{Cvoid}, out_arr, buf_size::Integer)
     return ccall(
-        (:t4a_qgrid_int_rs, libpath()),
+        _sym(:t4a_qgrid_int_rs),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t),
         ptr,
@@ -1792,7 +1798,7 @@ end
 
 function t4a_qgrid_int_local_dims(ptr::Ptr{Cvoid}, out_arr, buf_size::Integer, n_out::Ref{Csize_t})
     return ccall(
-        (:t4a_qgrid_int_local_dims, libpath()),
+        _sym(:t4a_qgrid_int_local_dims),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t, Ptr{Csize_t}),
         ptr,
@@ -1804,7 +1810,7 @@ end
 
 function t4a_qgrid_int_origin(ptr::Ptr{Cvoid}, out_arr, buf_size::Integer)
     return ccall(
-        (:t4a_qgrid_int_origin, libpath()),
+        _sym(:t4a_qgrid_int_origin),
         Cint,
         (Ptr{Cvoid}, Ptr{Int64}, Csize_t),
         ptr,
@@ -1816,7 +1822,7 @@ end
 function t4a_qgrid_int_origcoord_to_quantics(ptr::Ptr{Cvoid}, coord_arr, ndims::Integer,
                                                out_arr, buf_size::Integer, n_out::Ref{Csize_t})
     return ccall(
-        (:t4a_qgrid_int_origcoord_to_quantics, libpath()),
+        _sym(:t4a_qgrid_int_origcoord_to_quantics),
         Cint,
         (Ptr{Cvoid}, Ptr{Int64}, Csize_t, Ptr{Int64}, Csize_t, Ptr{Csize_t}),
         ptr,
@@ -1831,7 +1837,7 @@ end
 function t4a_qgrid_int_quantics_to_origcoord(ptr::Ptr{Cvoid}, quantics_arr, n_quantics::Integer,
                                                out_arr, buf_size::Integer)
     return ccall(
-        (:t4a_qgrid_int_quantics_to_origcoord, libpath()),
+        _sym(:t4a_qgrid_int_quantics_to_origcoord),
         Cint,
         (Ptr{Cvoid}, Ptr{Int64}, Csize_t, Ptr{Int64}, Csize_t),
         ptr,
@@ -1845,7 +1851,7 @@ end
 function t4a_qgrid_int_origcoord_to_grididx(ptr::Ptr{Cvoid}, coord_arr, ndims::Integer,
                                               out_arr, buf_size::Integer)
     return ccall(
-        (:t4a_qgrid_int_origcoord_to_grididx, libpath()),
+        _sym(:t4a_qgrid_int_origcoord_to_grididx),
         Cint,
         (Ptr{Cvoid}, Ptr{Int64}, Csize_t, Ptr{Int64}, Csize_t),
         ptr,
@@ -1859,7 +1865,7 @@ end
 function t4a_qgrid_int_grididx_to_origcoord(ptr::Ptr{Cvoid}, grididx_arr, ndims::Integer,
                                               out_arr, buf_size::Integer)
     return ccall(
-        (:t4a_qgrid_int_grididx_to_origcoord, libpath()),
+        _sym(:t4a_qgrid_int_grididx_to_origcoord),
         Cint,
         (Ptr{Cvoid}, Ptr{Int64}, Csize_t, Ptr{Int64}, Csize_t),
         ptr,
@@ -1873,7 +1879,7 @@ end
 function t4a_qgrid_int_grididx_to_quantics(ptr::Ptr{Cvoid}, grididx_arr, ndims::Integer,
                                              out_arr, buf_size::Integer, n_out::Ref{Csize_t})
     return ccall(
-        (:t4a_qgrid_int_grididx_to_quantics, libpath()),
+        _sym(:t4a_qgrid_int_grididx_to_quantics),
         Cint,
         (Ptr{Cvoid}, Ptr{Int64}, Csize_t, Ptr{Int64}, Csize_t, Ptr{Csize_t}),
         ptr,
@@ -1888,7 +1894,7 @@ end
 function t4a_qgrid_int_quantics_to_grididx(ptr::Ptr{Cvoid}, quantics_arr, n_quantics::Integer,
                                              out_arr, buf_size::Integer, n_out::Ref{Csize_t})
     return ccall(
-        (:t4a_qgrid_int_quantics_to_grididx, libpath()),
+        _sym(:t4a_qgrid_int_quantics_to_grididx),
         Cint,
         (Ptr{Cvoid}, Ptr{Int64}, Csize_t, Ptr{Int64}, Csize_t, Ptr{Csize_t}),
         ptr,
@@ -1907,7 +1913,7 @@ end
 function t4a_qtci_f64_release(ptr::Ptr{Cvoid})
     ptr == C_NULL && return
     ccall(
-        (:t4a_qtci_f64_release, libpath()),
+        _sym(:t4a_qtci_f64_release),
         Cvoid,
         (Ptr{Cvoid},),
         ptr
@@ -1933,7 +1939,7 @@ function t4a_quanticscrossinterpolate_f64(
     out_qtci::Ref{Ptr{Cvoid}},
 )
     return ccall(
-        (:t4a_quanticscrossinterpolate_f64, libpath()),
+        _sym(:t4a_quanticscrossinterpolate_f64),
         Cint,
         (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Cdouble, Csize_t, Csize_t, Ptr{Ptr{Cvoid}}),
         grid, eval_fn, user_data, tolerance, max_bonddim, max_iter, out_qtci
@@ -1957,7 +1963,7 @@ function t4a_quanticscrossinterpolate_discrete_f64(
     out_qtci::Ref{Ptr{Cvoid}},
 )
     return ccall(
-        (:t4a_quanticscrossinterpolate_discrete_f64, libpath()),
+        _sym(:t4a_quanticscrossinterpolate_discrete_f64),
         Cint,
         (Ptr{Csize_t}, Csize_t, Ptr{Cvoid}, Ptr{Cvoid}, Cdouble, Csize_t, Csize_t, Cint, Ptr{Ptr{Cvoid}}),
         sizes, ndims, eval_fn, user_data, tolerance, max_bonddim, max_iter, unfoldingscheme, out_qtci
@@ -1970,7 +1976,7 @@ end
 
 function t4a_qtci_f64_rank(ptr::Ptr{Cvoid}, out_rank::Ref{Csize_t})
     return ccall(
-        (:t4a_qtci_f64_rank, libpath()),
+        _sym(:t4a_qtci_f64_rank),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}),
         ptr, out_rank
@@ -1979,7 +1985,7 @@ end
 
 function t4a_qtci_f64_link_dims(ptr::Ptr{Cvoid}, out_dims::Vector{Csize_t}, buf_len::Csize_t)
     return ccall(
-        (:t4a_qtci_f64_link_dims, libpath()),
+        _sym(:t4a_qtci_f64_link_dims),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t),
         ptr, out_dims, buf_len
@@ -1992,7 +1998,7 @@ end
 
 function t4a_qtci_f64_evaluate(ptr::Ptr{Cvoid}, indices::Vector{Int64}, n_indices::Csize_t, out_value::Ref{Cdouble})
     return ccall(
-        (:t4a_qtci_f64_evaluate, libpath()),
+        _sym(:t4a_qtci_f64_evaluate),
         Cint,
         (Ptr{Cvoid}, Ptr{Int64}, Csize_t, Ptr{Cdouble}),
         ptr, indices, n_indices, out_value
@@ -2001,7 +2007,7 @@ end
 
 function t4a_qtci_f64_sum(ptr::Ptr{Cvoid}, out_value::Ref{Cdouble})
     return ccall(
-        (:t4a_qtci_f64_sum, libpath()),
+        _sym(:t4a_qtci_f64_sum),
         Cint,
         (Ptr{Cvoid}, Ptr{Cdouble}),
         ptr, out_value
@@ -2010,7 +2016,7 @@ end
 
 function t4a_qtci_f64_integral(ptr::Ptr{Cvoid}, out_value::Ref{Cdouble})
     return ccall(
-        (:t4a_qtci_f64_integral, libpath()),
+        _sym(:t4a_qtci_f64_integral),
         Cint,
         (Ptr{Cvoid}, Ptr{Cdouble}),
         ptr, out_value
@@ -2019,7 +2025,7 @@ end
 
 function t4a_qtci_f64_to_tensor_train(ptr::Ptr{Cvoid})
     return ccall(
-        (:t4a_qtci_f64_to_tensor_train, libpath()),
+        _sym(:t4a_qtci_f64_to_tensor_train),
         Ptr{Cvoid},
         (Ptr{Cvoid},),
         ptr
@@ -2038,7 +2044,7 @@ Release a linear operator (called by finalizer).
 function t4a_linop_release(ptr::Ptr{Cvoid})
     ptr == C_NULL && return
     ccall(
-        (:t4a_linop_release, libpath()),
+        _sym(:t4a_linop_release),
         Cvoid,
         (Ptr{Cvoid},),
         ptr
@@ -2052,7 +2058,7 @@ Clone a linear operator.
 """
 function t4a_linop_clone(ptr::Ptr{Cvoid})
     return ccall(
-        (:t4a_linop_clone, libpath()),
+        _sym(:t4a_linop_clone),
         Ptr{Cvoid},
         (Ptr{Cvoid},),
         ptr
@@ -2066,7 +2072,7 @@ Check if a linear operator pointer is valid.
 """
 function t4a_linop_is_assigned(ptr::Ptr{Cvoid})
     result = ccall(
-        (:t4a_linop_is_assigned, libpath()),
+        _sym(:t4a_linop_is_assigned),
         Cint,
         (Ptr{Cvoid},),
         ptr
@@ -2085,7 +2091,7 @@ Create a shift operator: f(x) = g(x + offset) mod 2^r.
 """
 function t4a_qtransform_shift(r::Csize_t, offset::Int64, bc::Cint, out)
     return ccall(
-        (:t4a_qtransform_shift, libpath()),
+        _sym(:t4a_qtransform_shift),
         Cint,
         (Csize_t, Int64, Cint, Ptr{Ptr{Cvoid}}),
         r, offset, bc, out
@@ -2099,7 +2105,7 @@ Create a flip operator: f(x) = g(2^r - x).
 """
 function t4a_qtransform_flip(r::Csize_t, bc::Cint, out)
     return ccall(
-        (:t4a_qtransform_flip, libpath()),
+        _sym(:t4a_qtransform_flip),
         Cint,
         (Csize_t, Cint, Ptr{Ptr{Cvoid}}),
         r, bc, out
@@ -2113,7 +2119,7 @@ Create a phase rotation operator: f(x) = exp(i*theta*x) * g(x).
 """
 function t4a_qtransform_phase_rotation(r::Csize_t, theta::Cdouble, out)
     return ccall(
-        (:t4a_qtransform_phase_rotation, libpath()),
+        _sym(:t4a_qtransform_phase_rotation),
         Cint,
         (Csize_t, Cdouble, Ptr{Ptr{Cvoid}}),
         r, theta, out
@@ -2127,7 +2133,7 @@ Create a cumulative sum operator: y_i = sum_{j<i} x_j.
 """
 function t4a_qtransform_cumsum(r::Csize_t, out)
     return ccall(
-        (:t4a_qtransform_cumsum, libpath()),
+        _sym(:t4a_qtransform_cumsum),
         Cint,
         (Csize_t, Ptr{Ptr{Cvoid}}),
         r, out
@@ -2143,7 +2149,7 @@ maxbonddim: 0 = default (12). tolerance: 0.0 = default (1e-14).
 """
 function t4a_qtransform_fourier(r::Csize_t, forward::Cint, maxbonddim::Csize_t, tolerance::Cdouble, out)
     return ccall(
-        (:t4a_qtransform_fourier, libpath()),
+        _sym(:t4a_qtransform_fourier),
         Cint,
         (Csize_t, Cint, Csize_t, Cdouble, Ptr{Ptr{Cvoid}}),
         r, forward, maxbonddim, tolerance, out
@@ -2159,7 +2165,7 @@ method: 0=Naive, 1=Zipup, 2=Fit.
 function t4a_linop_apply(op::Ptr{Cvoid}, state::Ptr{Cvoid}, method::Cint,
                          rtol::Cdouble, maxdim::Csize_t, out)
     return ccall(
-        (:t4a_linop_apply, libpath()),
+        _sym(:t4a_linop_apply),
         Cint,
         (Ptr{Cvoid}, Ptr{Cvoid}, Cint, Cdouble, Csize_t, Ptr{Ptr{Cvoid}}),
         op, state, method, rtol, maxdim, out
