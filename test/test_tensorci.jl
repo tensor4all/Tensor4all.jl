@@ -100,6 +100,21 @@ import Tensor4all.SimpleTT: rank as tt_rank
         @test sum(tt) ≈ 80.0  # 2.5 * 2^5 = 80
     end
 
+    @testset "crossinterpolate2 zero-pivot error message" begin
+        # Function that is zero everywhere - initial pivot will have zero value
+        f(i, j) = 0.0
+
+        err = try
+            crossinterpolate2(f, [3, 4]; tolerance=1e-10)
+            nothing
+        catch e
+            e
+        end
+
+        @test err isa ErrorException
+        @test occursin("Initial pivots have zero function values", err.msg)
+    end
+
     @testset "TensorCI2 show" begin
         tci = TensorCI2([2, 3])
 

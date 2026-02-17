@@ -58,9 +58,42 @@ function libhandle()
 end
 
 """
+    last_error_message() -> String
+
+Retrieve the last error message from the Rust C API.
+Returns an empty string if no error has occurred.
+"""
+function last_error_message()
+    out_len = Ref{Csize_t}(0)
+    status = ccall(
+        (:t4a_last_error_message, libpath()),
+        Cint,
+        (Ptr{UInt8}, Csize_t, Ptr{Csize_t}),
+        C_NULL,
+        Csize_t(0),
+        out_len
+    )
+    (status != T4A_SUCCESS || out_len[] <= 1) && return ""
+
+    buf = Vector{UInt8}(undef, out_len[])
+    status = ccall(
+        (:t4a_last_error_message, libpath()),
+        Cint,
+        (Ptr{UInt8}, Csize_t, Ptr{Csize_t}),
+        buf,
+        Csize_t(length(buf)),
+        out_len
+    )
+    status != T4A_SUCCESS && return ""
+
+    return unsafe_string(pointer(buf))
+end
+
+"""
     check_status(status::Cint)
 
 Check a status code and throw an error if it indicates failure.
+Includes the last Rust error message when available.
 """
 function check_status(status::Cint)
     status == T4A_SUCCESS && return nothing
@@ -79,6 +112,11 @@ function check_status(status::Cint)
         "Internal error"
     else
         "Unknown error (code: $status)"
+    end
+
+    detail = last_error_message()
+    if !isempty(detail)
+        msg = "$msg: $detail"
     end
 
     error("Tensor4all C API error: $msg")
