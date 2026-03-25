@@ -519,34 +519,6 @@ function _ensure_contiguous(A::AbstractArray{T,N}) where {T,N}
     return Array{T,N}(A)
 end
 
-"""
-    _column_to_row_major(arr::Array, dims::Tuple) -> Vector
-
-Convert column-major array to row-major flat vector for Rust.
-"""
-function _column_to_row_major(arr::AbstractArray)
-    arr = _ensure_contiguous(arr)
-    ndims(arr) == 0 && return vec(arr)
-    # Reverse dimensions to get row-major layout
-    perm = reverse(1:ndims(arr))
-    permuted = permutedims(arr, perm)
-    permuted = _ensure_contiguous(permuted)
-    return vec(permuted)
-end
-
-"""
-    _row_to_column_major(data::Vector, dims::Tuple) -> Array
-
-Convert row-major flat vector from Rust to column-major Julia array.
-"""
-function _row_to_column_major(data::Vector{T}, dims::Tuple) where T
-    isempty(dims) && return reshape(data, 1)
-    # Data is row-major, so reverse dims for reshape
-    arr = reshape(data, reverse(dims)...)
-    # Reverse back to get column-major
-    perm = reverse(1:length(dims))
-    return permutedims(arr, perm)
-end
 
 # ============================================================================
 # Tensor Constructors
@@ -563,15 +535,15 @@ function Tensor(inds::Vector{Index}, data::AbstractArray{Float64})
     expected_dims = Tuple(dim(idx) for idx in inds)
     size(data) == expected_dims || error("Data size $(size(data)) doesn't match index dims $expected_dims")
 
-    # Convert to row-major for Rust
-    row_major_data = _column_to_row_major(data)
+    # Ensure contiguous column-major layout for FFI
+    data = _ensure_contiguous(data)
 
     # Prepare C-API call
     r = length(inds)
     index_ptrs = [idx.ptr for idx in inds]
     dims_vec = Csize_t[dim(idx) for idx in inds]
 
-    ptr = C_API.t4a_tensor_new_dense_f64(r, index_ptrs, dims_vec, Cdouble.(row_major_data))
+    ptr = C_API.t4a_tensor_new_dense_f64(r, index_ptrs, dims_vec, Cdouble.(vec(data)))
     return Tensor(ptr)
 end
 
@@ -586,15 +558,16 @@ function Tensor(inds::Vector{Index}, data::AbstractArray{ComplexF64})
     expected_dims = Tuple(dim(idx) for idx in inds)
     size(data) == expected_dims || error("Data size $(size(data)) doesn't match index dims $expected_dims")
 
-    # Convert to row-major for Rust
-    row_major_data = _column_to_row_major(data)
+    # Ensure contiguous column-major layout for FFI
+    data = _ensure_contiguous(data)
+    flat_data = vec(data)
 
     # Prepare C-API call
     r = length(inds)
     index_ptrs = [idx.ptr for idx in inds]
     dims_vec = Csize_t[dim(idx) for idx in inds]
-    data_re = Cdouble[real(z) for z in row_major_data]
-    data_im = Cdouble[imag(z) for z in row_major_data]
+    data_re = Cdouble[real(z) for z in flat_data]
+    data_im = Cdouble[imag(z) for z in flat_data]
 
     ptr = C_API.t4a_tensor_new_dense_c64(r, index_ptrs, dims_vec, data_re, data_im)
     return Tensor(ptr)
@@ -712,8 +685,8 @@ function data(t::Tensor)
         status = C_API.t4a_tensor_get_data_f64(t.ptr, buf, out_len[], out_len)
         C_API.check_status(status)
 
-        # Convert from row-major to column-major
-        return _row_to_column_major(buf, d)
+        # Data is already column-major from Rust, just reshape
+        return isempty(d) ? reshape(buf, 1) : reshape(buf, d...)
 
     elseif kind == DenseC64
         # Query length
@@ -727,9 +700,9 @@ function data(t::Tensor)
         status = C_API.t4a_tensor_get_data_c64(t.ptr, buf_re, buf_im, out_len[], out_len)
         C_API.check_status(status)
 
-        # Combine and convert
+        # Combine — data is already column-major from Rust
         buf = [ComplexF64(r, i) for (r, i) in zip(buf_re, buf_im)]
-        return _row_to_column_major(buf, d)
+        return isempty(d) ? reshape(buf, 1) : reshape(buf, d...)
 
     else
         error("Unsupported storage kind for data extraction: $kind")
