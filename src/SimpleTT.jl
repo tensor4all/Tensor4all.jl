@@ -207,9 +207,8 @@ function site_tensor(tt::SimpleTensorTrain{Float64}, site::Integer)
     status = C_API.t4a_simplett_f64_site_tensor(tt.ptr, site, data, out_left, out_site, out_right)
     C_API.check_status(status)
 
-    # Reshape to 3D array (row-major from Rust, need to permute)
-    return reshape(data, (Int(out_right[]), Int(out_site[]), Int(out_left[]))) |>
-           x -> permutedims(x, (3, 2, 1))
+    # Data is column-major (left, site, right) from Rust
+    return reshape(data, (Int(out_left[]), Int(out_site[]), Int(out_right[])))
 end
 
 """

@@ -444,7 +444,7 @@ end
 """
     t4a_tensor_get_data_f64(ptr::Ptr{Cvoid}, buf::Union{Ptr{Cdouble},Nothing}, buf_len::Integer, out_len::Ref{Csize_t}) -> Cint
 
-Get dense f64 data from a tensor in row-major order.
+Get dense f64 data from a tensor in column-major order.
 If buf is C_NULL, only out_len is written (to query required length).
 """
 function t4a_tensor_get_data_f64(ptr::Ptr{Cvoid}, buf, buf_len::Integer, out_len::Ref{Csize_t})
@@ -462,7 +462,7 @@ end
 """
     t4a_tensor_get_data_c64(ptr::Ptr{Cvoid}, buf_re, buf_im, buf_len::Integer, out_len::Ref{Csize_t}) -> Cint
 
-Get dense complex64 data from a tensor in row-major order.
+Get dense complex64 data from a tensor in column-major order.
 If buf_re or buf_im is C_NULL, only out_len is written (to query required length).
 """
 function t4a_tensor_get_data_c64(ptr::Ptr{Cvoid}, buf_re, buf_im, buf_len::Integer, out_len::Ref{Csize_t})
@@ -485,7 +485,7 @@ end
 """
     t4a_tensor_new_dense_f64(rank::Integer, index_ptrs::Vector{Ptr{Cvoid}}, dims::Vector{Csize_t}, data::Vector{Cdouble}) -> Ptr{Cvoid}
 
-Create a new dense f64 tensor from indices and data in row-major order.
+Create a new dense f64 tensor from indices and data in column-major order.
 """
 function t4a_tensor_new_dense_f64(rank::Integer, index_ptrs::Vector{Ptr{Cvoid}}, dims::Vector{Csize_t}, data::Vector{Cdouble})
     return ccall(
@@ -503,7 +503,7 @@ end
 """
     t4a_tensor_new_dense_c64(rank::Integer, index_ptrs::Vector{Ptr{Cvoid}}, dims::Vector{Csize_t}, data_re::Vector{Cdouble}, data_im::Vector{Cdouble}) -> Ptr{Cvoid}
 
-Create a new dense complex64 tensor from indices and real/imag data in row-major order.
+Create a new dense complex64 tensor from indices and real/imag data in column-major order.
 """
 function t4a_tensor_new_dense_c64(rank::Integer, index_ptrs::Vector{Ptr{Cvoid}}, dims::Vector{Csize_t}, data_re::Vector{Cdouble}, data_im::Vector{Cdouble})
     @assert length(data_re) == length(data_im) "Real and imaginary data must have same length"
