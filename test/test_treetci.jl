@@ -1,3 +1,4 @@
+import Tensor4all
 using Tensor4all: TreeTCI
 using Tensor4all.TreeTN: TreeTensorNetwork
 using Test
@@ -45,6 +46,21 @@ function rational_batch(batch)
             norm_sq += x * x
         end
         results[j] = 1.0 / (1.0 + norm_sq)
+    end
+    results
+end
+
+"""Complex product function matching Rust c64 parity tests."""
+function complex_product_batch(batch)
+    n_sites, n_pts = size(batch)
+    results = Vector{ComplexF64}(undef, n_pts)
+    for j in 1:n_pts
+        val = ComplexF64(1.0, 0.0)
+        for i in 1:n_sites
+            idx = batch[i, j]
+            val *= (idx + 1) + im * (2 * idx + 1)
+        end
+        results[j] = val
     end
     results
 end
@@ -112,6 +128,31 @@ end
 
         ttn = TreeTCI.to_treetn(tci, product_batch)
         @test ttn isa TreeTensorNetwork
+    end
+
+    @testset "Stateful API - complex product on branching tree" begin
+        graph = sample_graph_7site()
+        n_sites = 7
+        local_dims = fill(2, n_sites)
+
+        tci = TreeTCI.SimpleTreeTci{ComplexF64}(local_dims, graph)
+        TreeTCI.add_global_pivots!(tci, [zeros(Int, n_sites)])
+
+        for _ in 1:8
+            TreeTCI.sweep!(tci, complex_product_batch; tolerance=1e-12, max_bond_dim=2)
+        end
+
+        @test TreeTCI.max_bond_error(tci) < 1e-12
+        @test TreeTCI.max_rank(tci) == 1
+        @test TreeTCI.max_sample_value(tci) > 0.0
+
+        bd = TreeTCI.bond_dims(tci)
+        @test bd == fill(1, 6)
+
+        ttn = TreeTCI.to_treetn(tci, complex_product_batch)
+        @test ttn isa TreeTensorNetwork
+        @test Tensor4all.storage_kind(ttn[1]) == Tensor4all.DenseC64
+        @test eltype(Tensor4all.data(ttn[1])) == ComplexF64
     end
 
     @testset "Stateful API - rational function convergence" begin
@@ -200,6 +241,26 @@ end
         # We re-run crossinterpolate to verify the result is correct
         # by checking the high-level function produces small errors
         @test all(e -> e < 1e-10 || e == 0.0, errors)
+    end
+
+    @testset "High-level API - complex product on branching tree" begin
+        graph = sample_graph_7site()
+        n_sites = 7
+        local_dims = fill(2, n_sites)
+
+        ttn, ranks, errors = TreeTCI.crossinterpolate_tree(
+            complex_product_batch, local_dims, graph;
+            initial_pivots=[zeros(Int, n_sites)],
+            tolerance=1e-12,
+            max_iter=8,
+            max_bond_dim=2,
+        )
+
+        @test ttn isa TreeTensorNetwork
+        @test length(ranks) > 0
+        @test last(errors) < 1e-8
+        @test Tensor4all.storage_kind(ttn[1]) == Tensor4all.DenseC64
+        @test eltype(Tensor4all.data(ttn[1])) == ComplexF64
     end
 
     @testset "High-level API - rational function convergence" begin

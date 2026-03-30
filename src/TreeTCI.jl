@@ -24,6 +24,29 @@ import ..TreeTN: TreeTensorNetwork
 export TreeTciGraph, SimpleTreeTci
 export crossinterpolate_tree
 
+const _TreeTciScalar = Union{Float64, ComplexF64}
+
+_suffix(::Type{Float64}) = "f64"
+_suffix(::Type{ComplexF64}) = "c64"
+_sym_for(::Type{T}, name::Symbol) where {T<:_TreeTciScalar} =
+    C_API._sym(Symbol("t4a_treetci_", _suffix(T), "_", name))
+_cross_sym_for(::Type{T}) where {T<:_TreeTciScalar} =
+    C_API._sym(Symbol("t4a_crossinterpolate_tree_", _suffix(T)))
+
+function _infer_scalar_type(f, local_dims::Vector{<:Integer}, initial_pivots::Vector{Vector{Int}})
+    sample_indices = isempty(initial_pivots) ? zeros(Int, length(local_dims)) : initial_pivots[1]
+    sample_values = f(reshape(sample_indices, :, 1))
+    length(sample_values) == 1 ||
+        error("TreeTCI batch callback must return exactly one value for a single-point batch")
+    sample_value = sample_values[1]
+    if sample_value isa Real
+        return Float64
+    elseif sample_value isa Complex
+        return ComplexF64
+    end
+    error("TreeTCI batch callback must return real or complex values, got $(typeof(sample_value))")
+end
+
 # ============================================================================
 # TreeTciGraph
 # ============================================================================
@@ -89,7 +112,7 @@ end
 # ============================================================================
 
 """
-Internal trampoline for C batch callback.
+Internal trampoline for f64 batch callbacks.
 
 The user function signature is: `f(batch::Matrix{Csize_t}) -> Vector{Float64}`
 where `batch` is column-major `(n_sites, n_points)` with 0-based indices.
@@ -118,9 +141,42 @@ function _treetci_batch_trampoline(
     end
 end
 
-const _BATCH_TRAMPOLINE_PTR = Ref{Ptr{Cvoid}}(C_NULL)
+"""
+Internal trampoline for c64 batch callbacks.
 
-function _get_batch_trampoline()
+The user function signature is: `f(batch::Matrix{Csize_t}) -> Vector{ComplexF64}`
+where `batch` is column-major `(n_sites, n_points)` with 0-based indices.
+Results are written as interleaved doubles.
+"""
+function _treetci_batch_trampoline_c64(
+    batch_data::Ptr{Csize_t},
+    n_sites::Csize_t,
+    n_points::Csize_t,
+    results::Ptr{Cdouble},
+    user_data::Ptr{Cvoid},
+)::Cint
+    try
+        f_ref = unsafe_pointer_to_objref(user_data)::Ref{Any}
+        f = f_ref[]
+        batch = unsafe_wrap(Array, batch_data, (Int(n_sites), Int(n_points)))
+        vals = ComplexF64.(f(batch))
+        length(vals) == Int(n_points) ||
+            error("Batch callback returned $(length(vals)) values for $(Int(n_points)) points")
+        interleaved = reinterpret(Float64, vals)
+        for i in eachindex(interleaved)
+            unsafe_store!(results, interleaved[i], i)
+        end
+        return Cint(0)
+    catch err
+        @error "TreeTCI complex batch eval callback error" exception = (err, catch_backtrace())
+        return Cint(-1)
+    end
+end
+
+const _BATCH_TRAMPOLINE_PTR = Ref{Ptr{Cvoid}}(C_NULL)
+const _BATCH_TRAMPOLINE_C64_PTR = Ref{Ptr{Cvoid}}(C_NULL)
+
+function _get_batch_trampoline(::Type{Float64})
     if _BATCH_TRAMPOLINE_PTR[] == C_NULL
         _BATCH_TRAMPOLINE_PTR[] = @cfunction(
             _treetci_batch_trampoline,
@@ -129,6 +185,17 @@ function _get_batch_trampoline()
         )
     end
     return _BATCH_TRAMPOLINE_PTR[]
+end
+
+function _get_batch_trampoline(::Type{ComplexF64})
+    if _BATCH_TRAMPOLINE_C64_PTR[] == C_NULL
+        _BATCH_TRAMPOLINE_C64_PTR[] = @cfunction(
+            _treetci_batch_trampoline_c64,
+            Cint,
+            (Ptr{Csize_t}, Csize_t, Csize_t, Ptr{Cdouble}, Ptr{Cvoid}),
+        )
+    end
+    return _BATCH_TRAMPOLINE_C64_PTR[]
 end
 
 # ============================================================================
@@ -155,7 +222,7 @@ end
 # ============================================================================
 
 """
-    SimpleTreeTci(local_dims, graph)
+    SimpleTreeTci{T<:Union{Float64, ComplexF64}}(local_dims, graph)
 
 Stateful TreeTCI object for tree-structured tensor cross interpolation.
 
@@ -174,18 +241,19 @@ end
 ttn = to_treetn(tci, f)
 ```
 """
-mutable struct SimpleTreeTci
+mutable struct SimpleTreeTci{T<:_TreeTciScalar}
     ptr::Ptr{Cvoid}
     graph::TreeTciGraph
     local_dims::Vector{Int}
 
-    function SimpleTreeTci(local_dims::Vector{Int}, graph::TreeTciGraph)
-        length(local_dims) == graph.n_sites ||
-            error("local_dims length ($(length(local_dims))) != graph.n_sites ($(graph.n_sites))")
+    function SimpleTreeTci{T}(local_dims::Vector{<:Integer}, graph::TreeTciGraph) where {T<:_TreeTciScalar}
+        dims_int = Int.(local_dims)
+        length(dims_int) == graph.n_sites ||
+            error("local_dims length ($(length(dims_int))) != graph.n_sites ($(graph.n_sites))")
 
-        dims_csize = Csize_t.(local_dims)
+        dims_csize = Csize_t.(dims_int)
         ptr = ccall(
-            C_API._sym(:t4a_treetci_f64_new),
+            _sym_for(T, :new),
             Ptr{Cvoid},
             (Ptr{Csize_t}, Csize_t, Ptr{Cvoid}),
             dims_csize,
@@ -196,16 +264,19 @@ mutable struct SimpleTreeTci
             error("Failed to create SimpleTreeTci: $(C_API.last_error_message())")
         end
 
-        tci = new(ptr, graph, copy(local_dims))
+        tci = new{T}(ptr, graph, dims_int)
         finalizer(tci) do obj
             if obj.ptr != C_NULL
-                ccall(C_API._sym(:t4a_treetci_f64_release), Cvoid, (Ptr{Cvoid},), obj.ptr)
+                ccall(_sym_for(T, :release), Cvoid, (Ptr{Cvoid},), obj.ptr)
                 obj.ptr = C_NULL
             end
         end
         return tci
     end
 end
+
+SimpleTreeTci(local_dims::Vector{<:Integer}, graph::TreeTciGraph) =
+    SimpleTreeTci{Float64}(local_dims, graph)
 
 # ============================================================================
 # Pivot management
@@ -220,7 +291,7 @@ Add global pivots. Each pivot is a full multi-index over all sites (0-based).
 - `tci::SimpleTreeTci`
 - `pivots::Vector{Vector{Int}}`: Each element has length `n_sites`, 0-based indices
 """
-function add_global_pivots!(tci::SimpleTreeTci, pivots::Vector{Vector{Int}})
+function add_global_pivots!(tci::SimpleTreeTci{T}, pivots::Vector{Vector{Int}}) where {T}
     n_sites = length(tci.local_dims)
     n_pivots = length(pivots)
     n_pivots == 0 && return tci
@@ -236,7 +307,7 @@ function add_global_pivots!(tci::SimpleTreeTci, pivots::Vector{Vector{Int}})
     end
 
     C_API.check_status(ccall(
-        C_API._sym(:t4a_treetci_f64_add_global_pivots),
+        _sym_for(T, :add_global_pivots),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t, Csize_t),
         tci.ptr,
@@ -258,27 +329,27 @@ Run one optimization iteration (visit all edges once).
 
 # Arguments
 - `tci::SimpleTreeTci`
-- `f`: Batch evaluation function `f(batch::Matrix{Csize_t}) -> Vector{Float64}`
+- `f`: Batch evaluation function `f(batch::Matrix{Csize_t}) -> Vector{T}`
   where `batch` is column-major `(n_sites, n_points)` with 0-based indices
 - `proposer`: `:default`, `:simple`, or `:truncated_default`
 - `tolerance`: Relative tolerance
 - `max_bond_dim`: Maximum bond dimension (0 = unlimited)
 """
 function sweep!(
-    tci::SimpleTreeTci,
+    tci::SimpleTreeTci{T},
     f;
     proposer::Symbol = :default,
     tolerance::Float64 = 1e-8,
     max_bond_dim::Int = 0,
-)
+) where {T}
     f_ref = Ref{Any}(f)
     GC.@preserve f_ref begin
         C_API.check_status(ccall(
-            C_API._sym(:t4a_treetci_f64_sweep),
+            _sym_for(T, :sweep),
             Cint,
             (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Cint, Cdouble, Csize_t),
             tci.ptr,
-            _get_batch_trampoline(),
+            _get_batch_trampoline(T),
             pointer_from_objref(f_ref),
             _proposer_to_cint(proposer),
             tolerance,
@@ -293,10 +364,10 @@ end
 # ============================================================================
 
 """Maximum bond error across all edges."""
-function max_bond_error(tci::SimpleTreeTci)::Float64
+function max_bond_error(tci::SimpleTreeTci{T}) where {T}
     out = Ref{Cdouble}(0.0)
     C_API.check_status(ccall(
-        C_API._sym(:t4a_treetci_f64_max_bond_error),
+        _sym_for(T, :max_bond_error),
         Cint,
         (Ptr{Cvoid}, Ptr{Cdouble}),
         tci.ptr,
@@ -306,10 +377,10 @@ function max_bond_error(tci::SimpleTreeTci)::Float64
 end
 
 """Maximum rank (bond dimension) across all edges."""
-function max_rank(tci::SimpleTreeTci)::Int
+function max_rank(tci::SimpleTreeTci{T}) where {T}
     out = Ref{Csize_t}(0)
     C_API.check_status(ccall(
-        C_API._sym(:t4a_treetci_f64_max_rank),
+        _sym_for(T, :max_rank),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}),
         tci.ptr,
@@ -319,10 +390,10 @@ function max_rank(tci::SimpleTreeTci)::Int
 end
 
 """Maximum observed sample value (for normalization)."""
-function max_sample_value(tci::SimpleTreeTci)::Float64
+function max_sample_value(tci::SimpleTreeTci{T}) where {T}
     out = Ref{Cdouble}(0.0)
     C_API.check_status(ccall(
-        C_API._sym(:t4a_treetci_f64_max_sample_value),
+        _sym_for(T, :max_sample_value),
         Cint,
         (Ptr{Cvoid}, Ptr{Cdouble}),
         tci.ptr,
@@ -332,10 +403,10 @@ function max_sample_value(tci::SimpleTreeTci)::Float64
 end
 
 """Bond dimensions (ranks) at each edge."""
-function bond_dims(tci::SimpleTreeTci)::Vector{Int}
+function bond_dims(tci::SimpleTreeTci{T}) where {T}
     n_edges_ref = Ref{Csize_t}(0)
     C_API.check_status(ccall(
-        C_API._sym(:t4a_treetci_f64_bond_dims),
+        _sym_for(T, :bond_dims),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t, Ptr{Csize_t}),
         tci.ptr,
@@ -347,7 +418,7 @@ function bond_dims(tci::SimpleTreeTci)::Vector{Int}
     n_edges = Int(n_edges_ref[])
     buf = Vector{Csize_t}(undef, n_edges)
     C_API.check_status(ccall(
-        C_API._sym(:t4a_treetci_f64_bond_dims),
+        _sym_for(T, :bond_dims),
         Cint,
         (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t, Ptr{Csize_t}),
         tci.ptr,
@@ -378,16 +449,16 @@ Convert converged TreeTCI state to a TreeTensorNetwork.
 - `f`: Batch evaluation function (same as `sweep!`)
 - `center_site`: BFS root site for materialization (0-based)
 """
-function to_treetn(tci::SimpleTreeTci, f; center_site::Int = 0)
+function to_treetn(tci::SimpleTreeTci{T}, f; center_site::Int = 0) where {T}
     f_ref = Ref{Any}(f)
     out_ptr = Ref{Ptr{Cvoid}}(C_NULL)
     GC.@preserve f_ref begin
         C_API.check_status(ccall(
-            C_API._sym(:t4a_treetci_f64_to_treetn),
+            _sym_for(T, :to_treetn),
             Cint,
             (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Csize_t, Ptr{Ptr{Cvoid}}),
             tci.ptr,
-            _get_batch_trampoline(),
+            _get_batch_trampoline(T),
             pointer_from_objref(f_ref),
             Csize_t(center_site),
             out_ptr,
@@ -406,7 +477,7 @@ end
 Run TreeTCI to convergence and return a TreeTensorNetwork.
 
 # Arguments
-- `f`: Batch evaluation function `f(batch::Matrix{Csize_t}) -> Vector{Float64}`
+- `f`: Batch evaluation function `f(batch::Matrix{Csize_t}) -> Vector{T}`
 - `local_dims::Vector{Int}`: Local dimension at each site
 - `graph::TreeTciGraph`: Tree graph structure
 
@@ -425,8 +496,9 @@ Run TreeTCI to convergence and return a TreeTensorNetwork.
 - `errors::Vector{Float64}`: Error per iteration
 """
 function crossinterpolate_tree(
+    ::Type{T},
     f,
-    local_dims::Vector{Int},
+    local_dims::Vector{<:Integer},
     graph::TreeTciGraph;
     initial_pivots::Vector{Vector{Int}} = Vector{Int}[],
     proposer::Symbol = :default,
@@ -435,8 +507,9 @@ function crossinterpolate_tree(
     max_iter::Int = 20,
     normalize_error::Bool = true,
     center_site::Int = 0,
-)
-    n_sites = length(local_dims)
+) where {T<:_TreeTciScalar}
+    dims_int = Int.(local_dims)
+    n_sites = length(dims_int)
     n_sites == graph.n_sites ||
         error("local_dims length ($n_sites) != graph.n_sites ($(graph.n_sites))")
 
@@ -461,12 +534,12 @@ function crossinterpolate_tree(
     out_n_iters = Ref{Csize_t}(0)
     out_treetn = Ref{Ptr{Cvoid}}(C_NULL)
 
-    dims_csize = Csize_t.(local_dims)
+    dims_csize = Csize_t.(dims_int)
     f_ref = Ref{Any}(f)
 
     GC.@preserve f_ref dims_csize pivots_flat out_ranks out_errors begin
         C_API.check_status(ccall(
-            C_API._sym(:t4a_crossinterpolate_tree_f64),
+            _cross_sym_for(T),
             Cint,
             (
                 Ptr{Cvoid}, Ptr{Cvoid},
@@ -480,7 +553,7 @@ function crossinterpolate_tree(
                 Ptr{Ptr{Cvoid}},
                 Ptr{Csize_t}, Ptr{Cdouble}, Ptr{Csize_t},
             ),
-            _get_batch_trampoline(),
+            _get_batch_trampoline(T),
             pointer_from_objref(f_ref),
             dims_csize,
             Csize_t(n_sites),
@@ -505,6 +578,16 @@ function crossinterpolate_tree(
     ranks = Int.(out_ranks[1:n_iters])
     errors = Float64.(out_errors[1:n_iters])
     return ttn, ranks, errors
+end
+
+function crossinterpolate_tree(
+    f,
+    local_dims::Vector{<:Integer},
+    graph::TreeTciGraph;
+    kwargs...,
+)
+    T = _infer_scalar_type(f, local_dims, get(kwargs, :initial_pivots, Vector{Int}[]))
+    return crossinterpolate_tree(T, f, local_dims, graph; kwargs...)
 end
 
 end # module TreeTCI
