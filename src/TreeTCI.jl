@@ -32,7 +32,7 @@ _suffix(::Type{ComplexF64}) = "c64"
 _sym_for(::Type{T}, name::Symbol) where {T<:_TreeTciScalar} =
     C_API._sym(Symbol("t4a_treetci_", _suffix(T), "_", name))
 _cross_sym_for(::Type{T}) where {T<:_TreeTciScalar} =
-    C_API._sym(Symbol("t4a_crossinterpolate_tree_", _suffix(T)))
+    C_API._sym(Symbol("t4a_treetci_crossinterpolate2_", _suffix(T)))
 
 function _infer_scalar_type(f, local_dims::Vector{<:Integer}, initial_pivots::Vector{Vector{Int}})
     sample_indices = isempty(initial_pivots) ? zeros(Int, length(local_dims)) : initial_pivots[1]
