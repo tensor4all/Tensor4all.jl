@@ -54,4 +54,38 @@ using Test
         ttn = to_treetn(tci, f_batch)
         @test ttn isa TreeTensorNetwork
     end
+
+    @testset "High-level API" begin
+        n_sites = 4
+        local_dims = fill(3, n_sites)
+        graph = TreeTciGraph(n_sites, [(0, 1), (1, 2), (2, 3)])
+
+        f_batch(batch) = [sum(Float64, batch[:, j]) for j in 1:size(batch, 2)]
+
+        ttn, ranks, errors = crossinterpolate_tree(
+            f_batch,
+            local_dims,
+            graph;
+            initial_pivots=[zeros(Int, n_sites)],
+            tolerance=1e-10,
+            max_iter=20,
+        )
+
+        @test ttn isa TreeTensorNetwork
+        @test length(ranks) > 0
+        @test last(errors) < 1e-8
+    end
+
+    @testset "High-level API without initial pivots" begin
+        n_sites = 3
+        local_dims = fill(2, n_sites)
+        graph = TreeTciGraph(n_sites, [(0, 1), (1, 2)])
+
+        f_batch(batch) = [prod(batch[i, j] + 1.0 for i in 1:size(batch, 1)) for j in 1:size(batch, 2)]
+
+        ttn, ranks, errors = crossinterpolate_tree(f_batch, local_dims, graph)
+
+        @test ttn isa TreeTensorNetwork
+        @test length(ranks) > 0
+    end
 end

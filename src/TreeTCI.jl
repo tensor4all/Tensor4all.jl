@@ -399,4 +399,115 @@ function to_treetn(tci::SimpleTreeTci, f; center_site::Int = 0)
     return _wrap_treetn(out_ptr[], length(tci.local_dims))
 end
 
+# ============================================================================
+# High-level convenience function
+# ============================================================================
+
+"""
+    crossinterpolate_tree(f, local_dims, graph; kwargs...) -> (ttn, ranks, errors)
+
+Run TreeTCI to convergence and return a TreeTensorNetwork.
+
+# Arguments
+- `f`: Batch evaluation function `f(batch::Matrix{Csize_t}) -> Vector{Float64}`
+- `local_dims::Vector{Int}`: Local dimension at each site
+- `graph::TreeTciGraph`: Tree graph structure
+
+# Keyword Arguments
+- `initial_pivots::Vector{Vector{Int}} = Vector{Int}[]`: Initial pivots (0-based)
+- `proposer::Symbol = :default`: `:default`, `:simple`, or `:truncated_default`
+- `tolerance::Float64 = 1e-8`: Relative tolerance
+- `max_bond_dim::Int = 0`: Maximum bond dimension (0 = unlimited)
+- `max_iter::Int = 20`: Maximum iterations
+- `normalize_error::Bool = true`: Normalize errors by max sample value
+- `center_site::Int = 0`: Materialization center site (0-based)
+
+# Returns
+- `ttn::TreeTensorNetwork`
+- `ranks::Vector{Int}`: Max rank per iteration
+- `errors::Vector{Float64}`: Error per iteration
+"""
+function crossinterpolate_tree(
+    f,
+    local_dims::Vector{Int},
+    graph::TreeTciGraph;
+    initial_pivots::Vector{Vector{Int}} = Vector{Int}[],
+    proposer::Symbol = :default,
+    tolerance::Float64 = 1e-8,
+    max_bond_dim::Int = 0,
+    max_iter::Int = 20,
+    normalize_error::Bool = true,
+    center_site::Int = 0,
+)
+    n_sites = length(local_dims)
+    n_sites == graph.n_sites ||
+        error("local_dims length ($n_sites) != graph.n_sites ($(graph.n_sites))")
+
+    n_pivots = length(initial_pivots)
+    pivots_flat = if n_pivots == 0
+        Csize_t[]
+    else
+        buf = Vector{Csize_t}(undef, n_sites * n_pivots)
+        for j in 1:n_pivots
+            pivot = initial_pivots[j]
+            length(pivot) == n_sites ||
+                error("Pivot $j has length $(length(pivot)), expected $n_sites")
+            for i in 1:n_sites
+                buf[i + n_sites * (j - 1)] = Csize_t(pivot[i])
+            end
+        end
+        buf
+    end
+
+    out_ranks = Vector{Csize_t}(undef, max_iter)
+    out_errors = Vector{Cdouble}(undef, max_iter)
+    out_n_iters = Ref{Csize_t}(0)
+    out_treetn = Ref{Ptr{Cvoid}}(C_NULL)
+
+    dims_csize = Csize_t.(local_dims)
+    f_ref = Ref{Any}(f)
+
+    GC.@preserve f_ref dims_csize pivots_flat out_ranks out_errors begin
+        C_API.check_status(ccall(
+            C_API._sym(:t4a_crossinterpolate_tree_f64),
+            Cint,
+            (
+                Ptr{Cvoid}, Ptr{Cvoid},
+                Ptr{Csize_t}, Csize_t,
+                Ptr{Cvoid},
+                Ptr{Csize_t}, Csize_t,
+                Cint,
+                Cdouble, Csize_t, Csize_t,
+                Cint,
+                Csize_t,
+                Ptr{Ptr{Cvoid}},
+                Ptr{Csize_t}, Ptr{Cdouble}, Ptr{Csize_t},
+            ),
+            _get_batch_trampoline(),
+            pointer_from_objref(f_ref),
+            dims_csize,
+            Csize_t(n_sites),
+            graph.ptr,
+            n_pivots == 0 ? Ptr{Csize_t}(C_NULL) : pivots_flat,
+            Csize_t(n_pivots),
+            _proposer_to_cint(proposer),
+            tolerance,
+            Csize_t(max_bond_dim),
+            Csize_t(max_iter),
+            normalize_error ? Cint(1) : Cint(0),
+            Csize_t(center_site),
+            out_treetn,
+            out_ranks,
+            out_errors,
+            out_n_iters,
+        ))
+    end
+
+    n_iters = Int(out_n_iters[])
+    ttn = _wrap_treetn(out_treetn[], n_sites)
+    ranks = Int.(out_ranks[1:n_iters])
+    errors = Float64.(out_errors[1:n_iters])
+    return ttn, ranks, errors
+end
+
 end # module TreeTCI
