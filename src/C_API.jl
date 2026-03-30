@@ -1239,6 +1239,260 @@ function t4a_simplett_f64_site_tensor(
 end
 
 # ============================================================================
+# SimpleTT (simple tensor train) complex64 lifecycle functions
+# ============================================================================
+
+"""
+    t4a_simplett_c64_release(ptr::Ptr{Cvoid})
+
+Release a complex SimpleTT tensor train.
+"""
+function t4a_simplett_c64_release(ptr::Ptr{Cvoid})
+    ptr == C_NULL && return
+    ccall(
+        _sym(:t4a_simplett_c64_release),
+        Cvoid,
+        (Ptr{Cvoid},),
+        ptr
+    )
+end
+
+"""
+    t4a_simplett_c64_clone(ptr::Ptr{Cvoid}) -> Ptr{Cvoid}
+
+Clone a complex SimpleTT tensor train.
+"""
+function t4a_simplett_c64_clone(ptr::Ptr{Cvoid})
+    return ccall(
+        _sym(:t4a_simplett_c64_clone),
+        Ptr{Cvoid},
+        (Ptr{Cvoid},),
+        ptr
+    )
+end
+
+# ============================================================================
+# SimpleTT complex64 constructors
+# ============================================================================
+
+"""
+    t4a_simplett_c64_constant(site_dims::Vector{Csize_t}, value_re::Float64, value_im::Float64) -> Ptr{Cvoid}
+
+Create a constant complex SimpleTT tensor train.
+"""
+function t4a_simplett_c64_constant(site_dims::Vector{Csize_t}, value_re::Float64, value_im::Float64)
+    return ccall(
+        _sym(:t4a_simplett_c64_constant),
+        Ptr{Cvoid},
+        (Ptr{Csize_t}, Csize_t, Cdouble, Cdouble),
+        site_dims,
+        Csize_t(length(site_dims)),
+        value_re,
+        value_im
+    )
+end
+
+"""
+    t4a_simplett_c64_zeros(site_dims::Vector{Csize_t}) -> Ptr{Cvoid}
+
+Create a zero complex SimpleTT tensor train.
+"""
+function t4a_simplett_c64_zeros(site_dims::Vector{Csize_t})
+    return ccall(
+        _sym(:t4a_simplett_c64_zeros),
+        Ptr{Cvoid},
+        (Ptr{Csize_t}, Csize_t),
+        site_dims,
+        Csize_t(length(site_dims))
+    )
+end
+
+# ============================================================================
+# SimpleTT complex64 accessors
+# ============================================================================
+
+"""
+    t4a_simplett_c64_len(ptr::Ptr{Cvoid}, out_len::Ref{Csize_t}) -> Cint
+
+Get the number of sites.
+"""
+function t4a_simplett_c64_len(ptr::Ptr{Cvoid}, out_len::Ref{Csize_t})
+    return ccall(
+        _sym(:t4a_simplett_c64_len),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}),
+        ptr,
+        out_len
+    )
+end
+
+"""
+    t4a_simplett_c64_site_dims(ptr::Ptr{Cvoid}, out_dims::Vector{Csize_t}) -> Cint
+
+Get the site dimensions.
+"""
+function t4a_simplett_c64_site_dims(ptr::Ptr{Cvoid}, out_dims::Vector{Csize_t})
+    return ccall(
+        _sym(:t4a_simplett_c64_site_dims),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t),
+        ptr,
+        out_dims,
+        Csize_t(length(out_dims))
+    )
+end
+
+"""
+    t4a_simplett_c64_link_dims(ptr::Ptr{Cvoid}, out_dims::Vector{Csize_t}) -> Cint
+
+Get the link (bond) dimensions.
+"""
+function t4a_simplett_c64_link_dims(ptr::Ptr{Cvoid}, out_dims::Vector{Csize_t})
+    return ccall(
+        _sym(:t4a_simplett_c64_link_dims),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t),
+        ptr,
+        out_dims,
+        Csize_t(length(out_dims))
+    )
+end
+
+"""
+    t4a_simplett_c64_rank(ptr::Ptr{Cvoid}, out_rank::Ref{Csize_t}) -> Cint
+
+Get the maximum bond dimension (rank).
+"""
+function t4a_simplett_c64_rank(ptr::Ptr{Cvoid}, out_rank::Ref{Csize_t})
+    return ccall(
+        _sym(:t4a_simplett_c64_rank),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}),
+        ptr,
+        out_rank
+    )
+end
+
+"""
+    t4a_simplett_c64_evaluate(ptr::Ptr{Cvoid}, indices::Vector{Csize_t},
+                               out_value_re::Ref{Cdouble}, out_value_im::Ref{Cdouble}) -> Cint
+
+Evaluate the complex tensor train at a given multi-index.
+"""
+function t4a_simplett_c64_evaluate(
+    ptr::Ptr{Cvoid},
+    indices::Vector{Csize_t},
+    out_value_re::Ref{Cdouble},
+    out_value_im::Ref{Cdouble}
+)
+    return ccall(
+        _sym(:t4a_simplett_c64_evaluate),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t, Ptr{Cdouble}, Ptr{Cdouble}),
+        ptr,
+        indices,
+        Csize_t(length(indices)),
+        out_value_re,
+        out_value_im
+    )
+end
+
+"""
+    t4a_simplett_c64_sum(ptr::Ptr{Cvoid}, out_value_re::Ref{Cdouble}, out_value_im::Ref{Cdouble}) -> Cint
+
+Compute the sum over all indices of a complex tensor train.
+"""
+function t4a_simplett_c64_sum(
+    ptr::Ptr{Cvoid},
+    out_value_re::Ref{Cdouble},
+    out_value_im::Ref{Cdouble}
+)
+    return ccall(
+        _sym(:t4a_simplett_c64_sum),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cdouble}, Ptr{Cdouble}),
+        ptr,
+        out_value_re,
+        out_value_im
+    )
+end
+
+"""
+    t4a_simplett_c64_norm(ptr::Ptr{Cvoid}, out_value::Ref{Cdouble}) -> Cint
+
+Compute the Frobenius norm.
+"""
+function t4a_simplett_c64_norm(ptr::Ptr{Cvoid}, out_value::Ref{Cdouble})
+    return ccall(
+        _sym(:t4a_simplett_c64_norm),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cdouble}),
+        ptr,
+        out_value
+    )
+end
+
+"""
+    t4a_simplett_c64_site_tensor(ptr::Ptr{Cvoid}, site::Integer, out_data::AbstractVector{Cdouble},
+                                  out_left_dim::Ref{Csize_t}, out_site_dim::Ref{Csize_t},
+                                  out_right_dim::Ref{Csize_t}) -> Cint
+
+Get complex site tensor data at a specific site in interleaved format.
+"""
+function t4a_simplett_c64_site_tensor(
+    ptr::Ptr{Cvoid},
+    site::Integer,
+    out_data::AbstractVector{Cdouble},
+    out_left_dim::Ref{Csize_t},
+    out_site_dim::Ref{Csize_t},
+    out_right_dim::Ref{Csize_t}
+)
+    @assert iseven(length(out_data)) "Interleaved complex data must have even length"
+    return ccall(
+        _sym(:t4a_simplett_c64_site_tensor),
+        Cint,
+        (Ptr{Cvoid}, Csize_t, Ptr{Cdouble}, Csize_t, Ptr{Csize_t}, Ptr{Csize_t}, Ptr{Csize_t}),
+        ptr,
+        Csize_t(site),
+        out_data,
+        Csize_t(length(out_data) ÷ 2),
+        out_left_dim,
+        out_site_dim,
+        out_right_dim
+    )
+end
+
+# ============================================================================
+# SimpleTT complex64 compression
+# ============================================================================
+
+function t4a_simplett_c64_compress(
+    ptr::Ptr{Cvoid}, method::Cint, tolerance::Cdouble, max_bonddim::Csize_t
+)
+    return ccall(
+        _sym(:t4a_simplett_c64_compress),
+        Cint,
+        (Ptr{Cvoid}, Cint, Cdouble, Csize_t),
+        ptr, method, tolerance, max_bonddim
+    )
+end
+
+# ============================================================================
+# SimpleTT complex64 partial_sum
+# ============================================================================
+
+function t4a_simplett_c64_partial_sum(
+    ptr::Ptr{Cvoid}, dims::Vector{Csize_t}, out::Ref{Ptr{Cvoid}}
+)
+    return ccall(
+        _sym(:t4a_simplett_c64_partial_sum),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t, Ptr{Ptr{Cvoid}}),
+        ptr, dims, Csize_t(length(dims)), out
+    )
+end
+
+# ============================================================================
 # TensorCI2 lifecycle functions
 # ============================================================================
 
