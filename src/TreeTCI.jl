@@ -482,8 +482,11 @@ This matches the API style of `TensorCrossInterpolation.crossinterpolate2`.
 
 # Arguments
 - `T`: Scalar type (`Float64` or `ComplexF64`). Inferred if omitted.
-- `f`: Batch evaluation function `f(batch::Matrix{Csize_t}) -> Vector{T}`
-- `localdims::Union{Vector{Int}, NTuple{N,Int}}`: Local dimensions
+- `f`: Batch evaluation function — `f(batch) -> Vector{T}` where `batch` is a
+  `Matrix{Csize_t}` of shape `(n_sites, n_points)` in column-major layout.
+  `batch[i, j]` is the **0-based** local index at site `i` for evaluation point `j`.
+  The function must return a `Vector` of length `n_points`.
+- `localdims::Union{Vector{Int}, NTuple{N,Int}}`: Local dimensions at each site
 - `graph::TreeTciGraph`: Tree graph structure
 
 # Keyword Arguments
@@ -498,9 +501,30 @@ This matches the API style of `TensorCrossInterpolation.crossinterpolate2`.
 - `center_site::Int = 0`: Materialization center site (0-based)
 
 # Returns
-- `tci::SimpleTreeTci{T}`: The converged TCI state
+- `tci::SimpleTreeTci{T}`: The converged TCI state (call `to_treetn(tci, f)` to materialize)
 - `ranks::Vector{Int}`: Max rank per iteration
 - `errors::Vector{Float64}`: (Normalized) error per iteration
+
+# Example
+```julia
+using Tensor4all.TreeTCI
+
+# Define a star graph: site 0 connected to sites 1,2,3,4
+graph = TreeTciGraph(5, [(0,1), (0,2), (0,3), (0,4)])
+
+# Batch evaluation function (0-based indices)
+function f(batch)
+    n_sites, n_pts = size(batch)
+    [prod(batch[i, j] + 1.0 for i in 1:n_sites) for j in 1:n_pts]
+end
+
+# Run TCI
+tci, ranks, errors = crossinterpolate2(f, fill(3, 5), graph;
+    tolerance=1e-10, verbosity=1)
+
+# Materialize to TreeTensorNetwork
+ttn = to_treetn(tci, f)
+```
 """
 function crossinterpolate2(
     ::Type{T},
