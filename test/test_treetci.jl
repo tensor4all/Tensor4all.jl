@@ -309,4 +309,77 @@ end
         @test length(ranks) > 0
         @test last(errors) < 1e-8
     end
+
+    @testset "evaluate - single point" begin
+        graph = sample_graph_7site()
+        n_sites = 7
+        local_dims = fill(2, n_sites)
+
+        tci, _, _ = TreeTCI.crossinterpolate2(
+            product_batch, local_dims, graph;
+            tolerance=1e-12, maxiter=8,
+        )
+        ttn = TreeTCI.to_treetn(tci, product_batch)
+
+        # evaluate(ttn, MultiIndex) → scalar
+        val = TreeTCI.evaluate(ttn, zeros(Int, n_sites))
+        @test val ≈ 1.0  # prod(0+1) = 1
+
+        val = TreeTCI.evaluate(ttn, ones(Int, n_sites))
+        @test val ≈ 2.0^n_sites  # prod(1+1) = 128
+    end
+
+    @testset "evaluate - batch Vector{Vector}" begin
+        graph = sample_graph_7site()
+        n_sites = 7
+        local_dims = fill(2, n_sites)
+
+        tci, _, _ = TreeTCI.crossinterpolate2(
+            product_batch, local_dims, graph;
+            tolerance=1e-12, maxiter=8,
+        )
+        ttn = TreeTCI.to_treetn(tci, product_batch)
+
+        indices = [zeros(Int, n_sites), ones(Int, n_sites)]
+        vals = TreeTCI.evaluate(ttn, indices)
+        @test length(vals) == 2
+        @test vals[1] ≈ 1.0
+        @test vals[2] ≈ 128.0
+    end
+
+    @testset "evaluate - batch Matrix" begin
+        graph = sample_graph_7site()
+        n_sites = 7
+        local_dims = fill(2, n_sites)
+
+        tci, _, _ = TreeTCI.crossinterpolate2(
+            product_batch, local_dims, graph;
+            tolerance=1e-12, maxiter=8,
+        )
+        ttn = TreeTCI.to_treetn(tci, product_batch)
+
+        # (n_sites, n_points) matrix, rightmost dim is batch
+        batch = hcat(zeros(Int, n_sites), ones(Int, n_sites))  # 7×2
+        vals = TreeTCI.evaluate(ttn, batch)
+        @test length(vals) == 2
+        @test vals[1] ≈ 1.0
+        @test vals[2] ≈ 128.0
+    end
+
+    @testset "evaluate - complex" begin
+        graph = sample_graph_7site()
+        n_sites = 7
+        local_dims = fill(2, n_sites)
+
+        tci, _, _ = TreeTCI.crossinterpolate2(
+            complex_product_batch, local_dims, graph;
+            tolerance=1e-12, maxiter=8,
+        )
+        ttn = TreeTCI.to_treetn(tci, complex_product_batch)
+
+        # f([0,...,0]) = prod((0+1) + im*(0+1)) = (1+im)^7
+        val = TreeTCI.evaluate(ttn, zeros(Int, n_sites))
+        expected = (1.0 + 1.0im)^n_sites
+        @test val ≈ expected atol=1e-10
+    end
 end

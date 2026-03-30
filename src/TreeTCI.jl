@@ -23,7 +23,7 @@ using ..C_API
 import ..TreeTN: TreeTensorNetwork
 
 export TreeTciGraph, SimpleTreeTci
-export crossinterpolate2
+export crossinterpolate2, evaluate
 
 const _TreeTciScalar = Union{Float64, ComplexF64}
 
@@ -466,6 +466,88 @@ function to_treetn(tci::SimpleTreeTci{T}, f; center_site::Int = 0) where {T}
         ))
     end
     return _wrap_treetn(out_ptr[], length(tci.local_dims))
+end
+
+# ============================================================================
+# TreeTensorNetwork evaluation
+# ============================================================================
+
+"""
+    evaluate(ttn, indices::Vector{<:Integer}) -> T
+
+Evaluate a TreeTensorNetwork at a single multi-index (0-based).
+Returns a scalar (`Float64` or `ComplexF64` depending on storage).
+
+# Example
+```julia
+val = evaluate(ttn, [0, 1, 2, 0])
+```
+"""
+function evaluate(ttn::TreeTensorNetwork, indices::Vector{<:Integer})
+    vals = _evaluate_batch(ttn, Csize_t.(indices), length(indices), 1)
+    return vals[1]
+end
+
+"""
+    evaluate(ttn, indices::Vector{Vector{<:Integer}}) -> Vector
+
+Evaluate a TreeTensorNetwork at multiple multi-indices (0-based).
+Each element of `indices` is a multi-index of length `n_sites`.
+
+# Example
+```julia
+vals = evaluate(ttn, [[0,1,2,0], [1,0,1,1]])
+```
+"""
+function evaluate(ttn::TreeTensorNetwork, indices::Vector{Vector{T}}) where {T<:Integer}
+    n_sites = length(indices[1])
+    n_points = length(indices)
+    flat = Vector{Csize_t}(undef, n_sites * n_points)
+    for j in 1:n_points
+        length(indices[j]) == n_sites ||
+            error("Index $j has length $(length(indices[j])), expected $n_sites")
+        for i in 1:n_sites
+            flat[i + n_sites * (j - 1)] = Csize_t(indices[j][i])
+        end
+    end
+    return _evaluate_batch(ttn, flat, n_sites, n_points)
+end
+
+"""
+    evaluate(ttn, batch::AbstractMatrix{<:Integer}) -> Vector
+
+Evaluate a TreeTensorNetwork at multiple multi-indices given as a matrix.
+`batch` has shape `(n_sites, n_points)` — the rightmost dimension is the batch index.
+Indices are 0-based.
+
+# Example
+```julia
+batch = [0 1; 1 0; 2 1; 0 1]  # 4 sites, 2 points
+vals = evaluate(ttn, batch)
+```
+"""
+function evaluate(ttn::TreeTensorNetwork, batch::AbstractMatrix{<:Integer})
+    n_sites, n_points = size(batch)
+    flat = Csize_t.(vec(batch))  # already column-major
+    return _evaluate_batch(ttn, flat, n_sites, n_points)
+end
+
+"""Internal: call C API batch evaluate and return typed results."""
+function _evaluate_batch(ttn::TreeTensorNetwork, flat::Vector{Csize_t}, n_sites::Int, n_points::Int)
+    out_re = Vector{Cdouble}(undef, n_points)
+    out_im = Vector{Cdouble}(undef, n_points)
+    C_API.check_status(ccall(
+        C_API._sym(:t4a_treetn_evaluate_batch),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t, Csize_t, Ptr{Cdouble}, Ptr{Cdouble}),
+        ttn.handle, flat, Csize_t(n_sites), Csize_t(n_points), out_re, out_im,
+    ))
+    # Detect if complex by checking if any imaginary part is nonzero
+    if all(iszero, out_im)
+        return out_re
+    else
+        return ComplexF64.(out_re .+ im .* out_im)
+    end
 end
 
 # ============================================================================
