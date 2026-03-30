@@ -13,7 +13,8 @@ using Tensor4all.TreeTCI
 
 graph = TreeTciGraph(4, [(0, 1), (1, 2), (2, 3)])
 f(batch) = [sum(Float64, batch[:, j]) for j in 1:size(batch, 2)]
-ttn, ranks, errors = crossinterpolate_tree(f, [3, 3, 3, 3], graph)
+tci, ranks, errors = crossinterpolate2(f, [3, 3, 3, 3], graph)
+ttn = to_treetn(tci, f)
 ```
 """
 module TreeTCI
@@ -22,7 +23,7 @@ using ..C_API
 import ..TreeTN: TreeTensorNetwork
 
 export TreeTciGraph, SimpleTreeTci
-export crossinterpolate_tree
+export crossinterpolate2
 
 const _TreeTciScalar = Union{Float64, ComplexF64}
 
@@ -472,122 +473,97 @@ end
 # ============================================================================
 
 """
-    crossinterpolate_tree(f, local_dims, graph; kwargs...) -> (ttn, ranks, errors)
+    crossinterpolate2([T], f, localdims, graph; kwargs...) -> (tci, ranks, errors)
 
-Run TreeTCI to convergence and return a TreeTensorNetwork.
+Run TreeTCI to convergence on a tree graph.
+
+The sweep loop runs in Julia, printing convergence info when `verbosity > 0`.
+This matches the API style of `TensorCrossInterpolation.crossinterpolate2`.
 
 # Arguments
+- `T`: Scalar type (`Float64` or `ComplexF64`). Inferred if omitted.
 - `f`: Batch evaluation function `f(batch::Matrix{Csize_t}) -> Vector{T}`
-- `local_dims::Vector{Int}`: Local dimension at each site
+- `localdims::Union{Vector{Int}, NTuple{N,Int}}`: Local dimensions
 - `graph::TreeTciGraph`: Tree graph structure
 
 # Keyword Arguments
-- `initial_pivots::Vector{Vector{Int}} = Vector{Int}[]`: Initial pivots (0-based)
+- `initialpivots::Vector{Vector{Int}} = [zeros(Int, n)]`: Initial pivots (0-based)
+- `tolerance::Float64 = 1e-8`: Target tolerance
+- `maxbonddim::Int = typemax(Int)`: Maximum bond dimension
+- `maxiter::Int = 20`: Maximum sweeps
+- `verbosity::Int = 0`: 0=silent, 1=per-loginterval summary
+- `loginterval::Int = 10`: Print every N iterations (when verbosity >= 1)
+- `normalizeerror::Bool = true`: Normalize error by max sample value
 - `proposer::Symbol = :default`: `:default`, `:simple`, or `:truncated_default`
-- `tolerance::Float64 = 1e-8`: Relative tolerance
-- `max_bond_dim::Int = 0`: Maximum bond dimension (0 = unlimited)
-- `max_iter::Int = 20`: Maximum iterations
-- `normalize_error::Bool = true`: Normalize errors by max sample value
 - `center_site::Int = 0`: Materialization center site (0-based)
 
 # Returns
-- `ttn::TreeTensorNetwork`
+- `tci::SimpleTreeTci{T}`: The converged TCI state
 - `ranks::Vector{Int}`: Max rank per iteration
-- `errors::Vector{Float64}`: Error per iteration
+- `errors::Vector{Float64}`: (Normalized) error per iteration
 """
-function crossinterpolate_tree(
+function crossinterpolate2(
     ::Type{T},
     f,
-    local_dims::Vector{<:Integer},
+    localdims::Union{Vector{<:Integer}, NTuple{N,Integer}},
     graph::TreeTciGraph;
-    initial_pivots::Vector{Vector{Int}} = Vector{Int}[],
-    proposer::Symbol = :default,
+    initialpivots::Vector{Vector{Int}} = [zeros(Int, graph.n_sites)],
     tolerance::Float64 = 1e-8,
-    max_bond_dim::Int = 0,
-    max_iter::Int = 20,
-    normalize_error::Bool = true,
+    maxbonddim::Int = typemax(Int),
+    maxiter::Int = 20,
+    verbosity::Int = 0,
+    loginterval::Int = 10,
+    normalizeerror::Bool = true,
+    proposer::Symbol = :default,
     center_site::Int = 0,
-) where {T<:_TreeTciScalar}
-    dims_int = Int.(local_dims)
+) where {T<:_TreeTciScalar, N}
+    dims_int = Int.(collect(localdims))
     n_sites = length(dims_int)
     n_sites == graph.n_sites ||
-        error("local_dims length ($n_sites) != graph.n_sites ($(graph.n_sites))")
+        error("localdims length ($n_sites) != graph.n_sites ($(graph.n_sites))")
 
-    n_pivots = length(initial_pivots)
-    pivots_flat = if n_pivots == 0
-        Csize_t[]
-    else
-        buf = Vector{Csize_t}(undef, n_sites * n_pivots)
-        for j in 1:n_pivots
-            pivot = initial_pivots[j]
-            length(pivot) == n_sites ||
-                error("Pivot $j has length $(length(pivot)), expected $n_sites")
-            for i in 1:n_sites
-                buf[i + n_sites * (j - 1)] = Csize_t(pivot[i])
-            end
+    bd = maxbonddim == typemax(Int) ? 0 : maxbonddim
+
+    # Create state and add initial pivots
+    tci = SimpleTreeTci{T}(dims_int, graph)
+    add_global_pivots!(tci, initialpivots)
+
+    ranks = Int[]
+    errors = Float64[]
+
+    # Sweep loop in Julia
+    for iter in 1:maxiter
+        sweep!(tci, f; proposer=proposer, tolerance=tolerance, max_bond_dim=bd)
+
+        r = max_rank(tci)
+        err = max_bond_error(tci)
+        msv = max_sample_value(tci)
+        normalized_err = (normalizeerror && msv > 0) ? err / msv : err
+
+        push!(ranks, r)
+        push!(errors, normalized_err)
+
+        if verbosity >= 1 && (iter % loginterval == 0 || iter == 1 || normalized_err < tolerance)
+            @info "TreeTCI" iteration=iter rank=r error=normalized_err maxsamplevalue=msv
         end
-        buf
+
+        if normalized_err < tolerance
+            break
+        end
     end
 
-    out_ranks = Vector{Csize_t}(undef, max_iter)
-    out_errors = Vector{Cdouble}(undef, max_iter)
-    out_n_iters = Ref{Csize_t}(0)
-    out_treetn = Ref{Ptr{Cvoid}}(C_NULL)
-
-    dims_csize = Csize_t.(dims_int)
-    f_ref = Ref{Any}(f)
-
-    GC.@preserve f_ref dims_csize pivots_flat out_ranks out_errors begin
-        C_API.check_status(ccall(
-            _cross_sym_for(T),
-            Cint,
-            (
-                Ptr{Cvoid}, Ptr{Cvoid},
-                Ptr{Csize_t}, Csize_t,
-                Ptr{Cvoid},
-                Ptr{Csize_t}, Csize_t,
-                Cint,
-                Cdouble, Csize_t, Csize_t,
-                Cint,
-                Csize_t,
-                Ptr{Ptr{Cvoid}},
-                Ptr{Csize_t}, Ptr{Cdouble}, Ptr{Csize_t},
-            ),
-            _get_batch_trampoline(T),
-            pointer_from_objref(f_ref),
-            dims_csize,
-            Csize_t(n_sites),
-            graph.ptr,
-            n_pivots == 0 ? Ptr{Csize_t}(C_NULL) : pivots_flat,
-            Csize_t(n_pivots),
-            _proposer_to_cint(proposer),
-            tolerance,
-            Csize_t(max_bond_dim),
-            Csize_t(max_iter),
-            normalize_error ? Cint(1) : Cint(0),
-            Csize_t(center_site),
-            out_treetn,
-            out_ranks,
-            out_errors,
-            out_n_iters,
-        ))
-    end
-
-    n_iters = Int(out_n_iters[])
-    ttn = _wrap_treetn(out_treetn[], n_sites)
-    ranks = Int.(out_ranks[1:n_iters])
-    errors = Float64.(out_errors[1:n_iters])
-    return ttn, ranks, errors
+    return tci, ranks, errors
 end
 
-function crossinterpolate_tree(
+function crossinterpolate2(
     f,
-    local_dims::Vector{<:Integer},
+    localdims::Union{Vector{<:Integer}, NTuple{N,Integer}},
     graph::TreeTciGraph;
     kwargs...,
-)
-    T = _infer_scalar_type(f, local_dims, get(kwargs, :initial_pivots, Vector{Int}[]))
-    return crossinterpolate_tree(T, f, local_dims, graph; kwargs...)
+) where {N}
+    pivots = get(kwargs, :initialpivots, Vector{Int}[])
+    T = _infer_scalar_type(f, collect(localdims), pivots)
+    return crossinterpolate2(T, f, localdims, graph; kwargs...)
 end
 
 end # module TreeTCI

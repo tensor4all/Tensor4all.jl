@@ -199,121 +199,113 @@ end
         @test max_n_points_seen[] > 1
     end
 
-    @testset "2-site tree product exact" begin
+    @testset "crossinterpolate2 - 2-site tree product exact" begin
         graph = TreeTCI.TreeTciGraph(2, [(0, 1)])
         local_dims = [2, 2]
 
-        ttn, ranks, errors = TreeTCI.crossinterpolate_tree(
+        tci, ranks, errors = TreeTCI.crossinterpolate2(
             product_batch, local_dims, graph;
-            initial_pivots=[zeros(Int, 2)],
+            initialpivots=[zeros(Int, 2)],
             tolerance=1e-12,
-            max_iter=8,
-            max_bond_dim=2,
+            maxiter=8,
+            maxbonddim=2,
         )
 
-        @test ttn isa TreeTensorNetwork
-
-        # Product function on 2-site binary: check all 4 values
-        # (0,0) -> 1*1=1, (0,1) -> 1*2=2, (1,0) -> 2*1=2, (1,1) -> 2*2=4
-        # Errors should be essentially zero for exact decomposition
+        @test tci isa TreeTCI.SimpleTreeTci{Float64}
         @test length(errors) > 0
         @test last(errors) < 1e-10
+
+        ttn = TreeTCI.to_treetn(tci, product_batch)
+        @test ttn isa TreeTensorNetwork
     end
 
-    @testset "High-level API - product on branching tree with value verification" begin
+    @testset "crossinterpolate2 - product on branching tree" begin
         graph = sample_graph_7site()
         n_sites = 7
         local_dims = fill(2, n_sites)
 
-        ttn, ranks, errors = TreeTCI.crossinterpolate_tree(
+        tci, ranks, errors = TreeTCI.crossinterpolate2(
             product_batch, local_dims, graph;
-            initial_pivots=[zeros(Int, n_sites), [1, 0, 1, 0, 1, 0, 1]],
+            initialpivots=[zeros(Int, n_sites), [1, 0, 1, 0, 1, 0, 1]],
             tolerance=1e-12,
-            max_iter=8,
-            max_bond_dim=2,
+            maxiter=8,
+            maxbonddim=2,
         )
 
-        @test ttn isa TreeTensorNetwork
+        @test tci isa TreeTCI.SimpleTreeTci{Float64}
         @test length(ranks) > 0
         @test last(errors) < 1e-10
-
-        # Verify actual values at sample points using the TreeTN
-        # We re-run crossinterpolate to verify the result is correct
-        # by checking the high-level function produces small errors
         @test all(e -> e < 1e-10 || e == 0.0, errors)
     end
 
-    @testset "High-level API - complex product on branching tree" begin
+    @testset "crossinterpolate2 - complex product on branching tree" begin
         graph = sample_graph_7site()
         n_sites = 7
         local_dims = fill(2, n_sites)
 
-        ttn, ranks, errors = TreeTCI.crossinterpolate_tree(
+        tci, ranks, errors = TreeTCI.crossinterpolate2(
             complex_product_batch, local_dims, graph;
-            initial_pivots=[zeros(Int, n_sites)],
+            initialpivots=[zeros(Int, n_sites)],
             tolerance=1e-12,
-            max_iter=8,
-            max_bond_dim=2,
+            maxiter=8,
+            maxbonddim=2,
         )
 
-        @test ttn isa TreeTensorNetwork
+        @test tci isa TreeTCI.SimpleTreeTci{ComplexF64}
         @test length(ranks) > 0
         @test last(errors) < 1e-8
+
+        ttn = TreeTCI.to_treetn(tci, complex_product_batch)
+        @test ttn isa TreeTensorNetwork
         @test Tensor4all.storage_kind(ttn[1]) == Tensor4all.DenseC64
-        @test eltype(Tensor4all.data(ttn[1])) == ComplexF64
     end
 
-    @testset "High-level API - rational function convergence" begin
+    @testset "crossinterpolate2 - rational function convergence" begin
         graph = sample_graph_7site()
         n_sites = 7
         local_dims = fill(2, n_sites)
 
-        ttn, ranks, errors = TreeTCI.crossinterpolate_tree(
+        tci, ranks, errors = TreeTCI.crossinterpolate2(
             rational_batch, local_dims, graph;
-            initial_pivots=[zeros(Int, n_sites)],
+            initialpivots=[zeros(Int, n_sites)],
             tolerance=1e-8,
-            max_iter=10,
-            max_bond_dim=5,
+            maxiter=10,
+            maxbonddim=5,
         )
 
-        @test ttn isa TreeTensorNetwork
+        @test tci isa TreeTCI.SimpleTreeTci{Float64}
         @test length(ranks) > 0
         @test last(errors) < 1e-8
     end
 
-    @testset "High-level API without initial pivots (default zero pivot)" begin
+    @testset "crossinterpolate2 - default zero pivot" begin
         n_sites = 3
         local_dims = fill(2, n_sites)
         graph = TreeTCI.TreeTciGraph(n_sites, [(0, 1), (1, 2)])
 
-        ttn, ranks, errors = TreeTCI.crossinterpolate_tree(
+        tci, ranks, errors = TreeTCI.crossinterpolate2(
             product_batch, local_dims, graph;
             tolerance=1e-12,
         )
 
-        @test ttn isa TreeTensorNetwork
+        @test tci isa TreeTCI.SimpleTreeTci{Float64}
         @test length(ranks) > 0
     end
 
-    @testset "High-level API - 4-site branching tree" begin
-        #     0
-        #     |
-        #     1
-        #    / \
-        #   2   3
+    @testset "crossinterpolate2 - 4-site branching tree" begin
         graph = TreeTCI.TreeTciGraph(4, [(0, 1), (1, 2), (1, 3)])
         local_dims = fill(3, 4)
 
         f_batch(batch) = [sum(Float64, batch[:, j]) for j in 1:size(batch, 2)]
 
-        ttn, ranks, errors = TreeTCI.crossinterpolate_tree(
+        tci, ranks, errors = TreeTCI.crossinterpolate2(
             f_batch, local_dims, graph;
-            initial_pivots=[zeros(Int, 4)],
+            initialpivots=[zeros(Int, 4)],
             tolerance=1e-10,
-            max_iter=20,
+            maxiter=20,
         )
 
-        @test ttn isa TreeTensorNetwork
+        @test tci isa TreeTCI.SimpleTreeTci{Float64}
         @test length(ranks) > 0
         @test last(errors) < 1e-8
     end
