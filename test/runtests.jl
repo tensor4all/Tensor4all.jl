@@ -12,6 +12,7 @@ skip_hdf5 = get(ENV, "T4A_SKIP_HDF5_TESTS", "") == "1"
     include("test_index.jl")
     include("test_tensor.jl")
     include("test_treetn.jl")
+    include("test_treetci.jl")
     if !skip_hdf5
         include("test_hdf5.jl")
     end
