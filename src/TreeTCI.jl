@@ -491,7 +491,7 @@ This matches the API style of `TensorCrossInterpolation.crossinterpolate2`.
 - `tolerance::Float64 = 1e-8`: Target tolerance
 - `maxbonddim::Int = typemax(Int)`: Maximum bond dimension
 - `maxiter::Int = 20`: Maximum sweeps
-- `verbosity::Int = 0`: 0=silent, 1=per-loginterval summary
+- `verbosity::Int = 0`: 0=silent, 1=summary per loginterval, 2=bond dims and timing
 - `loginterval::Int = 10`: Print every N iterations (when verbosity >= 1)
 - `normalizeerror::Bool = true`: Normalize error by max sample value
 - `proposer::Symbol = :default`: `:default`, `:simple`, or `:truncated_default`
@@ -530,10 +530,13 @@ function crossinterpolate2(
 
     ranks = Int[]
     errors = Float64[]
+    t_start = time()
 
     # Sweep loop in Julia
     for iter in 1:maxiter
+        t_sweep_start = time()
         sweep!(tci, f; proposer=proposer, tolerance=tolerance, max_bond_dim=bd)
+        t_sweep = time() - t_sweep_start
 
         r = max_rank(tci)
         err = max_bond_error(tci)
@@ -543,8 +546,14 @@ function crossinterpolate2(
         push!(ranks, r)
         push!(errors, normalized_err)
 
-        if verbosity >= 1 && (iter % loginterval == 0 || iter == 1 || normalized_err < tolerance)
+        should_log = iter % loginterval == 0 || iter == 1 || normalized_err < tolerance
+        if verbosity >= 1 && should_log
             @info "TreeTCI" iteration=iter rank=r error=normalized_err maxsamplevalue=msv
+        end
+        if verbosity >= 2 && should_log
+            bd_vec = bond_dims(tci)
+            elapsed = time() - t_start
+            @info "TreeTCI detail" iteration=iter bonddims=bd_vec sweep_sec=round(t_sweep; digits=3) elapsed_sec=round(elapsed; digits=3)
         end
 
         if normalized_err < tolerance
