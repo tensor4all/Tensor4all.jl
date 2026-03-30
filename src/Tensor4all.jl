@@ -900,13 +900,6 @@ export save_itensor, load_itensor
 include("SimpleTT.jl")
 
 # ============================================================================
-# TensorCI Submodule (Tensor Cross Interpolation)
-# ============================================================================
-# TensorCI provides tensor cross interpolation algorithms.
-# Use: using Tensor4all.TensorCI
-include("TensorCI.jl")
-
-# ============================================================================
 # TreeTN Submodule (Tree Tensor Network: MPS, MPO, TTN)
 # ============================================================================
 # Tree tensor network functionality is in a separate submodule.
