@@ -3,16 +3,19 @@ using Tensor4all
 using Tensor4all.SimpleTT
 using Tensor4all.TensorCI
 
-# Import functions from modules
-import Tensor4all.TensorCI: rank, link_dims, max_sample_value, max_bond_error
-import Tensor4all.SimpleTT: rank as tt_rank
-
 @testset "TensorCI" begin
     @testset "TensorCI2 creation" begin
         tci = TensorCI2([2, 3, 4])
 
         @test length(tci) == 3
-        @test rank(tci) == 0  # Empty TCI has rank 0
+        @test TensorCI.rank(tci) == 0  # Empty TCI has rank 0
+    end
+
+    @testset "TensorCI2 creation (complex)" begin
+        tci = TensorCI2{ComplexF64}([2, 3, 4])
+
+        @test length(tci) == 3
+        @test TensorCI.rank(tci) == 0
     end
 
     @testset "crossinterpolate2 constant function" begin
@@ -21,7 +24,7 @@ import Tensor4all.SimpleTT: rank as tt_rank
         tt, err = crossinterpolate2(f, [3, 4]; tolerance=1e-10)
 
         @test length(tt) == 2
-        @test tt_rank(tt) == 1  # Constant has rank 1
+        @test SimpleTT.rank(tt) == 1  # Constant has rank 1
 
         # Sum should be 1.0 * 3 * 4 = 12.0
         @test sum(tt) ≈ 12.0
@@ -48,7 +51,7 @@ import Tensor4all.SimpleTT: rank as tt_rank
         @test tt(2, 3) ≈ 12.0
 
         # This is a rank-1 function, so TT should capture it exactly
-        @test tt_rank(tt) == 1
+        @test SimpleTT.rank(tt) == 1
     end
 
     @testset "crossinterpolate2 with initial pivots (2-site, rank-1)" begin
@@ -64,17 +67,13 @@ import Tensor4all.SimpleTT: rank as tt_rank
         @test tt(1, 2) ≈ 8.0  # (1+1) * (2+2) = 8
     end
 
-    # Skip high-rank test for now as TCI2 implementation has limitations
-    # @testset "crossinterpolate2 max_bonddim (2-site)" begin
-    # end
-
     @testset "crossinterpolate2 3-site constant" begin
         # 3-site constant function: f(i, j, k) = 1.0
         f(i, j, k) = 1.0
         tt, err = crossinterpolate2(f, [2, 2, 2]; tolerance=1e-10)
 
         @test length(tt) == 3
-        @test tt_rank(tt) == 1
+        @test SimpleTT.rank(tt) == 1
         @test sum(tt) ≈ 8.0  # 2^3 = 8
         @test tt(0, 0, 0) ≈ 1.0
     end
@@ -85,9 +84,23 @@ import Tensor4all.SimpleTT: rank as tt_rank
         tt, err = crossinterpolate2(f, [2, 2, 2, 2]; tolerance=1e-10)
 
         @test length(tt) == 4
-        @test tt_rank(tt) == 1  # Product is rank-1
+        @test SimpleTT.rank(tt) == 1  # Product is rank-1
         @test tt(0, 0, 0, 0) ≈ 1.0
         @test tt(1, 1, 1, 1) ≈ 16.0
+    end
+
+    @testset "crossinterpolate2 complex product" begin
+        f(idx...) = prod((idx[s] + 1) + im * (2 * idx[s] + 1) for s in eachindex(idx))
+
+        tci, err = crossinterpolate2_tci(f, [2, 2, 2, 2]; tolerance=1e-12, max_iter=10)
+        @test tci isa TensorCI2{ComplexF64}
+        @test err < 1e-8
+        @test TensorCI.rank(tci) == 1
+
+        tt = TensorCI.to_tensor_train(tci)
+        @test tt isa SimpleTensorTrain{ComplexF64}
+        @test tt(1, 1, 1, 1) ≈ f(1, 1, 1, 1) atol=1e-12
+        @test tt(1, 0, 1, 0) ≈ f(1, 0, 1, 0) atol=1e-12
     end
 
     @testset "crossinterpolate2 5-site constant" begin
@@ -96,7 +109,7 @@ import Tensor4all.SimpleTT: rank as tt_rank
         tt, err = crossinterpolate2(f, [2, 2, 2, 2, 2]; tolerance=1e-10)
 
         @test length(tt) == 5
-        @test tt_rank(tt) == 1
+        @test SimpleTT.rank(tt) == 1
         @test sum(tt) ≈ 80.0  # 2.5 * 2^5 = 80
     end
 
