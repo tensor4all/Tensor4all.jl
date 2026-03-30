@@ -127,7 +127,7 @@ end
             TreeTCI.max_bond_error(tci) < 1e-8 && break
         end
 
-        @test TreeTCI.max_bond_error(tci) < 1e-6
+        @test TreeTCI.max_bond_error(tci) < 1e-8
 
         # Verify bond dims respect max_bond_dim
         bd = TreeTCI.bond_dims(tci)
@@ -217,7 +217,7 @@ end
 
         @test ttn isa TreeTensorNetwork
         @test length(ranks) > 0
-        @test last(errors) < 1e-6
+        @test last(errors) < 1e-8
     end
 
     @testset "High-level API without initial pivots (default zero pivot)" begin
