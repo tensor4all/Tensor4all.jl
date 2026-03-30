@@ -938,6 +938,11 @@ include("QuanticsTCI.jl")
 include("QuanticsTransform.jl")
 
 # ============================================================================
+# Tree-structured TCI (tree tensor cross interpolation).
+# Use: using Tensor4all.TreeTCI
+include("TreeTCI.jl")
+
+# ============================================================================
 # Module Initialization
 # ============================================================================
 
