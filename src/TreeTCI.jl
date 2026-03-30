@@ -84,4 +84,70 @@ mutable struct TreeTciGraph
     end
 end
 
+# ============================================================================
+# Batch Eval Trampoline
+# ============================================================================
+
+"""
+Internal trampoline for C batch callback.
+
+The user function signature is: `f(batch::Matrix{Csize_t}) -> Vector{Float64}`
+where `batch` is column-major `(n_sites, n_points)` with 0-based indices.
+"""
+function _treetci_batch_trampoline(
+    batch_data::Ptr{Csize_t},
+    n_sites::Csize_t,
+    n_points::Csize_t,
+    results::Ptr{Cdouble},
+    user_data::Ptr{Cvoid},
+)::Cint
+    try
+        f_ref = unsafe_pointer_to_objref(user_data)::Ref{Any}
+        f = f_ref[]
+        batch = unsafe_wrap(Array, batch_data, (Int(n_sites), Int(n_points)))
+        vals = f(batch)
+        length(vals) == Int(n_points) ||
+            error("Batch callback returned $(length(vals)) values for $(Int(n_points)) points")
+        for i in 1:Int(n_points)
+            unsafe_store!(results, Float64(vals[i]), i)
+        end
+        return Cint(0)
+    catch err
+        @error "TreeTCI batch eval callback error" exception = (err, catch_backtrace())
+        return Cint(-1)
+    end
+end
+
+const _BATCH_TRAMPOLINE_PTR = Ref{Ptr{Cvoid}}(C_NULL)
+
+function _get_batch_trampoline()
+    if _BATCH_TRAMPOLINE_PTR[] == C_NULL
+        _BATCH_TRAMPOLINE_PTR[] = @cfunction(
+            _treetci_batch_trampoline,
+            Cint,
+            (Ptr{Csize_t}, Csize_t, Csize_t, Ptr{Cdouble}, Ptr{Cvoid}),
+        )
+    end
+    return _BATCH_TRAMPOLINE_PTR[]
+end
+
+# ============================================================================
+# Proposer helpers
+# ============================================================================
+
+const _PROPOSER_DEFAULT = Cint(0)
+const _PROPOSER_SIMPLE = Cint(1)
+const _PROPOSER_TRUNCATED_DEFAULT = Cint(2)
+
+function _proposer_to_cint(proposer::Symbol)::Cint
+    if proposer === :default
+        return _PROPOSER_DEFAULT
+    elseif proposer === :simple
+        return _PROPOSER_SIMPLE
+    elseif proposer === :truncated_default
+        return _PROPOSER_TRUNCATED_DEFAULT
+    end
+    error("Unknown proposer: $proposer. Use :default, :simple, or :truncated_default")
+end
+
 end # module TreeTCI
