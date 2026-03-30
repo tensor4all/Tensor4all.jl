@@ -23,9 +23,6 @@ import ..TreeTN: TreeTensorNetwork
 
 export TreeTciGraph, SimpleTreeTci
 export crossinterpolate_tree
-export add_global_pivots!, sweep!
-export max_bond_error, max_rank, max_sample_value, bond_dims
-export to_treetn
 
 # ============================================================================
 # TreeTciGraph
