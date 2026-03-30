@@ -53,7 +53,9 @@
         t = T4ATensor([i, j], original_data)
 
         retrieved = Tensor4all.data(t)
-        @test retrieved ≈ original_data
+        @test retrieved == original_data
+        @test vec(retrieved) == vec(original_data)
+        @test eltype(retrieved) == ComplexF64
         @test size(retrieved) == (2, 3)
     end
 

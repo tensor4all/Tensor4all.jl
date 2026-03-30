@@ -2,8 +2,8 @@ using Test
 using Tensor4all
 using Tensor4all.SimpleTT
 
-# Import functions from SimpleTT module
-import Tensor4all.SimpleTT: site_dims, link_dims, rank, evaluate, site_tensor
+# Use qualified names to avoid conflicts with LinearAlgebra.rank
+import Tensor4all.SimpleTT: site_dims, link_dims, evaluate, site_tensor
 
 @testset "SimpleTT" begin
     @testset "constant tensor train" begin
@@ -12,11 +12,29 @@ import Tensor4all.SimpleTT: site_dims, link_dims, rank, evaluate, site_tensor
 
         @test length(tt) == 3
         @test site_dims(tt) == [2, 3, 4]
-        @test rank(tt) == 1  # Constant has rank 1
+        @test SimpleTT.rank(tt) == 1  # Constant has rank 1
 
         # Sum should be value * product of dimensions
         expected_sum = 1.5 * 2 * 3 * 4
         @test sum(tt) ≈ expected_sum
+    end
+
+    @testset "constant tensor train (complex)" begin
+        value = ComplexF64(2.0, 3.0)
+        tt = SimpleTensorTrain([2, 3], value)
+
+        @test tt isa SimpleTensorTrain{ComplexF64}
+        @test length(tt) == 2
+        @test site_dims(tt) == [2, 3]
+        @test SimpleTT.rank(tt) == 1
+        @test evaluate(tt, [0, 0]) ≈ value atol=1e-12
+        @test tt(1, 2) ≈ value atol=1e-12
+        @test sum(tt) ≈ 6 * value atol=1e-12
+
+        t1 = site_tensor(tt, 1)
+        @test eltype(t1) == ComplexF64
+        @test size(t1) == (1, 3, 1)
+        @test vec(t1) ≈ fill(value, 3) atol=1e-12
     end
 
     @testset "zeros tensor train" begin
@@ -25,6 +43,14 @@ import Tensor4all.SimpleTT: site_dims, link_dims, rank, evaluate, site_tensor
         @test length(tt) == 2
         @test site_dims(tt) == [2, 3]
         @test sum(tt) == 0.0
+    end
+
+    @testset "zeros tensor train (complex)" begin
+        tt = zeros(SimpleTensorTrain{ComplexF64}, [2, 3])
+
+        @test length(tt) == 2
+        @test site_dims(tt) == [2, 3]
+        @test sum(tt) ≈ ComplexF64(0.0, 0.0) atol=1e-12
     end
 
     @testset "evaluate" begin

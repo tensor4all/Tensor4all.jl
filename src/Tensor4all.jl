@@ -560,16 +560,15 @@ function Tensor(inds::Vector{Index}, data::AbstractArray{ComplexF64})
 
     # Ensure contiguous column-major layout for FFI
     data = _ensure_contiguous(data)
-    flat_data = vec(data)
+    flat_data = ComplexF64.(vec(data))
 
     # Prepare C-API call
     r = length(inds)
     index_ptrs = [idx.ptr for idx in inds]
     dims_vec = Csize_t[dim(idx) for idx in inds]
-    data_re = Cdouble[real(z) for z in flat_data]
-    data_im = Cdouble[imag(z) for z in flat_data]
+    data_interleaved = reinterpret(Cdouble, flat_data)
 
-    ptr = C_API.t4a_tensor_new_dense_c64(r, index_ptrs, dims_vec, data_re, data_im)
+    ptr = C_API.t4a_tensor_new_dense_c64(r, index_ptrs, dims_vec, data_interleaved)
     return Tensor(ptr)
 end
 
@@ -691,18 +690,16 @@ function data(t::Tensor)
     elseif kind == DenseC64
         # Query length
         out_len = Ref{Csize_t}(0)
-        status = C_API.t4a_tensor_get_data_c64(t.ptr, nothing, nothing, 0, out_len)
+        status = C_API.t4a_tensor_get_data_c64(t.ptr, nothing, 0, out_len)
         C_API.check_status(status)
 
         # Get data
-        buf_re = Vector{Cdouble}(undef, out_len[])
-        buf_im = Vector{Cdouble}(undef, out_len[])
-        status = C_API.t4a_tensor_get_data_c64(t.ptr, buf_re, buf_im, out_len[], out_len)
+        buf = Vector{Cdouble}(undef, 2 * out_len[])
+        status = C_API.t4a_tensor_get_data_c64(t.ptr, buf, out_len[], out_len)
         C_API.check_status(status)
 
-        # Combine — data is already column-major from Rust
-        buf = [ComplexF64(r, i) for (r, i) in zip(buf_re, buf_im)]
-        return isempty(d) ? reshape(buf, 1) : reshape(buf, d...)
+        result = reinterpret(ComplexF64, buf)
+        return isempty(d) ? reshape(result, 1) : reshape(result, d...)
 
     else
         error("Unsupported storage kind for data extraction: $kind")
@@ -936,6 +933,11 @@ include("QuanticsTCI.jl")
 # Quantics transformation operators (shift, flip, phase rotation, cumsum, Fourier).
 # Use: using Tensor4all.QuanticsTransform
 include("QuanticsTransform.jl")
+
+# ============================================================================
+# Tree-structured TCI (tree tensor cross interpolation).
+# Use: using Tensor4all.TreeTCI
+include("TreeTCI.jl")
 
 # ============================================================================
 # Module Initialization
