@@ -29,6 +29,7 @@ export DiscretizedGrid, InherentDiscreteGrid
 export origcoord_to_quantics, quantics_to_origcoord
 export origcoord_to_grididx, grididx_to_origcoord
 export grididx_to_quantics, quantics_to_grididx
+export localdimensions
 
 # ============================================================================
 # Unfolding scheme helper
@@ -62,7 +63,7 @@ A discretized grid with continuous domain and floating-point coordinates.
 
 - `ndims(g)` - Number of dimensions
 - `rs(g)` - Resolution (bits) per dimension
-- `local_dimensions(g)` - Local dimensions of tensor sites
+- `localdimensions(g)` - Local dimensions of tensor sites
 - `lower_bound(g)` - Lower bounds per dimension
 - `upper_bound(g)` - Upper bounds per dimension
 - `grid_step(g)` - Grid spacing per dimension
@@ -136,11 +137,11 @@ Resolution (bits) per dimension.
 rs(g::DiscretizedGrid) = g._rs
 
 """
-    local_dimensions(g::DiscretizedGrid) -> Vector{Int}
+    localdimensions(g::DiscretizedGrid) -> Vector{Int}
 
 Local dimensions of all tensor sites.
 """
-function local_dimensions(g::DiscretizedGrid)
+function localdimensions(g::DiscretizedGrid)
     max_sites = sum(g._rs) + g._ndims  # upper bound
     out = Vector{Csize_t}(undef, max_sites)
     n_out = Ref{Csize_t}(0)
@@ -356,7 +357,7 @@ end
 Base.ndims(g::InherentDiscreteGrid) = g._ndims
 rs(g::InherentDiscreteGrid) = g._rs
 
-function local_dimensions(g::InherentDiscreteGrid)
+function localdimensions(g::InherentDiscreteGrid)
     max_sites = sum(g._rs) + g._ndims
     out = Vector{Csize_t}(undef, max_sites)
     n_out = Ref{Csize_t}(0)
