@@ -25,16 +25,16 @@ import Tensor4all.QuanticsTCI: integral, to_tensor_train
         end
 
         @testset "evaluate" begin
-            # Evaluate at a known point using quantics indices
-            qi = origcoord_to_quantics(grid, [0.5])
-            val = evaluate(qtci, qi)
+            # Evaluate at a known point using grid indices (1-indexed, one per original dimension)
+            gi = origcoord_to_grididx(grid, [0.5])
+            val = evaluate(qtci, gi)
             @test val isa Float64
             @test val ≈ 0.25 atol=1e-4
         end
 
         @testset "callable interface" begin
-            qi = origcoord_to_quantics(grid, [0.25])
-            val = qtci(qi...)
+            gi = origcoord_to_grididx(grid, [0.25])
+            val = qtci(gi...)
             @test val isa Float64
             @test val ≈ 0.0625 atol=1e-4
         end
@@ -125,8 +125,8 @@ import Tensor4all.QuanticsTCI: integral, to_tensor_train
         @test errors isa Vector{Float64}
 
         @testset "evaluate" begin
-            qi = origcoord_to_quantics(grid, [0.5])
-            val = evaluate(qtci, qi)
+            gi = origcoord_to_grididx(grid, [0.5])
+            val = evaluate(qtci, gi)
             @test val isa ComplexF64
             @test val ≈ exp(im * 0.5) atol=1e-4
         end
