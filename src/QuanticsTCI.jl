@@ -14,7 +14,7 @@ using ..C_API
 using ..QuanticsGrids: DiscretizedGrid, InherentDiscreteGrid, localdimensions,
     _unfolding_to_cint
 using ..SimpleTT: SimpleTensorTrain
-import ..linkdims, ..evaluate, ..maxbonderror, ..maxrank
+import ..linkdims, ..evaluate, ..maxbonderror, ..maxrank, ..rank
 
 export QuanticsTensorCI2
 export quanticscrossinterpolate
@@ -261,8 +261,13 @@ Get the link (bond) dimensions.
 function linkdims(qtci::QuanticsTensorCI2{V}) where {V}
     r = rank(qtci)
     r == 0 && return Int[]
-    # Get the TT to query its link_dims
-    tt = to_tensor_train(qtci)
+    # Convert to SimpleTT and query its linkdims
+    tt_ptr = _qtci_api(V, :to_tensor_train)(qtci.ptr)
+    tt_ptr == C_NULL && error("Failed to convert QTCI to tensor train")
+    tt = SimpleTensorTrain{Float64}(tt_ptr)  # to_tensor_train always returns f64 SimpleTT
+    if V === ComplexF64
+        tt = SimpleTensorTrain{ComplexF64}(tt_ptr)
+    end
     return SimpleTT.linkdims(tt)
 end
 
