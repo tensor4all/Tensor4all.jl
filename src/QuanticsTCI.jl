@@ -259,14 +259,11 @@ end
 Get the link (bond) dimensions.
 """
 function linkdims(qtci::QuanticsTensorCI2{V}) where {V}
-    # Use a generous buffer
-    buf = Vector{Csize_t}(undef, 1024)
-    status = _qtci_api(V, :link_dims)(qtci.ptr, buf, Csize_t(length(buf)))
-    C_API.check_status(status)
-    # Find actual length by looking for trailing zeros
-    result = Int.(buf)
-    last_nonzero = findlast(x -> x > 0, result)
-    return isnothing(last_nonzero) ? Int[] : result[1:last_nonzero]
+    r = rank(qtci)
+    r == 0 && return Int[]
+    # Get the TT to query its link_dims
+    tt = to_tensor_train(qtci)
+    return SimpleTT.linkdims(tt)
 end
 
 """

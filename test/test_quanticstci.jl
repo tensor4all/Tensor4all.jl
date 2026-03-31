@@ -49,7 +49,8 @@ import Tensor4all.QuanticsTCI: integral, to_tensor_train
             # integral of x^2 from 0 to 1 = 1/3
             val = integral(qtci)
             @test val isa Float64
-            @test val ≈ 1/3 atol=1e-3
+            # Left Riemann sum with 256 points has O(1/N) error ≈ 0.002
+            @test val ≈ 1/3 atol=0.01
         end
 
         @testset "maxbonderror" begin
