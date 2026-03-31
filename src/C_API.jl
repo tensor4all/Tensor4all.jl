@@ -1241,6 +1241,514 @@ function t4a_simplett_f64_site_tensor(
 end
 
 # ============================================================================
+# SimpleTT f64 operations
+# ============================================================================
+
+"""
+    t4a_simplett_f64_compress(ptr, method, tolerance, max_bonddim) -> Cint
+
+Compress a SimpleTT tensor train in-place.
+method: 0=SVD, 1=LU, 2=CI
+"""
+function t4a_simplett_f64_compress(ptr::Ptr{Cvoid}, method::Integer, tolerance::Float64, max_bonddim::Integer)
+    return ccall(
+        _sym(:t4a_simplett_f64_compress),
+        Cint,
+        (Ptr{Cvoid}, Cint, Cdouble, Csize_t),
+        ptr,
+        Cint(method),
+        tolerance,
+        Csize_t(max_bonddim)
+    )
+end
+
+"""
+    t4a_simplett_f64_partial_sum(ptr, dims, n_dims, out) -> Cint
+
+Compute a partial sum over specified dimensions.
+"""
+function t4a_simplett_f64_partial_sum(ptr::Ptr{Cvoid}, dims, n_dims::Integer, out)
+    return ccall(
+        _sym(:t4a_simplett_f64_partial_sum),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t, Ptr{Ptr{Cvoid}}),
+        ptr,
+        dims,
+        Csize_t(n_dims),
+        out
+    )
+end
+
+"""
+    t4a_simplett_f64_from_site_tensors(n_sites, left_dims, site_dims, right_dims, data, data_len, out_ptr) -> Cint
+
+Create a SimpleTT tensor train from site tensor data.
+"""
+function t4a_simplett_f64_from_site_tensors(
+    n_sites::Integer,
+    left_dims,
+    site_dims,
+    right_dims,
+    data,
+    data_len::Integer,
+    out_ptr
+)
+    return ccall(
+        _sym(:t4a_simplett_f64_from_site_tensors),
+        Cint,
+        (Csize_t, Ptr{Csize_t}, Ptr{Csize_t}, Ptr{Csize_t}, Ptr{Cdouble}, Csize_t, Ptr{Ptr{Cvoid}}),
+        Csize_t(n_sites),
+        left_dims,
+        site_dims,
+        right_dims,
+        data,
+        Csize_t(data_len),
+        out_ptr
+    )
+end
+
+"""
+    t4a_simplett_f64_add(a, b, out) -> Cint
+
+Add two SimpleTT tensor trains.
+"""
+function t4a_simplett_f64_add(a::Ptr{Cvoid}, b::Ptr{Cvoid}, out)
+    return ccall(
+        _sym(:t4a_simplett_f64_add),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Ptr{Cvoid}}),
+        a,
+        b,
+        out
+    )
+end
+
+"""
+    t4a_simplett_f64_scale(ptr, factor) -> Cint
+
+Scale a SimpleTT tensor train in-place.
+"""
+function t4a_simplett_f64_scale(ptr::Ptr{Cvoid}, factor::Float64)
+    return ccall(
+        _sym(:t4a_simplett_f64_scale),
+        Cint,
+        (Ptr{Cvoid}, Cdouble),
+        ptr,
+        factor
+    )
+end
+
+"""
+    t4a_simplett_f64_dot(a, b, out_value) -> Cint
+
+Compute the dot product of two SimpleTT tensor trains.
+"""
+function t4a_simplett_f64_dot(a::Ptr{Cvoid}, b::Ptr{Cvoid}, out_value::Ref{Cdouble})
+    return ccall(
+        _sym(:t4a_simplett_f64_dot),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cdouble}),
+        a,
+        b,
+        out_value
+    )
+end
+
+"""
+    t4a_simplett_f64_reverse(ptr, out) -> Cint
+
+Reverse the site ordering of a SimpleTT tensor train.
+"""
+function t4a_simplett_f64_reverse(ptr::Ptr{Cvoid}, out)
+    return ccall(
+        _sym(:t4a_simplett_f64_reverse),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Ptr{Cvoid}}),
+        ptr,
+        out
+    )
+end
+
+"""
+    t4a_simplett_f64_fulltensor(ptr, out_data, buf_len, out_data_len) -> Cint
+
+Convert SimpleTT to a full tensor (dense array).
+If out_data is C_NULL, only out_data_len is written (query mode).
+"""
+function t4a_simplett_f64_fulltensor(ptr::Ptr{Cvoid}, out_data, buf_len::Integer, out_data_len)
+    return ccall(
+        _sym(:t4a_simplett_f64_fulltensor),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cdouble}, Csize_t, Ptr{Csize_t}),
+        ptr,
+        out_data,
+        Csize_t(buf_len),
+        out_data_len
+    )
+end
+
+# ============================================================================
+# SimpleTT c64 (complex) lifecycle functions
+# ============================================================================
+
+"""
+    t4a_simplett_c64_release(ptr::Ptr{Cvoid})
+
+Release a complex SimpleTT tensor train.
+"""
+function t4a_simplett_c64_release(ptr::Ptr{Cvoid})
+    ptr == C_NULL && return
+    ccall(
+        _sym(:t4a_simplett_c64_release),
+        Cvoid,
+        (Ptr{Cvoid},),
+        ptr
+    )
+end
+
+"""
+    t4a_simplett_c64_clone(ptr::Ptr{Cvoid}) -> Ptr{Cvoid}
+
+Clone a complex SimpleTT tensor train.
+"""
+function t4a_simplett_c64_clone(ptr::Ptr{Cvoid})
+    return ccall(
+        _sym(:t4a_simplett_c64_clone),
+        Ptr{Cvoid},
+        (Ptr{Cvoid},),
+        ptr
+    )
+end
+
+# ============================================================================
+# SimpleTT c64 constructors
+# ============================================================================
+
+"""
+    t4a_simplett_c64_constant(site_dims, value_re, value_im) -> Ptr{Cvoid}
+
+Create a constant complex SimpleTT tensor train.
+"""
+function t4a_simplett_c64_constant(site_dims::Vector{Csize_t}, value_re::Float64, value_im::Float64)
+    return ccall(
+        _sym(:t4a_simplett_c64_constant),
+        Ptr{Cvoid},
+        (Ptr{Csize_t}, Csize_t, Cdouble, Cdouble),
+        site_dims,
+        Csize_t(length(site_dims)),
+        value_re,
+        value_im
+    )
+end
+
+"""
+    t4a_simplett_c64_zeros(site_dims) -> Ptr{Cvoid}
+
+Create a zero complex SimpleTT tensor train.
+"""
+function t4a_simplett_c64_zeros(site_dims::Vector{Csize_t})
+    return ccall(
+        _sym(:t4a_simplett_c64_zeros),
+        Ptr{Cvoid},
+        (Ptr{Csize_t}, Csize_t),
+        site_dims,
+        Csize_t(length(site_dims))
+    )
+end
+
+# ============================================================================
+# SimpleTT c64 accessors
+# ============================================================================
+
+"""
+    t4a_simplett_c64_len(ptr, out_len) -> Cint
+
+Get the number of sites.
+"""
+function t4a_simplett_c64_len(ptr::Ptr{Cvoid}, out_len::Ref{Csize_t})
+    return ccall(
+        _sym(:t4a_simplett_c64_len),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}),
+        ptr,
+        out_len
+    )
+end
+
+"""
+    t4a_simplett_c64_site_dims(ptr, out_dims) -> Cint
+
+Get the site dimensions.
+"""
+function t4a_simplett_c64_site_dims(ptr::Ptr{Cvoid}, out_dims::Vector{Csize_t})
+    return ccall(
+        _sym(:t4a_simplett_c64_site_dims),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t),
+        ptr,
+        out_dims,
+        Csize_t(length(out_dims))
+    )
+end
+
+"""
+    t4a_simplett_c64_link_dims(ptr, out_dims) -> Cint
+
+Get the link (bond) dimensions.
+"""
+function t4a_simplett_c64_link_dims(ptr::Ptr{Cvoid}, out_dims::Vector{Csize_t})
+    return ccall(
+        _sym(:t4a_simplett_c64_link_dims),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t),
+        ptr,
+        out_dims,
+        Csize_t(length(out_dims))
+    )
+end
+
+"""
+    t4a_simplett_c64_rank(ptr, out_rank) -> Cint
+
+Get the maximum bond dimension (rank).
+"""
+function t4a_simplett_c64_rank(ptr::Ptr{Cvoid}, out_rank::Ref{Csize_t})
+    return ccall(
+        _sym(:t4a_simplett_c64_rank),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}),
+        ptr,
+        out_rank
+    )
+end
+
+"""
+    t4a_simplett_c64_evaluate(ptr, indices, out_value_re, out_value_im) -> Cint
+
+Evaluate the complex tensor train at a given multi-index.
+"""
+function t4a_simplett_c64_evaluate(ptr::Ptr{Cvoid}, indices::Vector{Csize_t}, out_value_re::Ref{Cdouble}, out_value_im::Ref{Cdouble})
+    return ccall(
+        _sym(:t4a_simplett_c64_evaluate),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t, Ptr{Cdouble}, Ptr{Cdouble}),
+        ptr,
+        indices,
+        Csize_t(length(indices)),
+        out_value_re,
+        out_value_im
+    )
+end
+
+"""
+    t4a_simplett_c64_sum(ptr, out_value_re, out_value_im) -> Cint
+
+Compute the sum over all indices (complex).
+"""
+function t4a_simplett_c64_sum(ptr::Ptr{Cvoid}, out_value_re::Ref{Cdouble}, out_value_im::Ref{Cdouble})
+    return ccall(
+        _sym(:t4a_simplett_c64_sum),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cdouble}, Ptr{Cdouble}),
+        ptr,
+        out_value_re,
+        out_value_im
+    )
+end
+
+"""
+    t4a_simplett_c64_norm(ptr, out_value) -> Cint
+
+Compute the Frobenius norm (real-valued).
+"""
+function t4a_simplett_c64_norm(ptr::Ptr{Cvoid}, out_value::Ref{Cdouble})
+    return ccall(
+        _sym(:t4a_simplett_c64_norm),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cdouble}),
+        ptr,
+        out_value
+    )
+end
+
+"""
+    t4a_simplett_c64_site_tensor(ptr, site, out_data, buf_len, out_left_dim, out_site_dim, out_right_dim) -> Cint
+
+Get site tensor data at a specific site (interleaved re/im pairs).
+Buffer must hold 2 * left_dim * site_dim * right_dim doubles.
+"""
+function t4a_simplett_c64_site_tensor(
+    ptr::Ptr{Cvoid},
+    site::Integer,
+    out_data::Vector{Cdouble},
+    out_left_dim::Ref{Csize_t},
+    out_site_dim::Ref{Csize_t},
+    out_right_dim::Ref{Csize_t}
+)
+    return ccall(
+        _sym(:t4a_simplett_c64_site_tensor),
+        Cint,
+        (Ptr{Cvoid}, Csize_t, Ptr{Cdouble}, Csize_t, Ptr{Csize_t}, Ptr{Csize_t}, Ptr{Csize_t}),
+        ptr,
+        Csize_t(site),
+        out_data,
+        Csize_t(length(out_data)),
+        out_left_dim,
+        out_site_dim,
+        out_right_dim
+    )
+end
+
+# ============================================================================
+# SimpleTT c64 operations
+# ============================================================================
+
+"""
+    t4a_simplett_c64_compress(ptr, method, tolerance, max_bonddim) -> Cint
+
+Compress a complex SimpleTT tensor train in-place.
+method: 0=SVD, 1=LU, 2=CI
+"""
+function t4a_simplett_c64_compress(ptr::Ptr{Cvoid}, method::Integer, tolerance::Float64, max_bonddim::Integer)
+    return ccall(
+        _sym(:t4a_simplett_c64_compress),
+        Cint,
+        (Ptr{Cvoid}, Cint, Cdouble, Csize_t),
+        ptr,
+        Cint(method),
+        tolerance,
+        Csize_t(max_bonddim)
+    )
+end
+
+"""
+    t4a_simplett_c64_partial_sum(ptr, dims, n_dims, out) -> Cint
+
+Compute a partial sum over specified dimensions (complex).
+"""
+function t4a_simplett_c64_partial_sum(ptr::Ptr{Cvoid}, dims, n_dims::Integer, out)
+    return ccall(
+        _sym(:t4a_simplett_c64_partial_sum),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t, Ptr{Ptr{Cvoid}}),
+        ptr,
+        dims,
+        Csize_t(n_dims),
+        out
+    )
+end
+
+"""
+    t4a_simplett_c64_from_site_tensors(n_sites, left_dims, site_dims, right_dims, data, data_len, out_ptr) -> Cint
+
+Create a complex SimpleTT tensor train from site tensor data (interleaved re/im pairs).
+"""
+function t4a_simplett_c64_from_site_tensors(
+    n_sites::Integer,
+    left_dims,
+    site_dims,
+    right_dims,
+    data,
+    data_len::Integer,
+    out_ptr
+)
+    return ccall(
+        _sym(:t4a_simplett_c64_from_site_tensors),
+        Cint,
+        (Csize_t, Ptr{Csize_t}, Ptr{Csize_t}, Ptr{Csize_t}, Ptr{Cdouble}, Csize_t, Ptr{Ptr{Cvoid}}),
+        Csize_t(n_sites),
+        left_dims,
+        site_dims,
+        right_dims,
+        data,
+        Csize_t(data_len),
+        out_ptr
+    )
+end
+
+"""
+    t4a_simplett_c64_add(a, b, out) -> Cint
+
+Add two complex SimpleTT tensor trains.
+"""
+function t4a_simplett_c64_add(a::Ptr{Cvoid}, b::Ptr{Cvoid}, out)
+    return ccall(
+        _sym(:t4a_simplett_c64_add),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Ptr{Cvoid}}),
+        a,
+        b,
+        out
+    )
+end
+
+"""
+    t4a_simplett_c64_scale(ptr, factor_re, factor_im) -> Cint
+
+Scale a complex SimpleTT tensor train in-place.
+"""
+function t4a_simplett_c64_scale(ptr::Ptr{Cvoid}, factor_re::Float64, factor_im::Float64)
+    return ccall(
+        _sym(:t4a_simplett_c64_scale),
+        Cint,
+        (Ptr{Cvoid}, Cdouble, Cdouble),
+        ptr,
+        factor_re,
+        factor_im
+    )
+end
+
+"""
+    t4a_simplett_c64_dot(a, b, out_re, out_im) -> Cint
+
+Compute the dot product of two complex SimpleTT tensor trains.
+"""
+function t4a_simplett_c64_dot(a::Ptr{Cvoid}, b::Ptr{Cvoid}, out_re::Ref{Cdouble}, out_im::Ref{Cdouble})
+    return ccall(
+        _sym(:t4a_simplett_c64_dot),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cdouble}, Ptr{Cdouble}),
+        a,
+        b,
+        out_re,
+        out_im
+    )
+end
+
+"""
+    t4a_simplett_c64_reverse(ptr, out) -> Cint
+
+Reverse the site ordering of a complex SimpleTT tensor train.
+"""
+function t4a_simplett_c64_reverse(ptr::Ptr{Cvoid}, out)
+    return ccall(
+        _sym(:t4a_simplett_c64_reverse),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Ptr{Cvoid}}),
+        ptr,
+        out
+    )
+end
+
+"""
+    t4a_simplett_c64_fulltensor(ptr, out_data, buf_len, out_data_len) -> Cint
+
+Convert complex SimpleTT to a full tensor (interleaved re/im pairs).
+If out_data is C_NULL, only out_data_len is written (query mode).
+"""
+function t4a_simplett_c64_fulltensor(ptr::Ptr{Cvoid}, out_data, buf_len::Integer, out_data_len)
+    return ccall(
+        _sym(:t4a_simplett_c64_fulltensor),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cdouble}, Csize_t, Ptr{Csize_t}),
+        ptr,
+        out_data,
+        Csize_t(buf_len),
+        out_data_len
+    )
+end
+
+# ============================================================================
 # TensorCI2 lifecycle functions
 # ============================================================================
 
@@ -1925,48 +2433,72 @@ end
 # ============================================================================
 
 """
-    t4a_quanticscrossinterpolate_f64(grid, eval_fn, user_data, tolerance, max_bonddim, max_iter, out_qtci) -> Cint
+    t4a_quanticscrossinterpolate_f64(grid, eval_fn, user_data, options, tolerance, max_bonddim, max_iter, initial_pivots, n_pivots, out_qtci, out_ranks, out_errors, out_n_iters) -> Cint
 
 Continuous domain interpolation using a DiscretizedGrid.
+options: Ptr to QtciOptions (or C_NULL for defaults).
+initial_pivots: flat array of i64 pivots (or C_NULL).
+out_ranks/out_errors: optional per-iteration output buffers (or C_NULL).
+out_n_iters: optional output for number of iterations (or C_NULL).
 """
 function t4a_quanticscrossinterpolate_f64(
     grid::Ptr{Cvoid},
     eval_fn::Ptr{Cvoid},
     user_data::Ptr{Cvoid},
+    options::Ptr{Cvoid},
     tolerance::Cdouble,
     max_bonddim::Csize_t,
     max_iter::Csize_t,
-    out_qtci::Ref{Ptr{Cvoid}},
+    initial_pivots,
+    n_pivots::Csize_t,
+    out_qtci,
+    out_ranks,
+    out_errors,
+    out_n_iters,
 )
     return ccall(
         _sym(:t4a_quanticscrossinterpolate_f64),
         Cint,
-        (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Cdouble, Csize_t, Csize_t, Ptr{Ptr{Cvoid}}),
-        grid, eval_fn, user_data, tolerance, max_bonddim, max_iter, out_qtci
+        (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Cdouble, Csize_t, Csize_t,
+         Ptr{Int64}, Csize_t, Ptr{Ptr{Cvoid}}, Ptr{Csize_t}, Ptr{Cdouble}, Ptr{Csize_t}),
+        grid, eval_fn, user_data, options, tolerance, max_bonddim, max_iter,
+        initial_pivots, n_pivots, out_qtci, out_ranks, out_errors, out_n_iters
     )
 end
 
 """
-    t4a_quanticscrossinterpolate_discrete_f64(sizes, ndims, eval_fn, user_data, tolerance, max_bonddim, max_iter, unfoldingscheme, out_qtci) -> Cint
+    t4a_quanticscrossinterpolate_discrete_f64(sizes, ndims, eval_fn, user_data, options, tolerance, max_bonddim, max_iter, unfoldingscheme, initial_pivots, n_pivots, out_qtci, out_ranks, out_errors, out_n_iters) -> Cint
 
 Discrete domain interpolation with integer indices.
+options: Ptr to QtciOptions (or C_NULL for defaults).
+initial_pivots: flat array of i64 pivots (or C_NULL).
+out_ranks/out_errors: optional per-iteration output buffers (or C_NULL).
+out_n_iters: optional output for number of iterations (or C_NULL).
 """
 function t4a_quanticscrossinterpolate_discrete_f64(
     sizes::Vector{Csize_t},
     ndims::Csize_t,
     eval_fn::Ptr{Cvoid},
     user_data::Ptr{Cvoid},
+    options::Ptr{Cvoid},
     tolerance::Cdouble,
     max_bonddim::Csize_t,
     max_iter::Csize_t,
     unfoldingscheme::Cint,
-    out_qtci::Ref{Ptr{Cvoid}},
+    initial_pivots,
+    n_pivots::Csize_t,
+    out_qtci,
+    out_ranks,
+    out_errors,
+    out_n_iters,
 )
     return ccall(
         _sym(:t4a_quanticscrossinterpolate_discrete_f64),
         Cint,
-        (Ptr{Csize_t}, Csize_t, Ptr{Cvoid}, Ptr{Cvoid}, Cdouble, Csize_t, Csize_t, Cint, Ptr{Ptr{Cvoid}}),
-        sizes, ndims, eval_fn, user_data, tolerance, max_bonddim, max_iter, unfoldingscheme, out_qtci
+        (Ptr{Csize_t}, Csize_t, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Cdouble, Csize_t, Csize_t, Cint,
+         Ptr{Int64}, Csize_t, Ptr{Ptr{Cvoid}}, Ptr{Csize_t}, Ptr{Cdouble}, Ptr{Csize_t}),
+        sizes, ndims, eval_fn, user_data, options, tolerance, max_bonddim, max_iter, unfoldingscheme,
+        initial_pivots, n_pivots, out_qtci, out_ranks, out_errors, out_n_iters
     )
 end
 
@@ -2029,6 +2561,403 @@ function t4a_qtci_f64_to_tensor_train(ptr::Ptr{Cvoid})
         Ptr{Cvoid},
         (Ptr{Cvoid},),
         ptr
+    )
+end
+
+"""
+    t4a_qtci_f64_clone(ptr) -> Ptr{Cvoid}
+
+Clone a QuanticsTCI f64 handle.
+"""
+function t4a_qtci_f64_clone(ptr::Ptr{Cvoid})
+    return ccall(
+        _sym(:t4a_qtci_f64_clone),
+        Ptr{Cvoid},
+        (Ptr{Cvoid},),
+        ptr
+    )
+end
+
+"""
+    t4a_qtci_f64_max_bond_error(ptr, out_value) -> Cint
+
+Get the maximum bond error from the QuanticsTCI.
+"""
+function t4a_qtci_f64_max_bond_error(ptr::Ptr{Cvoid}, out_value::Ref{Cdouble})
+    return ccall(
+        _sym(:t4a_qtci_f64_max_bond_error),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cdouble}),
+        ptr,
+        out_value
+    )
+end
+
+"""
+    t4a_qtci_f64_max_rank(ptr, out_rank) -> Cint
+
+Get the maximum rank from the QuanticsTCI.
+"""
+function t4a_qtci_f64_max_rank(ptr::Ptr{Cvoid}, out_rank::Ref{Csize_t})
+    return ccall(
+        _sym(:t4a_qtci_f64_max_rank),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}),
+        ptr,
+        out_rank
+    )
+end
+
+# ============================================================================
+# QuanticsTCI c64: Lifecycle
+# ============================================================================
+
+function t4a_qtci_c64_release(ptr::Ptr{Cvoid})
+    ptr == C_NULL && return
+    ccall(
+        _sym(:t4a_qtci_c64_release),
+        Cvoid,
+        (Ptr{Cvoid},),
+        ptr
+    )
+end
+
+function t4a_qtci_c64_clone(ptr::Ptr{Cvoid})
+    return ccall(
+        _sym(:t4a_qtci_c64_clone),
+        Ptr{Cvoid},
+        (Ptr{Cvoid},),
+        ptr
+    )
+end
+
+# ============================================================================
+# QuanticsTCI c64: Accessors
+# ============================================================================
+
+function t4a_qtci_c64_rank(ptr::Ptr{Cvoid}, out_rank::Ref{Csize_t})
+    return ccall(
+        _sym(:t4a_qtci_c64_rank),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}),
+        ptr, out_rank
+    )
+end
+
+function t4a_qtci_c64_link_dims(ptr::Ptr{Cvoid}, out_dims::Vector{Csize_t}, buf_len::Csize_t)
+    return ccall(
+        _sym(:t4a_qtci_c64_link_dims),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t),
+        ptr, out_dims, buf_len
+    )
+end
+
+# ============================================================================
+# QuanticsTCI c64: Operations
+# ============================================================================
+
+function t4a_qtci_c64_evaluate(ptr::Ptr{Cvoid}, indices::Vector{Int64}, n_indices::Csize_t, out_re::Ref{Cdouble}, out_im::Ref{Cdouble})
+    return ccall(
+        _sym(:t4a_qtci_c64_evaluate),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Int64}, Csize_t, Ptr{Cdouble}, Ptr{Cdouble}),
+        ptr, indices, n_indices, out_re, out_im
+    )
+end
+
+function t4a_qtci_c64_sum(ptr::Ptr{Cvoid}, out_re::Ref{Cdouble}, out_im::Ref{Cdouble})
+    return ccall(
+        _sym(:t4a_qtci_c64_sum),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cdouble}, Ptr{Cdouble}),
+        ptr, out_re, out_im
+    )
+end
+
+function t4a_qtci_c64_integral(ptr::Ptr{Cvoid}, out_re::Ref{Cdouble}, out_im::Ref{Cdouble})
+    return ccall(
+        _sym(:t4a_qtci_c64_integral),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cdouble}, Ptr{Cdouble}),
+        ptr, out_re, out_im
+    )
+end
+
+function t4a_qtci_c64_to_tensor_train(ptr::Ptr{Cvoid})
+    return ccall(
+        _sym(:t4a_qtci_c64_to_tensor_train),
+        Ptr{Cvoid},
+        (Ptr{Cvoid},),
+        ptr
+    )
+end
+
+function t4a_qtci_c64_max_bond_error(ptr::Ptr{Cvoid}, out_value::Ref{Cdouble})
+    return ccall(
+        _sym(:t4a_qtci_c64_max_bond_error),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cdouble}),
+        ptr,
+        out_value
+    )
+end
+
+function t4a_qtci_c64_max_rank(ptr::Ptr{Cvoid}, out_rank::Ref{Csize_t})
+    return ccall(
+        _sym(:t4a_qtci_c64_max_rank),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}),
+        ptr,
+        out_rank
+    )
+end
+
+# ============================================================================
+# QuanticsTCI c64: High-level interpolation functions
+# ============================================================================
+
+"""
+    t4a_quanticscrossinterpolate_c64(grid, eval_fn, user_data, options, tolerance, max_bonddim, max_iter, initial_pivots, n_pivots, out_qtci, out_ranks, out_errors, out_n_iters) -> Cint
+
+Continuous domain complex interpolation using a DiscretizedGrid.
+"""
+function t4a_quanticscrossinterpolate_c64(
+    grid::Ptr{Cvoid},
+    eval_fn::Ptr{Cvoid},
+    user_data::Ptr{Cvoid},
+    options::Ptr{Cvoid},
+    tolerance::Cdouble,
+    max_bonddim::Csize_t,
+    max_iter::Csize_t,
+    initial_pivots,
+    n_pivots::Csize_t,
+    out_qtci,
+    out_ranks,
+    out_errors,
+    out_n_iters,
+)
+    return ccall(
+        _sym(:t4a_quanticscrossinterpolate_c64),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Cdouble, Csize_t, Csize_t,
+         Ptr{Int64}, Csize_t, Ptr{Ptr{Cvoid}}, Ptr{Csize_t}, Ptr{Cdouble}, Ptr{Csize_t}),
+        grid, eval_fn, user_data, options, tolerance, max_bonddim, max_iter,
+        initial_pivots, n_pivots, out_qtci, out_ranks, out_errors, out_n_iters
+    )
+end
+
+"""
+    t4a_quanticscrossinterpolate_discrete_c64(sizes, ndims, eval_fn, user_data, options, tolerance, max_bonddim, max_iter, unfoldingscheme, initial_pivots, n_pivots, out_qtci, out_ranks, out_errors, out_n_iters) -> Cint
+
+Discrete domain complex interpolation with integer indices.
+"""
+function t4a_quanticscrossinterpolate_discrete_c64(
+    sizes::Vector{Csize_t},
+    ndims::Csize_t,
+    eval_fn::Ptr{Cvoid},
+    user_data::Ptr{Cvoid},
+    options::Ptr{Cvoid},
+    tolerance::Cdouble,
+    max_bonddim::Csize_t,
+    max_iter::Csize_t,
+    unfoldingscheme::Cint,
+    initial_pivots,
+    n_pivots::Csize_t,
+    out_qtci,
+    out_ranks,
+    out_errors,
+    out_n_iters,
+)
+    return ccall(
+        _sym(:t4a_quanticscrossinterpolate_discrete_c64),
+        Cint,
+        (Ptr{Csize_t}, Csize_t, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Cdouble, Csize_t, Csize_t, Cint,
+         Ptr{Int64}, Csize_t, Ptr{Ptr{Cvoid}}, Ptr{Csize_t}, Ptr{Cdouble}, Ptr{Csize_t}),
+        sizes, ndims, eval_fn, user_data, options, tolerance, max_bonddim, max_iter, unfoldingscheme,
+        initial_pivots, n_pivots, out_qtci, out_ranks, out_errors, out_n_iters
+    )
+end
+
+# ============================================================================
+# QtciOptions lifecycle and setters
+# ============================================================================
+
+"""
+    t4a_qtci_options_default() -> Ptr{Cvoid}
+
+Create a new QtciOptions handle with default settings.
+"""
+function t4a_qtci_options_default()
+    return ccall(
+        _sym(:t4a_qtci_options_default),
+        Ptr{Cvoid},
+        ()
+    )
+end
+
+"""
+    t4a_qtci_options_release(ptr)
+
+Release a QtciOptions handle.
+"""
+function t4a_qtci_options_release(ptr::Ptr{Cvoid})
+    ptr == C_NULL && return
+    ccall(
+        _sym(:t4a_qtci_options_release),
+        Cvoid,
+        (Ptr{Cvoid},),
+        ptr
+    )
+end
+
+"""
+    t4a_qtci_options_clone(ptr) -> Ptr{Cvoid}
+
+Clone a QtciOptions handle.
+"""
+function t4a_qtci_options_clone(ptr::Ptr{Cvoid})
+    return ccall(
+        _sym(:t4a_qtci_options_clone),
+        Ptr{Cvoid},
+        (Ptr{Cvoid},),
+        ptr
+    )
+end
+
+"""
+    t4a_qtci_options_set_tolerance(ptr, tolerance) -> Cint
+
+Set the tolerance for QTCI.
+"""
+function t4a_qtci_options_set_tolerance(ptr::Ptr{Cvoid}, tolerance::Float64)
+    return ccall(
+        _sym(:t4a_qtci_options_set_tolerance),
+        Cint,
+        (Ptr{Cvoid}, Cdouble),
+        ptr,
+        tolerance
+    )
+end
+
+"""
+    t4a_qtci_options_set_maxbonddim(ptr, dim) -> Cint
+
+Set the maximum bond dimension for QTCI.
+"""
+function t4a_qtci_options_set_maxbonddim(ptr::Ptr{Cvoid}, dim::Integer)
+    return ccall(
+        _sym(:t4a_qtci_options_set_maxbonddim),
+        Cint,
+        (Ptr{Cvoid}, Csize_t),
+        ptr,
+        Csize_t(dim)
+    )
+end
+
+"""
+    t4a_qtci_options_set_maxiter(ptr, iter) -> Cint
+
+Set the maximum number of iterations for QTCI.
+"""
+function t4a_qtci_options_set_maxiter(ptr::Ptr{Cvoid}, iter::Integer)
+    return ccall(
+        _sym(:t4a_qtci_options_set_maxiter),
+        Cint,
+        (Ptr{Cvoid}, Csize_t),
+        ptr,
+        Csize_t(iter)
+    )
+end
+
+"""
+    t4a_qtci_options_set_nrandominitpivot(ptr, n) -> Cint
+
+Set the number of random initial pivots for QTCI.
+"""
+function t4a_qtci_options_set_nrandominitpivot(ptr::Ptr{Cvoid}, n::Integer)
+    return ccall(
+        _sym(:t4a_qtci_options_set_nrandominitpivot),
+        Cint,
+        (Ptr{Cvoid}, Csize_t),
+        ptr,
+        Csize_t(n)
+    )
+end
+
+"""
+    t4a_qtci_options_set_unfoldingscheme(ptr, scheme) -> Cint
+
+Set the unfolding scheme for QTCI.
+scheme: 0=Fused, 1=Interleaved, 2=Grouped
+"""
+function t4a_qtci_options_set_unfoldingscheme(ptr::Ptr{Cvoid}, scheme::Integer)
+    return ccall(
+        _sym(:t4a_qtci_options_set_unfoldingscheme),
+        Cint,
+        (Ptr{Cvoid}, Cint),
+        ptr,
+        Cint(scheme)
+    )
+end
+
+"""
+    t4a_qtci_options_set_normalize_error(ptr, flag) -> Cint
+
+Set whether to normalize errors in QTCI.
+"""
+function t4a_qtci_options_set_normalize_error(ptr::Ptr{Cvoid}, flag::Integer)
+    return ccall(
+        _sym(:t4a_qtci_options_set_normalize_error),
+        Cint,
+        (Ptr{Cvoid}, Cint),
+        ptr,
+        Cint(flag)
+    )
+end
+
+"""
+    t4a_qtci_options_set_verbosity(ptr, level) -> Cint
+
+Set the verbosity level for QTCI.
+"""
+function t4a_qtci_options_set_verbosity(ptr::Ptr{Cvoid}, level::Integer)
+    return ccall(
+        _sym(:t4a_qtci_options_set_verbosity),
+        Cint,
+        (Ptr{Cvoid}, Csize_t),
+        ptr,
+        Csize_t(level)
+    )
+end
+
+"""
+    t4a_qtci_options_set_nsearchglobalpivot(ptr, n) -> Cint
+
+Set the number of global pivot searches for QTCI.
+"""
+function t4a_qtci_options_set_nsearchglobalpivot(ptr::Ptr{Cvoid}, n::Integer)
+    return ccall(
+        _sym(:t4a_qtci_options_set_nsearchglobalpivot),
+        Cint,
+        (Ptr{Cvoid}, Csize_t),
+        ptr,
+        Csize_t(n)
+    )
+end
+
+"""
+    t4a_qtci_options_set_nsearch(ptr, n) -> Cint
+
+Set the number of searches for QTCI.
+"""
+function t4a_qtci_options_set_nsearch(ptr::Ptr{Cvoid}, n::Integer)
+    return ccall(
+        _sym(:t4a_qtci_options_set_nsearch),
+        Cint,
+        (Ptr{Cvoid}, Csize_t),
+        ptr,
+        Csize_t(n)
     )
 end
 
