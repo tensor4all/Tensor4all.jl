@@ -12,9 +12,9 @@ module SimpleTT
 
 using LinearAlgebra
 using ..C_API
-import ..rank, ..linkdims, ..compress!
+import ..rank, ..linkdims, ..compress!, ..evaluate
 
-export SimpleTensorTrain, sitedims, linkdims, rank, compress!, sitetensor, fulltensor, scale!
+export SimpleTensorTrain, sitedims, linkdims, rank, compress!, evaluate, sitetensor, fulltensor, scale!
 
 # ============================================================================
 # Type dispatch helpers

@@ -3,8 +3,8 @@ using Tensor4all
 using Tensor4all.QuanticsGrids
 using Tensor4all.QuanticsTCI
 using Tensor4all.SimpleTT: SimpleTensorTrain
-import Tensor4all.QuanticsTCI: evaluate, sum, integral, to_tensor_train,
-    linkdims, maxbonderror, maxrank
+import Tensor4all: evaluate, linkdims, maxbonderror, maxrank
+import Tensor4all.QuanticsTCI: integral, to_tensor_train
 
 @testset "QuanticsTCI" begin
     @testset "Float64 - continuous grid" begin

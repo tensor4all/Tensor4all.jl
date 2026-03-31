@@ -916,7 +916,29 @@ Compress a tensor network object in-place.
 """
 function compress! end
 
-export linkdims, compress!
+"""
+    evaluate(obj, indices) -> scalar
+
+Evaluate a tensor network object at the given multi-index.
+Dispatches to the appropriate method depending on the type of `obj`.
+"""
+function evaluate end
+
+"""
+    maxbonderror(obj) -> Float64
+
+Get the maximum bond error across all edges/bonds.
+"""
+function maxbonderror end
+
+"""
+    maxrank(obj) -> Int
+
+Get the maximum rank (bond dimension) across all edges/bonds.
+"""
+function maxrank end
+
+export linkdims, compress!, evaluate, maxbonderror, maxrank
 
 # ============================================================================
 # SimpleTT Submodule (Simple Tensor Train)

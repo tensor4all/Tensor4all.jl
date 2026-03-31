@@ -24,6 +24,7 @@ module TreeTCI
 
 using ..C_API
 import ..TreeTN: TreeTensorNetwork
+import ..evaluate, ..maxbonderror, ..maxrank
 
 export TreeTciGraph, SimpleTreeTci
 export crossinterpolate2, evaluate

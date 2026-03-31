@@ -14,11 +14,11 @@ using ..C_API
 using ..QuanticsGrids: DiscretizedGrid, InherentDiscreteGrid, localdimensions,
     _unfolding_to_cint
 using ..SimpleTT: SimpleTensorTrain
-import ..linkdims
+import ..linkdims, ..evaluate, ..maxbonderror, ..maxrank
 
 export QuanticsTensorCI2
 export quanticscrossinterpolate
-export evaluate, sum, integral, to_tensor_train
+export evaluate, integral, to_tensor_train
 export linkdims, maxbonderror, maxrank
 
 # ============================================================================
@@ -311,11 +311,11 @@ function evaluate(qtci::QuanticsTensorCI2{Float64}, indices::Vector{<:Integer})
 end
 
 """
-    sum(qtci::QuanticsTensorCI2{Float64}) -> Float64
+    Base.sum(qtci::QuanticsTensorCI2{Float64}) -> Float64
 
 Compute the factorized sum over all grid points.
 """
-function sum(qtci::QuanticsTensorCI2{Float64})
+function Base.sum(qtci::QuanticsTensorCI2{Float64})
     out_value = Ref{Cdouble}(0.0)
     status = C_API.t4a_qtci_f64_sum(qtci.ptr, out_value)
     C_API.check_status(status)
@@ -364,11 +364,11 @@ function evaluate(qtci::QuanticsTensorCI2{ComplexF64}, indices::Vector{<:Integer
 end
 
 """
-    sum(qtci::QuanticsTensorCI2{ComplexF64}) -> ComplexF64
+    Base.sum(qtci::QuanticsTensorCI2{ComplexF64}) -> ComplexF64
 
 Compute the factorized sum over all grid points.
 """
-function sum(qtci::QuanticsTensorCI2{ComplexF64})
+function Base.sum(qtci::QuanticsTensorCI2{ComplexF64})
     out_re = Ref{Cdouble}(0.0)
     out_im = Ref{Cdouble}(0.0)
     status = C_API.t4a_qtci_c64_sum(qtci.ptr, out_re, out_im)

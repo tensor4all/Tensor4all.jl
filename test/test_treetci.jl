@@ -1,6 +1,7 @@
 using Test
 using Tensor4all.TreeTCI
-import Tensor4all.TreeTCI: evaluate, maxbonderror, maxrank, maxsamplevalue,
+import Tensor4all: evaluate, maxbonderror, maxrank
+import Tensor4all.TreeTCI: maxsamplevalue,
     bonddims, to_treetn, sweep!, add_global_pivots!
 
 @testset "TreeTCI" begin
