@@ -254,6 +254,18 @@ end
 # ============================================================================
 
 """
+    rank(qtci::QuanticsTensorCI2) -> Int
+
+Get the maximum bond dimension (rank).
+"""
+function rank(qtci::QuanticsTensorCI2{V}) where {V}
+    out_rank = Ref{Csize_t}(0)
+    status = _qtci_api(V, :rank)(qtci.ptr, out_rank)
+    C_API.check_status(status)
+    return Int(out_rank[])
+end
+
+"""
     linkdims(qtci::QuanticsTensorCI2) -> Vector{Int}
 
 Get the link (bond) dimensions.
