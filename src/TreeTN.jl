@@ -28,6 +28,7 @@ using LinearAlgebra
 import ..Tensor4all: Index, Tensor, dim, id, tags, indices, rank, dims, data
 import ..Tensor4all: hascommoninds, commoninds, uniqueinds, HasCommonIndsPredicate
 import ..Tensor4all: C_API
+import ..SimpleTT: SimpleTensorTrain, sitetensor
 
 # ============================================================================
 # CanonicalForm Enum
@@ -152,6 +153,128 @@ function MPS(tensors::Vector{Tensor})
     C_API.check_status(status)
 
     return TreeTensorNetwork{Int}(out[], node_map, node_names)
+end
+
+"""
+    MPS(tt::SimpleTensorTrain{T}) where T
+
+Convert a SimpleTensorTrain to an MPS (TreeTensorNetwork{Int}).
+
+Extracts site tensors from the SimpleTT and builds Tensor objects with
+appropriate site and link indices.
+"""
+function MPS(tt::SimpleTensorTrain{T}) where T
+    n = length(tt)
+    n == 0 && error("Cannot create MPS from empty SimpleTensorTrain")
+
+    tensors = Tensor[]
+    links = Index[]
+
+    for i in 1:n
+        st = sitetensor(tt, i)  # shape (left, site, right)
+        left_dim, site_dim, right_dim = size(st)
+
+        site_idx = Index(site_dim)
+        inds = Index[]
+
+        if i > 1
+            push!(inds, links[end])  # left link from previous
+        end
+        push!(inds, site_idx)
+        if i < n
+            link = Index(right_dim; tags="Link,l=$i")
+            push!(links, link)
+            push!(inds, link)
+        end
+
+        # Remove singleton boundary dimensions
+        if i == 1 && i == n
+            # Single site: shape (1, site, 1) -> (site,)
+            d = reshape(st, site_dim)
+        elseif i == 1
+            # First site: shape (1, site, right) -> (site, right)
+            d = reshape(st, site_dim, right_dim)
+        elseif i == n
+            # Last site: shape (left, site, 1) -> (left, site)
+            d = reshape(st, left_dim, site_dim)
+        else
+            # Middle: shape (left, site, right)
+            d = st
+        end
+
+        push!(tensors, Tensor(inds, d))
+    end
+
+    return MPS(tensors)
+end
+
+"""
+    SimpleTensorTrain(mps::TreeTensorNetwork{Int})
+
+Convert an MPS (TreeTensorNetwork{Int}) to a SimpleTensorTrain.
+
+For each site, extracts tensor data ordered as (left_link, site, right_link)
+and reshapes to 3D arrays with shape (left_dim, site_dim, right_dim).
+"""
+function SimpleTensorTrain(mps::TreeTensorNetwork{Int})
+    n = nv(mps)
+    n == 0 && error("Cannot create SimpleTensorTrain from empty MPS")
+
+    site_tensors = Array{Float64,3}[]
+    first_tensor = mps[1]
+    first_data = data(first_tensor)
+    is_complex = eltype(first_data) <: Complex
+
+    if is_complex
+        site_tensors_c = Array{ComplexF64,3}[]
+    end
+
+    for i in 1:n
+        tensor = mps[i]
+        si = siteinds(mps, i)
+        site_dim = isempty(si) ? 1 : dim(si[1])
+
+        if n == 1
+            left_dim = 1
+            right_dim = 1
+        elseif i == 1
+            left_dim = 1
+            right_dim = linkdim(mps, 1)
+        elseif i == n
+            left_dim = linkdim(mps, n - 1)
+            right_dim = 1
+        else
+            left_dim = linkdim(mps, i - 1)
+            right_dim = linkdim(mps, i)
+        end
+
+        # Build desired index order: left_link, site, right_link
+        desired_inds = Index[]
+        if i > 1
+            push!(desired_inds, linkind(mps, i - 1))
+        end
+        append!(desired_inds, si)
+        if i < n
+            push!(desired_inds, linkind(mps, i))
+        end
+
+        arr = Array(tensor, desired_inds)
+
+        # Reshape to 3D (left, site, right)
+        st = reshape(arr, left_dim, site_dim, right_dim)
+
+        if is_complex
+            push!(site_tensors_c, Array{ComplexF64,3}(st))
+        else
+            push!(site_tensors, Array{Float64,3}(st))
+        end
+    end
+
+    if is_complex
+        return SimpleTensorTrain(site_tensors_c)
+    else
+        return SimpleTensorTrain(site_tensors)
+    end
 end
 
 # Note: MPO(tensors::Vector{Tensor}) is not defined separately because
