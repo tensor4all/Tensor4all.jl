@@ -19,4 +19,6 @@ skip_hdf5 = get(ENV, "T4A_SKIP_HDF5_TESTS", "") == "1"
     if !skip_hdf5
         include("test_hdf5_itensors_compat.jl")
     end
+    include("test_simplett.jl")
+    include("test_quanticstci.jl")
 end
