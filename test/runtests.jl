@@ -21,4 +21,5 @@ skip_hdf5 = get(ENV, "T4A_SKIP_HDF5_TESTS", "") == "1"
     end
     include("test_simplett.jl")
     include("test_quanticstci.jl")
+    include("test_treetci.jl")
 end
