@@ -14,6 +14,7 @@ using ..C_API
 using ..QuanticsGrids: DiscretizedGrid, InherentDiscreteGrid, localdimensions,
     _unfolding_to_cint
 using ..SimpleTT: SimpleTensorTrain
+import ..linkdims
 
 export QuanticsTensorCI2
 export quanticscrossinterpolate

@@ -12,8 +12,9 @@ module SimpleTT
 
 using LinearAlgebra
 using ..C_API
+import ..rank, ..linkdims, ..compress!
 
-export SimpleTensorTrain, sitedims, linkdims, sitetensor, fulltensor, scale!
+export SimpleTensorTrain, sitedims, linkdims, rank, compress!, sitetensor, fulltensor, scale!
 
 # ============================================================================
 # Type dispatch helpers
@@ -525,6 +526,24 @@ end
 Base.:*(tt::SimpleTensorTrain{T}, alpha::Number) where {T<:_SimpleTTScalar} = alpha * tt
 
 # ============================================================================
+# Conjugation
+# ============================================================================
+
+"""
+    conj(tt::SimpleTensorTrain{ComplexF64}) -> SimpleTensorTrain{ComplexF64}
+
+Return a new tensor train with all site tensors element-wise conjugated.
+"""
+function Base.conj(tt::SimpleTensorTrain{ComplexF64})
+    n = length(tt)
+    site_tensors = [conj(sitetensor(tt, i)) for i in 1:n]
+    return SimpleTensorTrain(site_tensors)
+end
+
+# Float64 conjugation is a no-op (returns a copy for consistency).
+Base.conj(tt::SimpleTensorTrain{Float64}) = copy(tt)
+
+# ============================================================================
 # Dot product
 # ============================================================================
 
@@ -544,11 +563,16 @@ end
     dot(a::SimpleTensorTrain{ComplexF64}, b::SimpleTensorTrain{ComplexF64}) -> ComplexF64
 
 Compute the dot product (inner product) of two ComplexF64 tensor trains.
+Follows Julia convention: `dot(a, b) = sum(conj(a_i) * b_i)`.
+
+The Rust C API computes the bilinear form `sum(a_i * b_i)`, so we conjugate
+the first argument before calling it.
 """
 function LinearAlgebra.dot(a::SimpleTensorTrain{ComplexF64}, b::SimpleTensorTrain{ComplexF64})
+    a_conj = conj(a)
     out_re = Ref{Cdouble}(0.0)
     out_im = Ref{Cdouble}(0.0)
-    status = C_API.t4a_simplett_c64_dot(a.ptr, b.ptr, out_re, out_im)
+    status = C_API.t4a_simplett_c64_dot(a_conj.ptr, b.ptr, out_re, out_im)
     C_API.check_status(status)
     return ComplexF64(out_re[], out_im[])
 end

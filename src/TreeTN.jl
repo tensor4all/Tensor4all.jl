@@ -27,7 +27,7 @@ using LinearAlgebra
 # Import from parent module
 import ..Tensor4all: Index, Tensor, dim, id, tags, indices, rank, dims, data
 import ..Tensor4all: hascommoninds, commoninds, uniqueinds, HasCommonIndsPredicate
-import ..Tensor4all: C_API
+import ..Tensor4all: C_API, linkdims
 import ..SimpleTT: SimpleTensorTrain, sitetensor
 
 # ============================================================================

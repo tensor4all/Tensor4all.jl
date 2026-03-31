@@ -895,6 +895,30 @@ end
 export save_itensor, load_itensor
 
 # ============================================================================
+# Generic functions shared across submodules
+# ============================================================================
+# These functions are defined here so that submodules (SimpleTT, TreeTN,
+# QuanticsTCI, etc.) can extend them with methods for their own types,
+# avoiding name collisions when multiple submodules are loaded together.
+
+"""
+    linkdims(obj) -> Vector{Int}
+
+Get the link (bond) dimensions.  Dispatches to the appropriate method
+depending on the type of `obj` (SimpleTensorTrain, TreeTensorNetwork, etc.).
+"""
+function linkdims end
+
+"""
+    compress!(obj; kwargs...)
+
+Compress a tensor network object in-place.
+"""
+function compress! end
+
+export linkdims, compress!
+
+# ============================================================================
 # SimpleTT Submodule (Simple Tensor Train)
 # ============================================================================
 # SimpleTT is a simple tensor train (TT/MPS) library with statically determined shapes
@@ -903,18 +927,18 @@ export save_itensor, load_itensor
 include("SimpleTT.jl")
 
 # ============================================================================
-# TreeTCI Submodule (Tree Tensor Cross Interpolation)
-# ============================================================================
-# TreeTCI provides tree-structured tensor cross interpolation.
-# Use: using Tensor4all.TreeTCI
-include("TreeTCI.jl")
-
-# ============================================================================
 # TreeTN Submodule (Tree Tensor Network: MPS, MPO, TTN)
 # ============================================================================
 # Tree tensor network functionality is in a separate submodule.
 # Use: using Tensor4all.TreeTN
 include("TreeTN.jl")
+
+# ============================================================================
+# TreeTCI Submodule (Tree Tensor Cross Interpolation)
+# ============================================================================
+# TreeTCI provides tree-structured tensor cross interpolation.
+# Use: using Tensor4all.TreeTCI
+include("TreeTCI.jl")
 
 # ============================================================================
 # QuanticsGrids Submodule
