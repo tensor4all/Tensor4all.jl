@@ -28,6 +28,7 @@ using LinearAlgebra
 import ..Tensor4all: Index, Tensor, dim, id, tags, indices, rank, dims, data
 import ..Tensor4all: hascommoninds, commoninds, uniqueinds, HasCommonIndsPredicate
 import ..Tensor4all: C_API
+import ..SimpleTT: SimpleTensorTrain, site_tensor
 
 # ============================================================================
 # CanonicalForm Enum
@@ -152,6 +153,50 @@ function MPS(tensors::Vector{Tensor})
     C_API.check_status(status)
 
     return TreeTensorNetwork{Int}(out[], node_map, node_names)
+end
+
+"""
+    MPS(tt::SimpleTensorTrain)
+
+Convert a `SimpleTensorTrain` to an MPS by materializing each site tensor
+and attaching fresh site/link indices.
+"""
+function MPS(tt::SimpleTensorTrain)
+    n = length(tt)
+    n == 0 && error("Cannot create MPS from empty SimpleTensorTrain")
+
+    tensors = Tensor[]
+    links = Index[]
+
+    for i in 1:n
+        st = site_tensor(tt, i - 1)
+        left_dim, site_dim, right_dim = size(st)
+
+        inds = Index[]
+        if i > 1
+            push!(inds, links[end])
+        end
+        push!(inds, Index(site_dim))
+        if i < n
+            link = Index(right_dim; tags="Link,l=$i")
+            push!(links, link)
+            push!(inds, link)
+        end
+
+        d = if i == 1 && i == n
+            reshape(st, site_dim)
+        elseif i == 1
+            reshape(st, site_dim, right_dim)
+        elseif i == n
+            reshape(st, left_dim, site_dim)
+        else
+            st
+        end
+
+        push!(tensors, Tensor(inds, d))
+    end
+
+    return MPS(tensors)
 end
 
 # Note: MPO(tensors::Vector{Tensor}) is not defined separately because
