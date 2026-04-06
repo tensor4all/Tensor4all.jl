@@ -9,11 +9,13 @@ const T4ATensor = Tensor4all.Tensor
 skip_hdf5 = get(ENV, "T4A_SKIP_HDF5_TESTS", "") == "1"
 
 @testset "Tensor4all.jl" begin
+    include("test_build_script.jl")
     include("test_index.jl")
     include("test_tensor.jl")
     include("test_treetn.jl")
     include("test_treetci.jl")
     include("test_simplett.jl")
+    include("test_quanticsgrids.jl")
     include("test_quanticstransform.jl")
     if !skip_hdf5
         include("test_hdf5.jl")

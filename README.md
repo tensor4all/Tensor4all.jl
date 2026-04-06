@@ -18,55 +18,48 @@ After installation, open a new terminal or run `source ~/.cargo/env`.
 
 ## Installation
 
-The Rust shared library is **automatically compiled** by `Pkg.build()`. No manual build steps are required.
+The Rust shared library is compiled automatically by `Pkg.build()`.
 
-### Option 1: Develop locally (for package development)
+### Option 1: Develop locally
 
 ```julia
 using Pkg
 Pkg.activate("/path/to/Tensor4all.jl")
-Pkg.build()  # Automatically compiles the Rust backend
+Pkg.build()
 ```
 
-The shared library is installed to:
-```
-/path/to/Tensor4all.jl/deps/libtensor4all_capi.{dylib,so,dll}
-```
-
-### Option 2: Develop from another environment or global
+### Option 2: Develop from another environment
 
 ```julia
 using Pkg
 Pkg.develop(path="/path/to/Tensor4all.jl")
-Pkg.build("Tensor4all")  # Automatically compiles the Rust backend
+Pkg.build("Tensor4all")
 ```
 
-The shared library is installed to:
-```
-/path/to/Tensor4all.jl/deps/libtensor4all_capi.{dylib,so,dll}
-```
-(Same location as the source — `Pkg.develop` symlinks to the local directory.)
-
-### Option 3: Add from another environment (e.g., from GitHub URL)
+### Option 3: Add from GitHub
 
 ```julia
 using Pkg
 Pkg.add(url="https://github.com/tensor4all/Tensor4all.jl.git")
-Pkg.build("Tensor4all")  # Automatically compiles the Rust backend
+Pkg.build("Tensor4all")
 ```
 
-The shared library is installed to:
-```
-~/.julia/packages/Tensor4all/<hash>/deps/libtensor4all_capi.{dylib,so,dll}
-```
+The built shared library lives in `deps/libtensor4all_capi.{dylib,so,dll}` inside
+the package directory.
 
 ### Rust source resolution
 
-The build script locates the `tensor4all-rs` Rust workspace in this priority order:
+`deps/build.jl` looks for `tensor4all-rs` in this order:
 
 1. `TENSOR4ALL_RS_PATH` environment variable
-2. Sibling directory `../tensor4all-rs/` (relative to the package root)
-3. Automatic clone from GitHub
+2. sibling directory `../tensor4all-rs/`
+3. clone from GitHub at the pinned fallback commit in [deps/build.jl](deps/build.jl)
+
+If you run the build script directly, use the package project:
+
+```bash
+julia --startup-file=no --project=. deps/build.jl
+```
 
 ## Running Tests
 
@@ -76,7 +69,17 @@ Pkg.activate("/path/to/Tensor4all.jl")
 Pkg.test()
 ```
 
-To skip HDF5 tests: set `T4A_SKIP_HDF5_TESTS=1` before running.
+To skip HDF5 tests, set `T4A_SKIP_HDF5_TESTS=1`.
+
+## Modules
+
+- `Tensor4all`: `Index`, `Tensor`, `onehot`, HDF5 save/load
+- `Tensor4all.SimpleTT`: simple tensor trains with fixed site dimensions
+- `Tensor4all.TreeTN`: MPS/MPO/tree tensor network operations
+- `Tensor4all.QuanticsGrids`: coordinate transforms between physical and quantics grids
+- `Tensor4all.QuanticsTransform`: quantics shift/flip/phase/cumsum/Fourier/affine operators
+- `Tensor4all.QuanticsTCI`: quantics tensor cross interpolation
+- `Tensor4all.TreeTCI`: tree-structured tensor cross interpolation
 
 ## Usage
 
@@ -84,121 +87,124 @@ To skip HDF5 tests: set `T4A_SKIP_HDF5_TESTS=1` before running.
 using Tensor4all
 ```
 
-### Index
-
-```julia
-# Create an index with dimension 5
-i = Index(5)
-
-# Create an index with tags
-j = Index(3; tags="Site,n=1")
-
-# Access properties
-dim(i)            # 5
-id(i)             # unique UInt64 ID
-tags(j)           # "Site,n=1"
-hastag(j, "Site") # true
-
-# Copy an index (same ID)
-j2 = copy(j)
-
-# Create a similar index (new ID, same dim and tags)
-j3 = sim(j)
-```
-
-### Tensor
+### Index and Tensor
 
 ```julia
 i = Index(2)
-j = Index(3)
+j = Index(3; tags="Site,n=1")
 
-# Create a dense Float64 tensor
-data = rand(2, 3)
-t = Tensor([i, j], data)
+dim(i)            # 2
+tags(j)           # "Site,n=1"
+hastag(j, "Site") # true
 
-# Access properties
-rank(t)          # 2
-dims(t)          # (2, 3)
-storage_kind(t)  # DenseF64
-indices(t)       # [i, j]
+t = Tensor([i, j], rand(2, 3))
+rank(t)           # 2
+dims(t)           # (2, 3)
+storage_kind(t)   # DenseF64
+indices(t)        # [i, j]
 
-# Retrieve data (column-major Julia array)
-retrieved = Tensor4all.data(t)
-
-# Retrieve data in a specific index order
-arr = Array(t, [j, i])  # shape (3, 2), transposed
-
-# Create a complex tensor
 z = Tensor([i, j], rand(ComplexF64, 2, 3))
-
-# Create a higher-rank tensor
-k = Index(4)
-t3 = Tensor([i, j, k], rand(2, 3, 4))
-
-# Create a one-hot tensor
-oh = onehot(i => 1, j => 2)  # 1.0 at position [1, 2]
+oh = onehot(i => 1, j => 2)
 ```
 
-### MPS (Matrix Product State) / Tensor Train
+### Simple Tensor Trains
+
+```julia
+using Tensor4all.SimpleTT
+
+tt = SimpleTensorTrain([2, 3, 4], 1.0)
+
+tt(0, 0, 0)                          # 1.0
+Tensor4all.SimpleTT.site_dims(tt)    # [2, 3, 4]
+Tensor4all.SimpleTT.link_dims(tt)    # []
+Tensor4all.SimpleTT.site_tensor(tt, 0)
+sum(tt)
+```
+
+### Tree Tensor Networks
 
 ```julia
 using Tensor4all.TreeTN
 
-# Create a random MPS
 sites = [Index(2) for _ in 1:5]
 mps = random_mps(sites; linkdims=4)
 
-# Properties
-length(mps)       # 5
-nv(mps)           # 5 (number of vertices)
-ne(mps)           # 4 (number of edges)
-maxbonddim(mps)   # 4
-linkdims(mps)     # [4, 4, 4, 4]
+length(mps)        # 5
+nv(mps)            # 5
+ne(mps)            # 4
+maxbonddim(mps)    # 4
 
-# Access tensors (1-indexed)
-mps[1]            # first tensor
-collect(mps)      # all tensors as a vector
-
-# Orthogonalize (QR-based canonical form)
 orthogonalize!(mps, 3)
-canonical_form(mps)  # Unitary
-
-# Other canonical forms: LU, CI
-orthogonalize!(mps, 1; form=LU)
-
-# Truncate bond dimensions
 truncate!(mps; maxdim=2)
-
-# Inner product and norm
-ip = inner(mps, mps)
-n  = norm(mps)
-
-# Contract to a dense tensor
-dense = to_dense(mps)
-
-# Contract two MPS/MPO
-result = contract(mps_a, mps_b)                     # zipup (default)
-result = contract(mps_a, mps_b; method=:fit)         # fit
-result = contract(mps_a, mps_b; method=:naive)       # naive
+inner(mps, mps)
+to_dense(mps)
 ```
 
-### Tensor Cross Interpolation (TCI)
+`SimpleTensorTrain` can also be converted to an MPS:
 
 ```julia
-using Tensor4all.TensorCI
-using Tensor4all.SimpleTT
+using Tensor4all.SimpleTT: SimpleTensorTrain
+using Tensor4all.TreeTN: MPS
 
-# Approximate a function as a tensor train
-f(i, j, k) = Float64((1 + i) * (1 + j) * (1 + k))  # 0-based indices
-tt, err = crossinterpolate2(f, [3, 4, 5]; tolerance=1e-10)
-
-# Evaluate the tensor train
-tt(0, 0, 0)  # ≈ 1.0
-tt(2, 3, 4)  # ≈ 60.0
-
-# Sum over all elements
-sum(tt)
+mps = MPS(SimpleTensorTrain([2, 2, 2], 1.0))
 ```
+
+### Quantics Grids
+
+```julia
+using Tensor4all: DiscretizedGrid, localdimensions
+using Tensor4all.QuanticsGrids: origcoord_to_quantics, quantics_to_origcoord
+
+grid = DiscretizedGrid(2, [2, 2], [0.0, 0.0], [1.0, 1.0]; unfolding=:grouped)
+
+q = origcoord_to_quantics(grid, [0.25, 0.75])
+x = quantics_to_origcoord(grid, q)
+
+length(q)              # 4
+x                       # approximately [0.25, 0.75]
+localdimensions(grid)   # [2, 2, 2, 2]
+```
+
+### Quantics Transform
+
+```julia
+using Tensor4all.SimpleTT: SimpleTensorTrain
+using Tensor4all.TreeTN: MPS
+using Tensor4all.QuanticsTransform
+
+mps = MPS(SimpleTensorTrain([2, 2, 2], 1.0))
+
+op = shift_operator(3, 1)
+set_iospaces!(op, mps)
+shifted = apply(op, mps; method=:naive)
+
+multi = shift_operator_multivar(3, 1, 2, 0)
+flipped = flip_operator_multivar(3, 2, 1; bc=Open)
+phase = phase_rotation_operator_multivar(3, pi / 4, 2, 1)
+aff = affine_operator(
+    3,
+    Int64[1 -1; 1 0; 0 1],
+    ones(Int64, 3, 2),
+    Int64[0, 0, 0],
+    ones(Int64, 3);
+    bc=[Open, Periodic, Periodic],
+)
+pull = affine_pullback_operator(
+    3,
+    AffineParams([1 0; 1 1], [0, 0]);
+    bc=[Periodic, Periodic],
+)
+```
+
+### Interpolation Modules
+
+High-level interpolation APIs are available in:
+
+- `Tensor4all.QuanticsTCI`
+- `Tensor4all.TreeTCI`
+
+See the module docstrings in `src/QuanticsTCI.jl` and `src/TreeTCI.jl` for the
+current entry points.
 
 ### HDF5 Save/Load
 

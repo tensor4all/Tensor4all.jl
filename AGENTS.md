@@ -36,6 +36,11 @@ As of commit `ca97593` (PR #302), tensor4all-rs uses **column-major** storage fo
 ## Build & Test
 
 - Rust library: `deps/build.jl` builds `libtensor4all_capi.so` from `tensor4all-rs`
+- When running `deps/build.jl` directly, use `julia --startup-file=no --project=. deps/build.jl`
 - Rust source resolution: `TENSOR4ALL_RS_PATH` env var > sibling `../tensor4all-rs/` > GitHub clone
 - Tests: `Pkg.test()` or `julia test/runtests.jl` (requires ITensors.jl in test deps)
 - Skip HDF5 tests: `T4A_SKIP_HDF5_TESTS=1`
+
+## PR Checklist
+
+- Before opening or updating a PR, review `README.md` and update user-facing examples and workflow notes if the API or expected commands changed.

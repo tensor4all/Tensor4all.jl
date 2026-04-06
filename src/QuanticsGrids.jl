@@ -29,6 +29,7 @@ export DiscretizedGrid, InherentDiscreteGrid
 export origcoord_to_quantics, quantics_to_origcoord
 export origcoord_to_grididx, grididx_to_origcoord
 export grididx_to_quantics, quantics_to_grididx
+export localdimensions
 
 # ============================================================================
 # Unfolding scheme helper
@@ -39,8 +40,10 @@ function _unfolding_to_cint(unfolding::Symbol)
         return C_API.UNFOLDING_FUSED
     elseif unfolding == :interleaved
         return C_API.UNFOLDING_INTERLEAVED
+    elseif unfolding == :grouped
+        return C_API.UNFOLDING_GROUPED
     else
-        error("Unknown unfolding scheme: $unfolding. Use :fused or :interleaved.")
+        error("Unknown unfolding scheme: $unfolding. Use :fused, :interleaved, or :grouped.")
     end
 end
 
@@ -148,6 +151,8 @@ function local_dimensions(g::DiscretizedGrid)
     C_API.check_status(status)
     return Int.(out[1:n_out[]])
 end
+
+localdimensions(g::DiscretizedGrid) = local_dimensions(g)
 
 """
     lower_bound(g::DiscretizedGrid) -> Vector{Float64}
@@ -364,6 +369,8 @@ function local_dimensions(g::InherentDiscreteGrid)
     C_API.check_status(status)
     return Int.(out[1:n_out[]])
 end
+
+localdimensions(g::InherentDiscreteGrid) = local_dimensions(g)
 
 """
     origin(g::InherentDiscreteGrid) -> Vector{Int64}
