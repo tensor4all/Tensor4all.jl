@@ -466,19 +466,18 @@ function t4a_tensor_get_data_f64(ptr::Ptr{Cvoid}, buf, buf_len::Integer, out_len
 end
 
 """
-    t4a_tensor_get_data_c64(ptr::Ptr{Cvoid}, buf_re, buf_im, buf_len::Integer, out_len::Ref{Csize_t}) -> Cint
+    t4a_tensor_get_data_c64(ptr::Ptr{Cvoid}, buf, buf_len::Integer, out_len::Ref{Csize_t}) -> Cint
 
-Get dense complex64 data from a tensor in column-major order.
-If buf_re or buf_im is C_NULL, only out_len is written (to query required length).
+Get dense complex64 data from a tensor in column-major interleaved order.
+If `buf` is `C_NULL`, only `out_len` is written (to query required length).
 """
-function t4a_tensor_get_data_c64(ptr::Ptr{Cvoid}, buf_re, buf_im, buf_len::Integer, out_len::Ref{Csize_t})
+function t4a_tensor_get_data_c64(ptr::Ptr{Cvoid}, buf, buf_len::Integer, out_len::Ref{Csize_t})
     return ccall(
         _sym(:t4a_tensor_get_data_c64),
         Cint,
-        (Ptr{Cvoid}, Ptr{Cdouble}, Ptr{Cdouble}, Csize_t, Ptr{Csize_t}),
+        (Ptr{Cvoid}, Ptr{Cdouble}, Csize_t, Ptr{Csize_t}),
         ptr,
-        buf_re === nothing ? C_NULL : buf_re,
-        buf_im === nothing ? C_NULL : buf_im,
+        buf === nothing ? C_NULL : buf,
         Csize_t(buf_len),
         out_len
     )
@@ -507,22 +506,20 @@ function t4a_tensor_new_dense_f64(rank::Integer, index_ptrs::Vector{Ptr{Cvoid}},
 end
 
 """
-    t4a_tensor_new_dense_c64(rank::Integer, index_ptrs::Vector{Ptr{Cvoid}}, dims::Vector{Csize_t}, data_re::Vector{Cdouble}, data_im::Vector{Cdouble}) -> Ptr{Cvoid}
+    t4a_tensor_new_dense_c64(rank::Integer, index_ptrs::Vector{Ptr{Cvoid}}, dims::Vector{Csize_t}, data::Vector{Cdouble}) -> Ptr{Cvoid}
 
-Create a new dense complex64 tensor from indices and real/imag data in column-major order.
+Create a new dense complex64 tensor from indices and interleaved data in column-major order.
 """
-function t4a_tensor_new_dense_c64(rank::Integer, index_ptrs::Vector{Ptr{Cvoid}}, dims::Vector{Csize_t}, data_re::Vector{Cdouble}, data_im::Vector{Cdouble})
-    @assert length(data_re) == length(data_im) "Real and imaginary data must have same length"
+function t4a_tensor_new_dense_c64(rank::Integer, index_ptrs::Vector{Ptr{Cvoid}}, dims::Vector{Csize_t}, data::Vector{Cdouble})
     return ccall(
         _sym(:t4a_tensor_new_dense_c64),
         Ptr{Cvoid},
-        (Csize_t, Ptr{Ptr{Cvoid}}, Ptr{Csize_t}, Ptr{Cdouble}, Ptr{Cdouble}, Csize_t),
+        (Csize_t, Ptr{Ptr{Cvoid}}, Ptr{Csize_t}, Ptr{Cdouble}, Csize_t),
         Csize_t(rank),
         index_ptrs,
         dims,
-        data_re,
-        data_im,
-        Csize_t(length(data_re))
+        data,
+        Csize_t(length(data) ÷ 2)
     )
 end
 

@@ -71,10 +71,18 @@ using LinearAlgebra: norm
         end
     end
 
-    # ComplexF64 Tensor creation via C API is not yet supported (returns null pointer).
-    # Skipping until the Rust C API implements complex tensor creation.
-    @testset "ComplexF64 round-trip (skipped: C API lacks c64 Tensor)" begin
-        @test_skip tt = SimpleTensorTrain([2, 3, 4], 1.0 + 2.0im)
+    @testset "ComplexF64 round-trip" begin
+        tt = SimpleTensorTrain([2, 3, 4], 1.0 + 2.0im)
+        mps = MPS(tt)
+        @test nv(mps) == 3
+
+        tt2 = SimpleTensorTrain(mps)
+        @test length(tt2) == 3
+        @test sitedims(tt2) == [2, 3, 4]
+
+        arr1 = fulltensor(tt)
+        arr2 = fulltensor(tt2)
+        @test arr1 ≈ arr2
     end
 
     @testset "MPS -> SimpleTT -> MPS" begin
