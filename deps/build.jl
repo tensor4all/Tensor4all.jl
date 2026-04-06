@@ -12,7 +12,7 @@ using Libdl
 using RustToolChain: cargo
 
 # Configuration
-const TENSOR4ALL_RS_FALLBACK_COMMIT = "8a68db84d517286ee55fda3585eebb26667e200a"
+const TENSOR4ALL_RS_FALLBACK_COMMIT = "44ddedb3ff801f80c2f8d1609bf43eb28081a9f1"
 const TENSOR4ALL_RS_REPO = "https://github.com/tensor4all/tensor4all-rs.git"
 
 # Paths
