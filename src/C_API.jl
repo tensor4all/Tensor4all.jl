@@ -1630,6 +1630,7 @@ end
 # Unfolding scheme enum (must match Rust side)
 const UNFOLDING_FUSED = Cint(0)
 const UNFOLDING_INTERLEAVED = Cint(1)
+const UNFOLDING_GROUPED = Cint(2)
 
 """
     t4a_qgrid_disc_new(ndims, rs_arr, lower_arr, upper_arr, unfolding, out) -> Cint
@@ -2180,6 +2181,27 @@ function t4a_qtransform_shift(r::Csize_t, offset::Int64, bc::Cint, out)
 end
 
 """
+    t4a_qtransform_shift_multivar(r, offset, bc, nvariables, target_var, out) -> Cint
+
+Create a shift operator acting on one variable in a multi-variable quantics system.
+"""
+function t4a_qtransform_shift_multivar(
+    r::Csize_t,
+    offset::Int64,
+    bc::Cint,
+    nvariables::Csize_t,
+    target_var::Csize_t,
+    out,
+)
+    return ccall(
+        _sym(:t4a_qtransform_shift_multivar),
+        Cint,
+        (Csize_t, Int64, Cint, Csize_t, Csize_t, Ptr{Ptr{Cvoid}}),
+        r, offset, bc, nvariables, target_var, out
+    )
+end
+
+"""
     t4a_qtransform_flip(r, bc, out) -> Cint
 
 Create a flip operator: f(x) = g(2^r - x).
@@ -2194,6 +2216,26 @@ function t4a_qtransform_flip(r::Csize_t, bc::Cint, out)
 end
 
 """
+    t4a_qtransform_flip_multivar(r, bc, nvariables, target_var, out) -> Cint
+
+Create a flip operator acting on one variable in a multi-variable quantics system.
+"""
+function t4a_qtransform_flip_multivar(
+    r::Csize_t,
+    bc::Cint,
+    nvariables::Csize_t,
+    target_var::Csize_t,
+    out,
+)
+    return ccall(
+        _sym(:t4a_qtransform_flip_multivar),
+        Cint,
+        (Csize_t, Cint, Csize_t, Csize_t, Ptr{Ptr{Cvoid}}),
+        r, bc, nvariables, target_var, out
+    )
+end
+
+"""
     t4a_qtransform_phase_rotation(r, theta, out) -> Cint
 
 Create a phase rotation operator: f(x) = exp(i*theta*x) * g(x).
@@ -2204,6 +2246,26 @@ function t4a_qtransform_phase_rotation(r::Csize_t, theta::Cdouble, out)
         Cint,
         (Csize_t, Cdouble, Ptr{Ptr{Cvoid}}),
         r, theta, out
+    )
+end
+
+"""
+    t4a_qtransform_phase_rotation_multivar(r, theta, nvariables, target_var, out) -> Cint
+
+Create a phase rotation operator acting on one variable in a multi-variable quantics system.
+"""
+function t4a_qtransform_phase_rotation_multivar(
+    r::Csize_t,
+    theta::Cdouble,
+    nvariables::Csize_t,
+    target_var::Csize_t,
+    out,
+)
+    return ccall(
+        _sym(:t4a_qtransform_phase_rotation_multivar),
+        Cint,
+        (Csize_t, Cdouble, Csize_t, Csize_t, Ptr{Ptr{Cvoid}}),
+        r, theta, nvariables, target_var, out
     )
 end
 
@@ -2238,6 +2300,56 @@ function t4a_qtransform_fourier(r::Csize_t, forward::Cint, maxbonddim::Csize_t, 
 end
 
 """
+    t4a_qtransform_affine(r, a_num, a_den, b_num, b_den, m, n, bc, out) -> Cint
+
+Create a general affine transformation operator with rational coefficients.
+`a_num`/`a_den` encode the MxN matrix in column-major order.
+`b_num`/`b_den` encode the M-element translation vector.
+`bc` has length `m`.
+"""
+function t4a_qtransform_affine(
+    r::Csize_t,
+    a_num,
+    a_den,
+    b_num,
+    b_den,
+    m::Csize_t,
+    n::Csize_t,
+    bc,
+    out,
+)
+    return ccall(
+        _sym(:t4a_qtransform_affine),
+        Cint,
+        (Csize_t, Ptr{Int64}, Ptr{Int64}, Ptr{Int64}, Ptr{Int64}, Csize_t, Csize_t, Ptr{Cint}, Ptr{Ptr{Cvoid}}),
+        r, a_num, a_den, b_num, b_den, m, n, bc, out
+    )
+end
+
+"""
+    t4a_qtransform_binaryop(r, a1, b1, a2, b2, bc1, bc2, out) -> Cint
+
+Create a two-output binary-operation transform.
+"""
+function t4a_qtransform_binaryop(
+    r::Csize_t,
+    a1::Int8,
+    b1::Int8,
+    a2::Int8,
+    b2::Int8,
+    bc1::Cint,
+    bc2::Cint,
+    out,
+)
+    return ccall(
+        _sym(:t4a_qtransform_binaryop),
+        Cint,
+        (Csize_t, Int8, Int8, Int8, Int8, Cint, Cint, Ptr{Ptr{Cvoid}}),
+        r, a1, b1, a2, b2, bc1, bc2, out
+    )
+end
+
+"""
     t4a_linop_apply(op, state, method, rtol, maxdim, out) -> Cint
 
 Apply a linear operator to a TreeTN state.
@@ -2250,6 +2362,34 @@ function t4a_linop_apply(op::Ptr{Cvoid}, state::Ptr{Cvoid}, method::Cint,
         Cint,
         (Ptr{Cvoid}, Ptr{Cvoid}, Cint, Cdouble, Csize_t, Ptr{Ptr{Cvoid}}),
         op, state, method, rtol, maxdim, out
+    )
+end
+
+"""
+    t4a_linop_set_input_space(op, state) -> Cint
+
+Reset a linear operator's true input site indices to match a TreeTN state.
+"""
+function t4a_linop_set_input_space(op::Ptr{Cvoid}, state::Ptr{Cvoid})
+    return ccall(
+        _sym(:t4a_linop_set_input_space),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cvoid}),
+        op, state
+    )
+end
+
+"""
+    t4a_linop_set_output_space(op, state) -> Cint
+
+Reset a linear operator's true output site indices to match a TreeTN state.
+"""
+function t4a_linop_set_output_space(op::Ptr{Cvoid}, state::Ptr{Cvoid})
+    return ccall(
+        _sym(:t4a_linop_set_output_space),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cvoid}),
+        op, state
     )
 end
 

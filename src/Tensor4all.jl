@@ -912,6 +912,8 @@ include("TreeTN.jl")
 # Quantics grid types for coordinate conversions in QTT methods.
 # Use: using Tensor4all.QuanticsGrids
 include("QuanticsGrids.jl")
+using .QuanticsGrids: DiscretizedGrid, InherentDiscreteGrid, localdimensions
+export DiscretizedGrid, InherentDiscreteGrid, localdimensions
 
 # ============================================================================
 # QuanticsTCI Submodule (Quantics Tensor Cross Interpolation)
