@@ -12,7 +12,7 @@ using Libdl
 using RustToolChain: cargo
 
 # Configuration
-const TENSOR4ALL_RS_VERSION = "main"  # Branch, tag, or commit hash
+const TENSOR4ALL_RS_FALLBACK_COMMIT = "8a68db84d517286ee55fda3585eebb26667e200a"
 const TENSOR4ALL_RS_REPO = "https://github.com/tensor4all/tensor4all-rs.git"
 
 # Paths
@@ -59,8 +59,9 @@ end
 Clone tensor4all-rs from GitHub to the specified directory.
 """
 function clone_from_github(dest::String)
-    println("Cloning tensor4all-rs from GitHub (version: $TENSOR4ALL_RS_VERSION)...")
-    run(`git clone --depth 1 --branch $TENSOR4ALL_RS_VERSION $TENSOR4ALL_RS_REPO $dest`)
+    println("Cloning tensor4all-rs from GitHub (pinned commit: $TENSOR4ALL_RS_FALLBACK_COMMIT)...")
+    run(`git clone $TENSOR4ALL_RS_REPO $dest`)
+    run(`git -C $dest checkout --detach $TENSOR4ALL_RS_FALLBACK_COMMIT`)
 end
 
 """

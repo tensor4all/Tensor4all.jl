@@ -51,9 +51,9 @@ the package directory.
 
 `deps/build.jl` looks for `tensor4all-rs` in this order:
 
-1. `TENSOR4ALL_RS_PATH`
+1. `TENSOR4ALL_RS_PATH` environment variable
 2. sibling directory `../tensor4all-rs/`
-3. clone from GitHub
+3. clone from GitHub at the pinned fallback commit in [deps/build.jl](deps/build.jl)
 
 If you run the build script directly, use the package project:
 
