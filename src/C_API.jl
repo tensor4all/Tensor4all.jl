@@ -1455,7 +1455,7 @@ function t4a_simplett_c64_site_tensor(
         ptr,
         Csize_t(site),
         out_data,
-        Csize_t(length(out_data) ÷ 2),
+        Csize_t(length(out_data)),
         out_left_dim,
         out_site_dim,
         out_right_dim
