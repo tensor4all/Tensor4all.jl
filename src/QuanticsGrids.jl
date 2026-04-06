@@ -40,8 +40,10 @@ function _unfolding_to_cint(unfolding::Symbol)
         return C_API.UNFOLDING_FUSED
     elseif unfolding == :interleaved
         return C_API.UNFOLDING_INTERLEAVED
+    elseif unfolding == :grouped
+        return C_API.UNFOLDING_GROUPED
     else
-        error("Unknown unfolding scheme: $unfolding. Use :fused or :interleaved.")
+        error("Unknown unfolding scheme: $unfolding. Use :fused, :interleaved, or :grouped.")
     end
 end
 
