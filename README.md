@@ -66,7 +66,7 @@ The build script locates the `tensor4all-rs` Rust workspace in this priority ord
 
 1. `TENSOR4ALL_RS_PATH` environment variable
 2. Sibling directory `../tensor4all-rs/` (relative to the package root)
-3. Automatic clone from GitHub
+3. Automatic clone from GitHub at the pinned fallback commit in [deps/build.jl](deps/build.jl)
 
 ## Running Tests
 
