@@ -1455,7 +1455,7 @@ function t4a_simplett_c64_site_tensor(
         ptr,
         Csize_t(site),
         out_data,
-        Csize_t(length(out_data) ÷ 2),
+        Csize_t(length(out_data)),
         out_left_dim,
         out_site_dim,
         out_right_dim
@@ -2234,6 +2234,32 @@ function t4a_qtransform_fourier(r::Csize_t, forward::Cint, maxbonddim::Csize_t, 
         Cint,
         (Csize_t, Cint, Csize_t, Cdouble, Ptr{Ptr{Cvoid}}),
         r, forward, maxbonddim, tolerance, out
+    )
+end
+
+"""
+    t4a_qtransform_affine_pullback(r, m, n, a_num, a_den, b_num, b_den, bc, out) -> Cint
+
+Create an affine pullback operator: f(y) = g(A*y + b).
+The affine matrix is MxN in column-major order, with rational entries encoded by
+numerator and denominator arrays.
+"""
+function t4a_qtransform_affine_pullback(
+    r::Csize_t,
+    m::Csize_t,
+    n::Csize_t,
+    a_num::Vector{Int64},
+    a_den::Vector{Int64},
+    b_num::Vector{Int64},
+    b_den::Vector{Int64},
+    bc::Vector{Cint},
+    out,
+)
+    return ccall(
+        _sym(:t4a_qtransform_affine_pullback),
+        Cint,
+        (Csize_t, Csize_t, Csize_t, Ptr{Int64}, Ptr{Int64}, Ptr{Int64}, Ptr{Int64}, Ptr{Cint}, Ptr{Ptr{Cvoid}}),
+        r, m, n, a_num, a_den, b_num, b_den, bc, out,
     )
 end
 

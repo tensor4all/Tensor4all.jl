@@ -21,7 +21,8 @@ using ..C_API
 using ..TreeTN: TreeTensorNetwork
 
 export LinearOperator
-export shift_operator, flip_operator, phase_rotation_operator, cumsum_operator, fourier_operator
+export AffineParams
+export shift_operator, flip_operator, phase_rotation_operator, cumsum_operator, fourier_operator, affine_pullback_operator
 export apply
 export BoundaryCondition, Periodic, Open
 
@@ -66,6 +67,29 @@ mutable struct LinearOperator
         return op
     end
 end
+
+"""
+    AffineParams(a, b)
+
+Affine pullback parameters representing `f(y) = g(A*y + b)`.
+
+- `a`: source-dimension by output-dimension affine matrix
+- `b`: source-dimension shift vector
+"""
+struct AffineParams
+    a::Matrix{Rational{Int64}}
+    b::Vector{Rational{Int64}}
+
+    function AffineParams(a::AbstractMatrix, b::AbstractVector)
+        size(a, 1) == length(b) || error("Affine matrix row count must match shift length")
+        a_rat = Rational{Int64}[x isa Rational ? Rational{Int64}(Int64(numerator(x)), Int64(denominator(x))) : Rational{Int64}(Int64(x), 1) for x in a]
+        b_rat = Rational{Int64}[x isa Rational ? Rational{Int64}(Int64(numerator(x)), Int64(denominator(x))) : Rational{Int64}(Int64(x), 1) for x in b]
+        return new(reshape(a_rat, size(a)), b_rat)
+    end
+end
+
+source_ndims(params::AffineParams) = size(params.a, 1)
+output_ndims(params::AffineParams) = size(params.a, 2)
 
 # ============================================================================
 # Operator construction functions
@@ -151,6 +175,43 @@ function fourier_operator(r::Integer; forward::Bool=true, maxbonddim::Integer=0,
     status = C_API.t4a_qtransform_fourier(
         Csize_t(r), Cint(forward ? 1 : 0),
         Csize_t(maxbonddim), Cdouble(tolerance), out
+    )
+    C_API.check_status(status)
+    return LinearOperator(out[])
+end
+
+"""
+    affine_pullback_operator(r::Integer, params::AffineParams; bc=fill(Periodic, source_ndims(params))) -> LinearOperator
+
+Create an affine pullback operator implementing `f(y) = g(A*y + b)`.
+
+The input state has `source_ndims(params)` variables and the output state has
+`output_ndims(params)` variables. Boundary conditions apply to the transformed
+source coordinates `A*y + b`.
+"""
+function affine_pullback_operator(
+    r::Integer,
+    params::AffineParams;
+    bc::AbstractVector{<:BoundaryCondition}=fill(Periodic, source_ndims(params)),
+)
+    length(bc) == source_ndims(params) || error("Boundary condition length must match source dimension")
+    a_num = Int64[numerator(value) for value in vec(params.a)]
+    a_den = Int64[denominator(value) for value in vec(params.a)]
+    b_num = Int64[numerator(value) for value in params.b]
+    b_den = Int64[denominator(value) for value in params.b]
+    bc_int = Cint[Int(value) for value in bc]
+
+    out = Ref{Ptr{Cvoid}}(C_NULL)
+    status = C_API.t4a_qtransform_affine_pullback(
+        Csize_t(r),
+        Csize_t(source_ndims(params)),
+        Csize_t(output_ndims(params)),
+        a_num,
+        a_den,
+        b_num,
+        b_den,
+        bc_int,
+        out,
     )
     C_API.check_status(status)
     return LinearOperator(out[])
