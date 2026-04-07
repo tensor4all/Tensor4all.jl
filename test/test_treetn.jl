@@ -459,6 +459,13 @@ using LinearAlgebra
         @test_throws ArgumentError Tensor4all.TreeTN._assert_chain(branched_ttn)
     end
 
+    @testset "is_mps_like and is_mpo_like" begin
+        sites = [Tensor4all.Index(2) for _ in 1:4]
+        mps = Tensor4all.random_mps(sites; linkdims=2)
+        @test Tensor4all.is_mps_like(mps)
+        @test !Tensor4all.is_mpo_like(mps)
+    end
+
     @testset "MPS setindex!" begin
         using Tensor4all: indices
 

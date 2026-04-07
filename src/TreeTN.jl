@@ -25,7 +25,7 @@ module TreeTN
 using LinearAlgebra
 
 # Import from parent module
-import ..Tensor4all: Index, Tensor, dim, id, tags, indices, rank, dims, data
+import ..Tensor4all: Index, Tensor, dim, id, tags, indices, rank, dims, data, contract
 import ..Tensor4all: hascommoninds, commoninds, uniqueinds, HasCommonIndsPredicate
 import ..Tensor4all: C_API
 import ..SimpleTT: SimpleTensorTrain, site_tensor
@@ -374,6 +374,36 @@ function _assert_chain(ttn::TreeTensorNetwork)
     ))
     return nothing
 end
+
+"""
+    is_mps_like(tt::TreeTensorNetwork{Int}) -> Bool
+
+Check if a chain TensorTrain is MPS-like: each vertex has exactly 1 site index.
+"""
+function is_mps_like(tt::TreeTensorNetwork{Int})
+    _assert_chain(tt)
+    for v in vertices(tt)
+        length(siteinds(tt, v)) != 1 && return false
+    end
+    return true
+end
+
+export is_mps_like
+
+"""
+    is_mpo_like(tt::TreeTensorNetwork{Int}) -> Bool
+
+Check if a chain TensorTrain is MPO-like: each vertex has exactly 2 site indices.
+"""
+function is_mpo_like(tt::TreeTensorNetwork{Int})
+    _assert_chain(tt)
+    for v in vertices(tt)
+        length(siteinds(tt, v)) != 2 && return false
+    end
+    return true
+end
+
+export is_mpo_like
 
 """
     getindex(ttn::TreeTensorNetwork{V}, v::V) -> Tensor

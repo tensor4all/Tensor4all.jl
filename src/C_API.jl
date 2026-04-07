@@ -585,6 +585,22 @@ function t4a_tensor_onehot(rank::Integer, index_ptrs::Vector{Ptr{Cvoid}}, vals::
     )
 end
 
+"""
+    t4a_tensor_contract(a::Ptr{Cvoid}, b::Ptr{Cvoid}, out::Ref{Ptr{Cvoid}})
+
+Contract two tensors and write the resulting tensor handle to `out`.
+"""
+function t4a_tensor_contract(a::Ptr{Cvoid}, b::Ptr{Cvoid}, out::Ref{Ptr{Cvoid}})
+    return ccall(
+        _sym(:t4a_tensor_contract),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Ptr{Cvoid}}),
+        a,
+        b,
+        out
+    )
+end
+
 # ============================================================================
 # TreeTN lifecycle functions
 # ============================================================================

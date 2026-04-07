@@ -58,7 +58,7 @@ include("Algorithm.jl")
 # Re-export public API
 # Core types (tensor4all-core-common, tensor4all-core-tensor)
 export Index, dim, tags, id, hastag, plev
-export Tensor, rank, dims, indices, storage_kind, data
+export Tensor, rank, dims, indices, storage_kind, data, contract, diag_embed, diag_trace
 export StorageKind, DenseF64, DenseC64, DiagF64, DiagC64
 
 # Re-export Algorithm submodule and utilities
@@ -911,6 +911,21 @@ function Base.deepcopy(t::Tensor)
     return Tensor(ptr)
 end
 
+"""
+    contract(t1::Tensor, t2::Tensor) -> Tensor
+
+Contract two tensors by matching common indices (same ID + tags + plev).
+Returns a new tensor with the non-contracted indices from both inputs.
+"""
+function contract(t1::Tensor, t2::Tensor)
+    out = Ref{Ptr{Cvoid}}(C_NULL)
+    status = C_API.t4a_tensor_contract(t1.ptr, t2.ptr, out)
+    C_API.check_status(status)
+    return Tensor(out[])
+end
+
+Base.:*(t1::Tensor, t2::Tensor) = contract(t1, t2)
+
 # ============================================================================
 # HDF5 Save/Load for Tensor (ITensors.jl compatible)
 # ============================================================================
@@ -950,6 +965,92 @@ function load_itensor(filepath::AbstractString, name::AbstractString)
     return Tensor(out[])
 end
 
+"""
+    diag_embed(t::Tensor, idx::Index) -> Tensor
+
+Create a new tensor where `idx` is duplicated as `prime(idx)`.
+The result is diagonal in `idx` and `prime(idx)`:
+only elements where `idx == prime(idx)` are nonzero.
+
+This is used to convert MPS-like site tensors to MPO-like site tensors.
+"""
+function diag_embed(t::Tensor, idx::Index)
+    t_inds = indices(t)
+
+    pos = findfirst(i -> i == idx, t_inds)
+    pos === nothing && error("Index not found in tensor")
+
+    d = dim(idx)
+    idx_prime = prime(idx)
+
+    arr = data(t)
+    t_dims = dims(t)
+
+    new_dims = collect(t_dims)
+    insert!(new_dims, pos + 1, d)
+    new_arr = zeros(eltype(arr), new_dims...)
+
+    n_axes = length(t_dims)
+    for idx_val in 1:d
+        src_slices = [i == pos ? idx_val : Colon() for i in 1:n_axes]
+        dst_slices = Any[i == pos ? idx_val : Colon() for i in 1:n_axes]
+        insert!(dst_slices, pos + 1, idx_val)
+        new_arr[dst_slices...] = arr[src_slices...]
+    end
+
+    new_inds = copy(t_inds)
+    insert!(new_inds, pos + 1, idx_prime)
+
+    return Tensor(new_inds, new_arr)
+end
+
+"""
+    diag_trace(t::Tensor, idx::Index, idx_prime::Index) -> Tensor
+
+Extract the diagonal of a tensor in `idx` and `idx_prime`, keeping only `idx`.
+This is the inverse of `diag_embed`: it reduces an MPO-like site tensor
+back to MPS-like by tracing out the primed index.
+
+Requires `dim(idx) == dim(idx_prime)`.
+"""
+function diag_trace(t::Tensor, idx::Index, idx_prime::Index)
+    dim(idx) == dim(idx_prime) || error("Dimensions must match: $(dim(idx)) vs $(dim(idx_prime))")
+
+    t_inds = indices(t)
+    d = dim(idx)
+
+    pos1 = findfirst(i -> i == idx, t_inds)
+    pos2 = findfirst(i -> i == idx_prime, t_inds)
+    pos1 === nothing && error("idx not found in tensor")
+    pos2 === nothing && error("idx_prime not found in tensor")
+
+    if pos1 > pos2
+        pos1, pos2 = pos2, pos1
+        idx, idx_prime = idx_prime, idx
+    end
+
+    arr = data(t)
+    t_dims = dims(t)
+    n_axes = length(t_dims)
+
+    new_dims = [t_dims[i] for i in 1:n_axes if i != pos2]
+    new_arr = zeros(eltype(arr), new_dims...)
+
+    for idx_val in 1:d
+        src_slices = [i == pos1 ? idx_val : (i == pos2 ? idx_val : Colon()) for i in 1:n_axes]
+        dst_slices = Any[]
+        for i in 1:n_axes
+            i == pos2 && continue
+            push!(dst_slices, i == pos1 ? idx_val : Colon())
+        end
+        new_arr[dst_slices...] = arr[src_slices...]
+    end
+
+    new_inds = [t_inds[i] for i in 1:n_axes if i != pos2]
+
+    return Tensor(new_inds, new_arr)
+end
+
 export save_itensor, load_itensor
 
 # ============================================================================
@@ -966,8 +1067,8 @@ include("SimpleTT.jl")
 # Tree tensor network functionality is in a separate submodule.
 # Use: using Tensor4all.TreeTN
 include("TreeTN.jl")
-using .TreeTN: MPS, MPO, TensorTrain, random_mps, random_tt, is_chain
-export MPS, MPO, TensorTrain, random_mps, random_tt, is_chain
+using .TreeTN: MPS, MPO, TensorTrain, random_mps, random_tt, is_chain, is_mps_like, is_mpo_like
+export MPS, MPO, TensorTrain, random_mps, random_tt, is_chain, is_mps_like, is_mpo_like
 
 # ============================================================================
 # QuanticsGrids Submodule
