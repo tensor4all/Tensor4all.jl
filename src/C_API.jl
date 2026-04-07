@@ -2387,6 +2387,32 @@ function t4a_qtransform_affine(
 end
 
 """
+    t4a_qtransform_affine_pullback(r, m, n, a_num, a_den, b_num, b_den, bc, out) -> Cint
+
+Create an affine pullback operator: `f(y) = g(A*y + b)`.
+The affine matrix is MxN in column-major order, with rational entries encoded by
+numerator and denominator arrays.
+"""
+function t4a_qtransform_affine_pullback(
+    r::Csize_t,
+    m::Csize_t,
+    n::Csize_t,
+    a_num,
+    a_den,
+    b_num,
+    b_den,
+    bc,
+    out,
+)
+    return ccall(
+        _sym(:t4a_qtransform_affine_pullback),
+        Cint,
+        (Csize_t, Csize_t, Csize_t, Ptr{Int64}, Ptr{Int64}, Ptr{Int64}, Ptr{Int64}, Ptr{Cint}, Ptr{Ptr{Cvoid}}),
+        r, m, n, a_num, a_den, b_num, b_den, bc, out,
+    )
+end
+
+"""
     t4a_qtransform_binaryop(r, a1, b1, a2, b2, bc1, bc2, out) -> Cint
 
 Create a two-output binary-operation transform.

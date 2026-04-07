@@ -189,6 +189,11 @@ aff = affine_operator(
     ones(Int64, 3);
     bc=[Open, Periodic, Periodic],
 )
+pull = affine_pullback_operator(
+    3,
+    AffineParams([1 0; 1 1], [0, 0]);
+    bc=[Periodic, Periodic],
+)
 ```
 
 ### Interpolation Modules
