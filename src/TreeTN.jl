@@ -25,7 +25,7 @@ module TreeTN
 using LinearAlgebra
 
 # Import from parent module
-import ..Tensor4all: Index, Tensor, dim, id, tags, indices, rank, dims, data
+import ..Tensor4all: Index, Tensor, dim, id, tags, indices, rank, dims, data, contract
 import ..Tensor4all: hascommoninds, commoninds, uniqueinds, HasCommonIndsPredicate
 import ..Tensor4all: C_API
 import ..SimpleTT: SimpleTensorTrain, site_tensor
@@ -111,7 +111,7 @@ function _from_c_vertex(ttn::TreeTensorNetwork{V}, idx::Integer) where V
 end
 
 # ============================================================================
-# MPS/MPO type aliases and constructors
+# MPS/MPO/TensorTrain type aliases and constructors
 # ============================================================================
 
 """
@@ -130,7 +130,15 @@ Vertices are 1-indexed (Julia convention).
 """
 const MPO = TreeTensorNetwork{Int}
 
-export MPS, MPO
+"""
+    TensorTrain
+
+Type alias for `TreeTensorNetwork{Int}`.
+Same type as MPS and MPO; the distinction is semantic, not type-level.
+"""
+const TensorTrain = TreeTensorNetwork{Int}
+
+export MPS, MPO, TensorTrain
 
 """
     MPS(tensors::Vector{Tensor})
@@ -294,6 +302,108 @@ function neighbors(ttn::TreeTensorNetwork{V}, v::V) where V
 end
 
 export neighbors
+
+"""
+    is_chain(ttn::TreeTensorNetwork) -> Bool
+
+Check if a TreeTensorNetwork has chain (linear) topology.
+
+For `TreeTensorNetwork{Int}`, also verifies that vertices are named 1, 2, ..., n
+in sequential order and that vertex `i` is connected to vertex `i+1`.
+
+For other vertex types, only checks that the topology is a path graph:
+the graph is connected, has exactly two endpoints for `n > 1`, and every
+vertex has degree at most 2.
+"""
+function is_chain(ttn::TreeTensorNetwork)
+    n = nv(ttn)
+    n <= 1 && return true
+
+    verts = vertices(ttn)
+    degrees = Dict(v => length(neighbors(ttn, v)) for v in verts)
+
+    any(>(2), values(degrees)) && return false
+    count(==(1), values(degrees)) == 2 || return false
+    count(==(2), values(degrees)) == n - 2 || return false
+
+    visited = Set{eltype(verts)}()
+    stack = [first(verts)]
+
+    while !isempty(stack)
+        v = pop!(stack)
+        v in visited && continue
+        push!(visited, v)
+        append!(stack, filter(w -> !(w in visited), neighbors(ttn, v)))
+    end
+
+    return length(visited) == n
+end
+
+function is_chain(ttn::TreeTensorNetwork{Int})
+    n = nv(ttn)
+    n <= 1 && return true
+
+    sort(vertices(ttn)) == collect(1:n) || return false
+
+    for i in 1:n
+        expected = if i == 1
+            [2]
+        elseif i == n
+            [n - 1]
+        else
+            [i - 1, i + 1]
+        end
+        sort(neighbors(ttn, i)) == expected || return false
+    end
+
+    return true
+end
+
+export is_chain
+
+"""
+    _assert_chain(ttn::TreeTensorNetwork)
+
+Assert that a TreeTensorNetwork has chain topology.
+Used internally by chain-specific operations.
+"""
+function _assert_chain(ttn::TreeTensorNetwork)
+    is_chain(ttn) || throw(ArgumentError(
+        "Operation requires a chain (linear) topology, but the TreeTensorNetwork " *
+        "has $(nv(ttn)) vertices with non-chain connectivity."
+    ))
+    return nothing
+end
+
+"""
+    is_mps_like(tt::TreeTensorNetwork{Int}) -> Bool
+
+Check if a chain TensorTrain is MPS-like: each vertex has exactly 1 site index.
+"""
+function is_mps_like(tt::TreeTensorNetwork{Int})
+    _assert_chain(tt)
+    for v in vertices(tt)
+        length(siteinds(tt, v)) != 1 && return false
+    end
+    return true
+end
+
+export is_mps_like
+
+"""
+    is_mpo_like(tt::TreeTensorNetwork{Int}) -> Bool
+
+Check if a chain TensorTrain is MPO-like: each vertex has exactly 2 site indices.
+"""
+function is_mpo_like(tt::TreeTensorNetwork{Int})
+    _assert_chain(tt)
+    for v in vertices(tt)
+        length(siteinds(tt, v)) != 2 && return false
+    end
+    return true
+end
+
+export is_mpo_like
 
 """
     getindex(ttn::TreeTensorNetwork{V}, v::V) -> Tensor

@@ -220,4 +220,41 @@
         d = Tensor4all.data(t)
         @test d[] ≈ 1.0
     end
+
+    @testset "tensor contraction" begin
+        i = T4AIndex(2; tags="i")
+        j = T4AIndex(3; tags="j")
+        k = T4AIndex(4; tags="k")
+
+        A = Tensor4all.Tensor([i, j], ones(2, 3))
+        B = Tensor4all.Tensor([j, k], ones(3, 4))
+
+        C = Tensor4all.contract(A, B)
+        @test Tensor4all.rank(C) == 2
+        d = Tensor4all.data(C)
+        @test all(x -> abs(x - 3.0) < 1e-12, d)
+
+        C2 = A * B
+        @test Tensor4all.data(C2) ≈ Tensor4all.data(C)
+    end
+
+    @testset "diag_embed and diag_trace" begin
+        i = T4AIndex(3; tags="i")
+        j = T4AIndex(2; tags="j")
+
+        arr = reshape(collect(1.0:6.0), 3, 2)
+        t = Tensor4all.Tensor([i, j], arr)
+
+        t_diag = Tensor4all.diag_embed(t, i)
+        @test Tensor4all.rank(t_diag) == 3
+        inds_diag = Tensor4all.indices(t_diag)
+        @test Tensor4all.dim(inds_diag[1]) == 3
+        @test Tensor4all.dim(inds_diag[2]) == 3
+        @test Tensor4all.plev(inds_diag[2]) == 1
+
+        i_prime = Tensor4all.prime(i)
+        t_back = Tensor4all.diag_trace(t_diag, i, i_prime)
+        @test Tensor4all.rank(t_back) == 2
+        @test Tensor4all.data(t_back) ≈ arr
+    end
 end

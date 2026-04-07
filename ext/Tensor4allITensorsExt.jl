@@ -18,8 +18,8 @@ Both Rust and ITensors use UInt64 IDs natively, so conversion is direct.
 
 ## Memory Order
 
-Rust uses row-major, Julia/ITensors uses column-major.
-Conversion is handled automatically.
+Rust and Julia/ITensors use column-major order.
+Conversion preserves the logical layout.
 """
 module Tensor4allITensorsExt
 
@@ -40,12 +40,13 @@ IDs are natively UInt64 in both systems. Tags are preserved.
 function ITensors.Index(idx::Tensor4all.Index)
     d = Tensor4all.dim(idx)
     t = Tensor4all.tags(idx)
+    p = Tensor4all.plev(idx)
     id64 = Tensor4all.id(idx)
 
     # Create ITensors.Index with explicit ID using full constructor
     # Index(id, space, dir, tags, plev)
     tagset = isempty(t) ? ITensors.TagSet("") : ITensors.TagSet(t)
-    return ITensors.Index(id64, d, ITensors.Neither, tagset, 0)
+    return ITensors.Index(id64, d, ITensors.Neither, tagset, p)
 end
 
 # ============================================================================
@@ -65,12 +66,18 @@ cause an error.
 function Tensor4all.Index(idx::ITensors.Index)
     d = ITensors.dim(idx)
     id64 = ITensors.id(idx)
+    p = ITensors.plev(idx)
 
     # Get tags as comma-separated string
     tag_set = ITensors.tags(idx)
     tags_str = _tags_to_string(tag_set)
 
-    return Tensor4all.Index(d, id64; tags=tags_str)
+    t4a_idx = Tensor4all.Index(d, id64; tags=tags_str)
+    if p != 0
+        status = Tensor4all.C_API.t4a_index_set_plev(t4a_idx.ptr, Int64(p))
+        Tensor4all.C_API.check_status(status)
+    end
+    return t4a_idx
 end
 
 """

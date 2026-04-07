@@ -1,11 +1,11 @@
 using Test
 using Tensor4all: Index as T4AIndex, Tensor as T4ATensor
 using Tensor4all: dim, rank
-using Tensor4all.TreeTN: MPS, MPO, TreeTensorNetwork
+using Tensor4all.TreeTN: MPS, MPO, TensorTrain, TreeTensorNetwork
 using Tensor4all.TreeTN: nv, ne, linkdims, maxbonddim, linkind, linkinds, linkdim
 using Tensor4all.TreeTN: canonical_form, Unitary, LU, CI
 using Tensor4all.TreeTN: orthogonalize!, truncate!, inner
-using Tensor4all.TreeTN: contract, to_dense, truncate
+using Tensor4all.TreeTN: contract, to_dense, truncate, is_chain
 using Tensor4all.TreeTN: random_mps, random_tt
 using Tensor4all.TreeTN: findsite, findsites, siteinds, siteind
 using LinearAlgebra
@@ -399,6 +399,71 @@ using LinearAlgebra
         # Test random_tt alias
         mps_alias = random_tt(sites; linkdims=4)
         @test length(mps_alias) == 5
+    end
+
+    @testset "TensorTrain alias and is_chain" begin
+        @test TensorTrain === MPS
+        @test TensorTrain === MPO
+        @test TensorTrain === TreeTensorNetwork{Int}
+        @test Tensor4all.TensorTrain === TensorTrain
+        @test Tensor4all.MPS === MPS
+
+        sites = [T4AIndex(2) for _ in 1:5]
+        mps = random_mps(sites; linkdims=2)
+        @test is_chain(mps)
+        @test Tensor4all.is_chain(mps)
+
+        single_site = random_mps([T4AIndex(2)])
+        @test is_chain(single_site)
+
+        sym_s1 = T4AIndex(2)
+        sym_l12 = T4AIndex(3)
+        sym_s2 = T4AIndex(2)
+        sym_l23 = T4AIndex(3)
+        sym_s3 = T4AIndex(2)
+
+        sym_t1 = T4ATensor([sym_s1, sym_l12], rand(2, 3))
+        sym_t2 = T4ATensor([sym_l12, sym_s2, sym_l23], rand(3, 2, 3))
+        sym_t3 = T4ATensor([sym_l23, sym_s3], rand(3, 2))
+        sym_chain = TreeTensorNetwork{Symbol}([:left => sym_t1, :middle => sym_t2, :right => sym_t3])
+        @test is_chain(sym_chain)
+
+        int_s1 = T4AIndex(2)
+        int_l12 = T4AIndex(3)
+        int_s2 = T4AIndex(2)
+        int_l23 = T4AIndex(3)
+        int_s3 = T4AIndex(2)
+
+        int_t1 = T4ATensor([int_s1, int_l12], rand(2, 3))
+        int_t2 = T4ATensor([int_l12, int_s2, int_l23], rand(3, 2, 3))
+        int_t3 = T4ATensor([int_l23, int_s3], rand(3, 2))
+        misnamed_chain = TreeTensorNetwork{Int}([2 => int_t1, 3 => int_t2, 4 => int_t3])
+        @test !is_chain(misnamed_chain)
+
+        br_s1 = T4AIndex(2)
+        br_l12 = T4AIndex(3)
+        br_s2 = T4AIndex(2)
+        br_l23 = T4AIndex(3)
+        br_l24 = T4AIndex(3)
+        br_s3 = T4AIndex(2)
+        br_s4 = T4AIndex(2)
+
+        br_t1 = T4ATensor([br_s1, br_l12], rand(2, 3))
+        br_t2 = T4ATensor([br_l12, br_s2, br_l23, br_l24], rand(3, 2, 3, 3))
+        br_t3 = T4ATensor([br_l23, br_s3], rand(3, 2))
+        br_t4 = T4ATensor([br_l24, br_s4], rand(3, 2))
+        branched_ttn = TreeTensorNetwork{Int}([1 => br_t1, 2 => br_t2, 3 => br_t3, 4 => br_t4])
+        @test !is_chain(branched_ttn)
+
+        @test Tensor4all.TreeTN._assert_chain(mps) === nothing
+        @test_throws ArgumentError Tensor4all.TreeTN._assert_chain(branched_ttn)
+    end
+
+    @testset "is_mps_like and is_mpo_like" begin
+        sites = [Tensor4all.Index(2) for _ in 1:4]
+        mps = Tensor4all.random_mps(sites; linkdims=2)
+        @test Tensor4all.is_mps_like(mps)
+        @test !Tensor4all.is_mpo_like(mps)
     end
 
     @testset "MPS setindex!" begin

@@ -12,6 +12,10 @@
         t4a_id = Tensor4all.id(t4a_idx)
         expected_id = UInt64(t4a_id & 0xFFFFFFFFFFFFFFFF)
         @test ITensors.id(it_idx) == expected_id
+
+        primed = Tensor4all.setprime(t4a_idx, 2)
+        primed_it = ITensors.Index(primed)
+        @test ITensors.plev(primed_it) == 2
     end
 
     @testset "ITensors.Index → Tensor4all.Index" begin
@@ -28,6 +32,10 @@
         t4a_id = Tensor4all.id(t4a_idx)
         @test UInt64(t4a_id & 0xFFFFFFFFFFFFFFFF) == it_id
         @test UInt64(t4a_id >> 64) == 0  # Upper bits should be 0
+
+        primed_it = ITensors.Index(it_id, 3, ITensors.Neither, ITensors.TagSet("Link,l=2"), 2)
+        primed_t4a = Tensor4all.Index(primed_it)
+        @test Tensor4all.plev(primed_t4a) == 2
     end
 
     @testset "Roundtrip conversion" begin
@@ -38,6 +46,7 @@
 
         @test Tensor4all.dim(orig) == Tensor4all.dim(back)
         @test Tensor4all.tags(orig) == Tensor4all.tags(back)
+        @test Tensor4all.plev(orig) == Tensor4all.plev(back)
         # IDs match in lower 64 bits (upper bits may differ after roundtrip)
         orig_lo = UInt64(Tensor4all.id(orig) & 0xFFFFFFFFFFFFFFFF)
         back_lo = UInt64(Tensor4all.id(back) & 0xFFFFFFFFFFFFFFFF)
@@ -51,6 +60,11 @@
         @test ITensors.dim(it_orig) == ITensors.dim(it_back)
         @test ITensors.id(it_orig) == ITensors.id(it_back)
         @test ITensors.hastags(it_back, "Bond")
+
+        primed_orig = Tensor4all.setprime(orig, 3)
+        primed_it = ITensors.Index(primed_orig)
+        primed_back = Tensor4all.Index(primed_it)
+        @test Tensor4all.plev(primed_back) == 3
     end
 
     @testset "Convert function" begin
