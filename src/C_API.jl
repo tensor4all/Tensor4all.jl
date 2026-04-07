@@ -2067,7 +2067,9 @@ end
 # ============================================================================
 
 """
-    t4a_quanticscrossinterpolate_f64(grid, eval_fn, user_data, tolerance, max_bonddim, max_iter, out_qtci) -> Cint
+    t4a_quanticscrossinterpolate_f64(grid, eval_fn, user_data, options, tolerance,
+        max_bonddim, max_iter, initial_pivots, n_pivots, out_qtci,
+        out_ranks, out_errors, out_n_iters) -> Cint
 
 Continuous domain interpolation using a DiscretizedGrid.
 """
@@ -2075,21 +2077,31 @@ function t4a_quanticscrossinterpolate_f64(
     grid::Ptr{Cvoid},
     eval_fn::Ptr{Cvoid},
     user_data::Ptr{Cvoid},
+    options::Ptr{Cvoid},
     tolerance::Cdouble,
     max_bonddim::Csize_t,
     max_iter::Csize_t,
-    out_qtci::Ref{Ptr{Cvoid}},
+    initial_pivots,
+    n_pivots::Csize_t,
+    out_qtci,
+    out_ranks,
+    out_errors,
+    out_n_iters,
 )
     return ccall(
         _sym(:t4a_quanticscrossinterpolate_f64),
         Cint,
-        (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Cdouble, Csize_t, Csize_t, Ptr{Ptr{Cvoid}}),
-        grid, eval_fn, user_data, tolerance, max_bonddim, max_iter, out_qtci
+        (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Cdouble, Csize_t, Csize_t,
+         Ptr{Int64}, Csize_t, Ptr{Ptr{Cvoid}}, Ptr{Csize_t}, Ptr{Cdouble}, Ptr{Csize_t}),
+        grid, eval_fn, user_data, options, tolerance, max_bonddim, max_iter,
+        initial_pivots, n_pivots, out_qtci, out_ranks, out_errors, out_n_iters
     )
 end
 
 """
-    t4a_quanticscrossinterpolate_discrete_f64(sizes, ndims, eval_fn, user_data, tolerance, max_bonddim, max_iter, unfoldingscheme, out_qtci) -> Cint
+    t4a_quanticscrossinterpolate_discrete_f64(sizes, ndims, eval_fn, user_data, options,
+        tolerance, max_bonddim, max_iter, unfoldingscheme, initial_pivots, n_pivots,
+        out_qtci, out_ranks, out_errors, out_n_iters) -> Cint
 
 Discrete domain interpolation with integer indices.
 """
@@ -2098,17 +2110,25 @@ function t4a_quanticscrossinterpolate_discrete_f64(
     ndims::Csize_t,
     eval_fn::Ptr{Cvoid},
     user_data::Ptr{Cvoid},
+    options::Ptr{Cvoid},
     tolerance::Cdouble,
     max_bonddim::Csize_t,
     max_iter::Csize_t,
     unfoldingscheme::Cint,
-    out_qtci::Ref{Ptr{Cvoid}},
+    initial_pivots,
+    n_pivots::Csize_t,
+    out_qtci,
+    out_ranks,
+    out_errors,
+    out_n_iters,
 )
     return ccall(
         _sym(:t4a_quanticscrossinterpolate_discrete_f64),
         Cint,
-        (Ptr{Csize_t}, Csize_t, Ptr{Cvoid}, Ptr{Cvoid}, Cdouble, Csize_t, Csize_t, Cint, Ptr{Ptr{Cvoid}}),
-        sizes, ndims, eval_fn, user_data, tolerance, max_bonddim, max_iter, unfoldingscheme, out_qtci
+        (Ptr{Csize_t}, Csize_t, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Cdouble, Csize_t, Csize_t, Cint,
+         Ptr{Int64}, Csize_t, Ptr{Ptr{Cvoid}}, Ptr{Csize_t}, Ptr{Cdouble}, Ptr{Csize_t}),
+        sizes, ndims, eval_fn, user_data, options, tolerance, max_bonddim, max_iter, unfoldingscheme,
+        initial_pivots, n_pivots, out_qtci, out_ranks, out_errors, out_n_iters
     )
 end
 
@@ -2476,6 +2496,31 @@ function t4a_linop_set_output_space(op::Ptr{Cvoid}, state::Ptr{Cvoid})
         Cint,
         (Ptr{Cvoid}, Ptr{Cvoid}),
         op, state
+    )
+end
+
+# ============================================================================
+# TreeTN: swap_site_indices
+# ============================================================================
+
+"""
+    t4a_treetn_swap_site_indices(ttn, index_ids, target_vertices, n_pairs, max_rank, rtol) -> Cint
+
+Swap site indices on a TreeTN to a target assignment.
+"""
+function t4a_treetn_swap_site_indices(
+    ttn::Ptr{Cvoid},
+    index_ids::Ptr{UInt64},
+    target_vertices::Ptr{Csize_t},
+    n_pairs::Csize_t,
+    max_rank::Csize_t,
+    rtol::Cdouble,
+)
+    return ccall(
+        _sym(:t4a_treetn_swap_site_indices),
+        Cint,
+        (Ptr{Cvoid}, Ptr{UInt64}, Ptr{Csize_t}, Csize_t, Csize_t, Cdouble),
+        ttn, index_ids, target_vertices, n_pairs, max_rank, rtol
     )
 end
 

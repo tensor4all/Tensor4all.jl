@@ -1069,6 +1069,7 @@ include("SimpleTT.jl")
 include("TreeTN.jl")
 using .TreeTN: MPS, MPO, TensorTrain, random_mps, random_tt, is_chain, is_mps_like, is_mpo_like
 export MPS, MPO, TensorTrain, random_mps, random_tt, is_chain, is_mps_like, is_mpo_like
+export swap_site_indices!, rearrange_siteinds
 
 # ============================================================================
 # QuanticsGrids Submodule
