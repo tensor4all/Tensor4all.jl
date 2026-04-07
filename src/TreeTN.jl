@@ -1096,4 +1096,88 @@ end
 
 export save_mps, load_mps
 
+# ============================================================================
+# swap_site_indices!
+# ============================================================================
+
+"""
+    swap_site_indices!(ttn::TreeTensorNetwork, target::Dict;
+                       maxdim::Int=0, rtol::Float64=0.0)
+
+Swap site indices to a target vertex assignment. The tensor network values
+are preserved via SVD factorization along each edge.
+
+`target` maps `id(index)` (as `UInt64`) to target vertex number (1-based).
+
+# Arguments
+- `target`: mapping from index ID to target vertex
+- `maxdim`: maximum bond dimension after SVD (0 = no limit)
+- `rtol`: relative SVD truncation tolerance (0.0 = no truncation)
+"""
+function swap_site_indices!(ttn::TreeTensorNetwork, target::Dict;
+                            maxdim::Int=0, rtol::Float64=0.0)
+    n = length(target)
+    n > 0 || return ttn
+
+    index_ids = Vector{UInt64}(undef, n)
+    target_vertices = Vector{Csize_t}(undef, n)
+    for (i, (idx_id, vertex)) in enumerate(target)
+        index_ids[i] = UInt64(idx_id)
+        target_vertices[i] = Csize_t(vertex - 1)  # 0-based for C API
+    end
+
+    GC.@preserve index_ids target_vertices begin
+        status = C_API.t4a_treetn_swap_site_indices(
+            ttn.handle, pointer(index_ids), pointer(target_vertices),
+            Csize_t(n), Csize_t(maxdim), Float64(rtol))
+        C_API.check_status(status)
+    end
+    return ttn
+end
+
+export swap_site_indices!
+
+"""
+    rearrange_siteinds(ttn::TreeTensorNetwork, target_layout::Vector{Vector{Index}};
+                       maxdim::Int=0, rtol::Float64=0.0) -> TreeTensorNetwork
+
+Rearrange site indices so that vertex `v` holds the indices in `target_layout[v]`.
+Returns a new TreeTensorNetwork (the input is not modified).
+
+Uses `swap_site_indices!` internally.
+"""
+function rearrange_siteinds(ttn::TreeTensorNetwork, target_layout::Vector{Vector{Index}};
+                            maxdim::Int=0, rtol::Float64=0.0)
+    n = nv(ttn)
+    length(target_layout) == n || throw(DimensionMismatch(
+        "target_layout has $(length(target_layout)) entries but TTN has $n vertices"))
+
+    # Build complete target assignment for ALL site indices
+    # (swap_site_indices requires every site index to have a target)
+    target = Dict{UInt64, Int}()
+
+    # First, include explicitly specified targets
+    for (v, inds) in enumerate(target_layout)
+        for idx in inds
+            target[UInt64(id(idx))] = v
+        end
+    end
+
+    # Then, include any site indices not mentioned (keep them at current vertex)
+    for v in vertices(ttn)
+        for idx in siteinds(ttn, v)
+            idx_id = UInt64(id(idx))
+            if !haskey(target, idx_id)
+                target[idx_id] = v
+            end
+        end
+    end
+
+    result = copy(ttn)
+    swap_site_indices!(result, target; maxdim=maxdim, rtol=rtol)
+    return result
+end
+
+export rearrange_siteinds
+
 end # module TreeTN

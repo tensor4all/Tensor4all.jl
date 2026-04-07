@@ -2499,4 +2499,29 @@ function t4a_linop_set_output_space(op::Ptr{Cvoid}, state::Ptr{Cvoid})
     )
 end
 
+# ============================================================================
+# TreeTN: swap_site_indices
+# ============================================================================
+
+"""
+    t4a_treetn_swap_site_indices(ttn, index_ids, target_vertices, n_pairs, max_rank, rtol) -> Cint
+
+Swap site indices on a TreeTN to a target assignment.
+"""
+function t4a_treetn_swap_site_indices(
+    ttn::Ptr{Cvoid},
+    index_ids::Ptr{UInt64},
+    target_vertices::Ptr{Csize_t},
+    n_pairs::Csize_t,
+    max_rank::Csize_t,
+    rtol::Cdouble,
+)
+    return ccall(
+        _sym(:t4a_treetn_swap_site_indices),
+        Cint,
+        (Ptr{Cvoid}, Ptr{UInt64}, Ptr{Csize_t}, Csize_t, Csize_t, Cdouble),
+        ttn, index_ids, target_vertices, n_pairs, max_rank, rtol
+    )
+end
+
 end # module C_API
