@@ -59,4 +59,49 @@
         @test_throws ArgumentError T4AIndex(0)
         @test_throws ArgumentError T4AIndex(-1)
     end
+
+    @testset "prime level" begin
+        i = T4AIndex(5; tags="Site")
+
+        # Default plev is 0
+        @test Tensor4all.plev(i) == 0
+
+        # prime
+        ip = Tensor4all.prime(i)
+        @test Tensor4all.plev(ip) == 1
+        @test Tensor4all.id(ip) == Tensor4all.id(i)
+
+        # double prime
+        ipp = Tensor4all.prime(ip)
+        @test Tensor4all.plev(ipp) == 2
+
+        # noprime
+        i0 = Tensor4all.noprime(ipp)
+        @test Tensor4all.plev(i0) == 0
+
+        # setprime
+        i3 = Tensor4all.setprime(i, 3)
+        @test Tensor4all.plev(i3) == 3
+
+        # equality includes plev
+        @test i != ip
+        @test i == Tensor4all.noprime(ip)
+
+        # hash includes plev
+        @test hash(i) != hash(ip)
+        @test hash(i) == hash(Tensor4all.noprime(ip))
+
+        # index matching includes plev
+        @test !Tensor4all.hascommoninds([i], [ip])
+        @test isempty(Tensor4all.commoninds([i], [ip]))
+
+        # sim preserves plev
+        ip_sim = Tensor4all.sim(ip)
+        @test Tensor4all.plev(ip_sim) == 1
+        @test Tensor4all.id(ip_sim) != Tensor4all.id(ip)
+
+        # display shows prime
+        s = sprint(show, ip)
+        @test occursin("'", s)
+    end
 end

@@ -272,6 +272,21 @@ function t4a_index_get_tags(ptr::Ptr{Cvoid}, buf, buf_len::Integer, out_len::Ref
     )
 end
 
+"""
+    t4a_index_get_plev(ptr::Ptr{Cvoid}, out_plev::Ref{Int64}) -> Cint
+
+Get the prime level of an index.
+"""
+function t4a_index_get_plev(ptr::Ptr{Cvoid}, out_plev::Ref{Int64})
+    return ccall(
+        _sym(:t4a_index_get_plev),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Int64}),
+        ptr,
+        out_plev
+    )
+end
+
 # ============================================================================
 # Index modifiers
 # ============================================================================
@@ -319,6 +334,35 @@ function t4a_index_has_tag(ptr::Ptr{Cvoid}, tag::AbstractString)
         (Ptr{Cvoid}, Cstring),
         ptr,
         tag
+    )
+end
+
+"""
+    t4a_index_set_plev(ptr::Ptr{Cvoid}, plev::Integer) -> Cint
+
+Set the prime level of an index.
+"""
+function t4a_index_set_plev(ptr::Ptr{Cvoid}, plev::Integer)
+    return ccall(
+        _sym(:t4a_index_set_plev),
+        Cint,
+        (Ptr{Cvoid}, Int64),
+        ptr,
+        Int64(plev)
+    )
+end
+
+"""
+    t4a_index_prime(ptr::Ptr{Cvoid}) -> Cint
+
+Increment the prime level of an index by 1.
+"""
+function t4a_index_prime(ptr::Ptr{Cvoid})
+    return ccall(
+        _sym(:t4a_index_prime),
+        Cint,
+        (Ptr{Cvoid},),
+        ptr
     )
 end
 

@@ -57,7 +57,7 @@ include("Algorithm.jl")
 
 # Re-export public API
 # Core types (tensor4all-core-common, tensor4all-core-tensor)
-export Index, dim, tags, id, hastag
+export Index, dim, tags, id, hastag, plev
 export Tensor, rank, dims, indices, storage_kind, data
 export StorageKind, DenseF64, DenseC64, DiagF64, DiagC64
 
@@ -86,6 +86,7 @@ ITensors.jl's `Index{Int}` (no quantum number symmetry).
 - `id(i::Index)` - Get the unique ID as UInt64
 - `tags(i::Index)` - Get tags as comma-separated string
 - `hastag(i::Index, tag::AbstractString)` - Check if index has a tag
+- `plev(i::Index)` - Get the prime level
 """
 mutable struct Index
     ptr::Ptr{Cvoid}
@@ -179,24 +180,39 @@ function hastag(i::Index, tag::AbstractString)
     return result == 1
 end
 
+"""
+    plev(i::Index) -> Int
+
+Get the prime level of an index.
+"""
+function plev(i::Index)
+    out_plev = Ref{Int64}(0)
+    status = C_API.t4a_index_get_plev(i.ptr, out_plev)
+    C_API.check_status(status)
+    return Int(out_plev[])
+end
+
 # Show method
 function Base.show(io::IO, i::Index)
     d = dim(i)
     t = tags(i)
+    p = plev(i)
     id_val = id(i)
     id_hex = string(id_val, base=16)
-    id_short = length(id_hex) >= 8 ? id_hex[end-7:end] : id_hex  # Last 8 hex digits
+    id_short = length(id_hex) >= 8 ? id_hex[end-7:end] : id_hex
+    prime_str = p > 0 ? repeat("'", p) : ""
     if isempty(t)
-        print(io, "(dim=$d|id=...$id_short)")
+        print(io, "(dim=$d|id=...$id_short)$prime_str")
     else
-        print(io, "(dim=$d|id=...$id_short|\"$t\")")
+        print(io, "(dim=$d|id=...$id_short|\"$t\")$prime_str")
     end
 end
 
 function Base.show(io::IO, ::MIME"text/plain", i::Index)
     println(io, "Tensor4all.Index")
-    println(io, "  dim: ", dim(i))
-    println(io, "  id:  ", string(id(i), base=16))
+    println(io, "  dim:  ", dim(i))
+    println(io, "  id:   ", string(id(i), base=16))
+    println(io, "  plev: ", plev(i))
     t = tags(i)
     if !isempty(t)
         println(io, "  tags: ", t)
@@ -215,14 +231,16 @@ function Base.deepcopy(i::Index)
     return Index(ptr)
 end
 
-# Equality based on ID + tags (matching ITensors.jl semantics with plev=0)
+# Equality based on ID + tags + plev (matching ITensors.jl semantics)
 function Base.:(==)(i1::Index, i2::Index)
-    return id(i1) == id(i2) && tags(i1) == tags(i2)
+    return id(i1) == id(i2) && tags(i1) == tags(i2) && plev(i1) == plev(i2)
 end
 
 function Base.hash(i::Index, h::UInt)
-    return hash(tags(i), hash(id(i), h))
+    return hash(plev(i), hash(tags(i), hash(id(i), h)))
 end
+
+_index_key(i::Index) = (id(i), tags(i), plev(i))
 
 # ============================================================================
 # Index Utilities
@@ -235,13 +253,55 @@ Create a new index with the same dimension and tags but a new unique ID.
 This is useful for creating "similar" indices that won't contract with the original.
 """
 function sim(i::Index)
-    return Index(dim(i); tags=tags(i))
+    j = Index(dim(i); tags=tags(i))
+    p = plev(i)
+    if p != 0
+        status = C_API.t4a_index_set_plev(j.ptr, Int64(p))
+        C_API.check_status(status)
+    end
+    return j
+end
+
+"""
+    prime(i::Index, n::Integer=1) -> Index
+
+Return a copy of the index with prime level incremented by `n`.
+"""
+function prime(i::Index, n::Integer=1)
+    j = copy(i)
+    status = C_API.t4a_index_set_plev(j.ptr, Int64(plev(i) + n))
+    C_API.check_status(status)
+    return j
+end
+
+"""
+    noprime(i::Index) -> Index
+
+Return a copy of the index with prime level set to 0.
+"""
+function noprime(i::Index)
+    j = copy(i)
+    status = C_API.t4a_index_set_plev(j.ptr, Int64(0))
+    C_API.check_status(status)
+    return j
+end
+
+"""
+    setprime(i::Index, n::Integer) -> Index
+
+Return a copy of the index with prime level set to `n`.
+"""
+function setprime(i::Index, n::Integer)
+    j = copy(i)
+    status = C_API.t4a_index_set_plev(j.ptr, Int64(n))
+    C_API.check_status(status)
+    return j
 end
 
 """
     hascommoninds(inds1, inds2) -> Bool
 
-Check if two collections of indices have any common indices (by ID).
+Check if two collections of indices have any common indices.
 
 # Example
 ```julia
@@ -251,9 +311,9 @@ hascommoninds([i], [k])        # false
 ```
 """
 function hascommoninds(inds1, inds2)
-    ids1 = Set(id(i) for i in inds1)
+    keys1 = Set(_index_key(i) for i in inds1)
     for i in inds2
-        if id(i) in ids1
+        if _index_key(i) in keys1
             return true
         end
     end
@@ -263,7 +323,7 @@ end
 """
     commoninds(inds1, inds2) -> Vector{Index}
 
-Return the indices that appear in both collections (by ID).
+Return the indices that appear in both collections.
 Returns indices from inds1.
 
 # Example
@@ -273,8 +333,8 @@ commoninds([i, j], [j, k])  # [j]
 ```
 """
 function commoninds(inds1, inds2)
-    ids2 = Set(id(i) for i in inds2)
-    return [i for i in inds1 if id(i) in ids2]
+    keys2 = Set(_index_key(i) for i in inds2)
+    return [i for i in inds1 if _index_key(i) in keys2]
 end
 
 # Alias for ITensors compatibility
@@ -293,7 +353,7 @@ end
 """
     uniqueinds(inds1, inds2) -> Vector{Index}
 
-Return the indices in inds1 that do not appear in inds2 (by ID).
+Return the indices in inds1 that do not appear in inds2.
 
 # Example
 ```julia
@@ -302,8 +362,8 @@ uniqueinds([i, j], [j, k])  # [i]
 ```
 """
 function uniqueinds(inds1, inds2)
-    ids2 = Set(id(i) for i in inds2)
-    return [i for i in inds1 if !(id(i) in ids2)]
+    keys2 = Set(_index_key(i) for i in inds2)
+    return [i for i in inds1 if !(_index_key(i) in keys2)]
 end
 
 """
@@ -333,8 +393,8 @@ Replace indices in `inds` according to the mapping old_inds → new_inds.
 """
 function replaceinds(inds, old_inds, new_inds)
     length(old_inds) == length(new_inds) || error("old_inds and new_inds must have same length")
-    id_map = Dict(id(o) => n for (o, n) in zip(old_inds, new_inds))
-    return [get(id_map, id(i), i) for i in inds]
+    index_map = Dict(_index_key(o) => n for (o, n) in zip(old_inds, new_inds))
+    return [get(index_map, _index_key(i), i) for i in inds]
 end
 
 """
@@ -348,6 +408,7 @@ end
 
 export sim, hascommoninds, commoninds, common_inds, commonind
 export uniqueinds, uniqueind, noncommoninds, replaceinds, replaceind
+export prime, noprime, setprime
 
 # ============================================================================
 # Curried/Predicate Index Functions
@@ -363,12 +424,12 @@ A predicate type for checking if an object has common indices with a given set.
 Used internally by `hascommoninds(is)` curried form.
 """
 struct HasCommonIndsPredicate
-    target_ids::Set{UInt64}
+    target_keys::Set{Tuple{UInt64, String, Int}}
 end
 
 function (p::HasCommonIndsPredicate)(x)
     for idx in indices(x)
-        if id(idx) in p.target_ids
+        if _index_key(idx) in p.target_keys
             return true
         end
     end
@@ -389,7 +450,7 @@ findfirst(hascommoninds(sites[2:2]), tt)  # Returns 2
 ```
 """
 function hascommoninds(is::Vector{Index})
-    return HasCommonIndsPredicate(Set(id(i) for i in is))
+    return HasCommonIndsPredicate(Set(_index_key(i) for i in is))
 end
 
 hascommoninds(i::Index) = hascommoninds([i])
@@ -406,7 +467,7 @@ tt = random_tt(sites; linkdims=2)
 findfirst(hasind(sites[1]), tt)  # Returns 1
 ```
 """
-hasind(i::Index) = x -> any(idx -> id(idx) == id(i), indices(x))
+hasind(i::Index) = x -> any(idx -> idx == i, indices(x))
 
 """
     hasinds(is) -> Function
@@ -424,9 +485,9 @@ hasinds([i])(t)     # true
 function hasinds(is)
     return function(x)
         x_inds = indices(x)
-        x_ids = Set(id(idx) for idx in x_inds)
+        x_keys = Set(_index_key(idx) for idx in x_inds)
         for i in is
-            if !(id(i) in x_ids)
+            if !(_index_key(i) in x_keys)
                 return false
             end
         end
