@@ -257,8 +257,11 @@ function quanticscrossinterpolate(
 )
     f_ref = Ref{Any}(f)
     out_qtci = Ref{Ptr{Cvoid}}(C_NULL)
+    out_ranks = Vector{Csize_t}(undef, max_iter)
+    out_errors = Vector{Cdouble}(undef, max_iter)
+    out_n_iters = Ref{Csize_t}(0)
 
-    GC.@preserve f_ref begin
+    GC.@preserve f_ref out_ranks out_errors begin
         user_data = pointer_from_objref(f_ref)
         trampoline_ptr = _get_trampoline_f64_ptr()
 
@@ -266,16 +269,25 @@ function quanticscrossinterpolate(
             grid.ptr,
             trampoline_ptr,
             user_data,
+            C_NULL,  # options (NULL = use legacy tolerance/max_bonddim/max_iter)
             tolerance,
             Csize_t(max_bonddim),
             Csize_t(max_iter),
+            C_NULL,  # initial_pivots
+            Csize_t(0),  # n_pivots
             out_qtci,
+            pointer(out_ranks),
+            pointer(out_errors),
+            out_n_iters,
         )
 
         C_API.check_status(status)
     end
 
-    return QuanticsTensorCI2(out_qtci[])
+    n = Int(out_n_iters[])
+    ranks = Int.(out_ranks[1:n])
+    errors = Float64.(out_errors[1:n])
+    return QuanticsTensorCI2(out_qtci[]), ranks, errors
 end
 
 """
@@ -314,8 +326,11 @@ function quanticscrossinterpolate_discrete(
     f_ref = Ref{Any}(f)
     out_qtci = Ref{Ptr{Cvoid}}(C_NULL)
     sizes_c = Csize_t.(sizes)
+    out_ranks = Vector{Csize_t}(undef, max_iter)
+    out_errors = Vector{Cdouble}(undef, max_iter)
+    out_n_iters = Ref{Csize_t}(0)
 
-    GC.@preserve f_ref begin
+    GC.@preserve f_ref out_ranks out_errors begin
         user_data = pointer_from_objref(f_ref)
         trampoline_ptr = _get_trampoline_i64_ptr()
 
@@ -324,17 +339,26 @@ function quanticscrossinterpolate_discrete(
             Csize_t(length(sizes)),
             trampoline_ptr,
             user_data,
+            C_NULL,  # options
             tolerance,
             Csize_t(max_bonddim),
             Csize_t(max_iter),
             scheme,
+            C_NULL,  # initial_pivots
+            Csize_t(0),  # n_pivots
             out_qtci,
+            pointer(out_ranks),
+            pointer(out_errors),
+            out_n_iters,
         )
 
         C_API.check_status(status)
     end
 
-    return QuanticsTensorCI2(out_qtci[])
+    n = Int(out_n_iters[])
+    ranks = Int.(out_ranks[1:n])
+    errors = Float64.(out_errors[1:n])
+    return QuanticsTensorCI2(out_qtci[]), ranks, errors
 end
 
 end # module QuanticsTCI
