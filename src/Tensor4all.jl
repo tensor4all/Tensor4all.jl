@@ -905,6 +905,8 @@ include("SimpleTT.jl")
 # Tree tensor network functionality is in a separate submodule.
 # Use: using Tensor4all.TreeTN
 include("TreeTN.jl")
+using .TreeTN: MPS, MPO, TensorTrain, random_mps, random_tt, is_chain
+export MPS, MPO, TensorTrain, random_mps, random_tt, is_chain
 
 # ============================================================================
 # QuanticsGrids Submodule
