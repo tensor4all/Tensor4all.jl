@@ -1,78 +1,48 @@
-# [Module Architecture](@id Module-Architecture)
+# Architecture Status
 
-## Dependency Graph
+## Current Phase
 
-```
-                    ┌──────────────────────┐
-                    │   Core Foundation     │
-                    │  Index, Tensor,       │
-                    │  Algorithm            │
-                    └──────────┬───────────┘
-                               │
-               ┌───────────────┼───────────────┐
-               ▼               ▼               ▼
-         ┌──────────┐   ┌──────────┐   ┌──────────────┐
-         │ SimpleTT │◄─►│  TreeTN  │   │QuanticsGrids │
-         │          │   │ MPS/MPO  │   │              │
-         └──────────┘   └────┬─────┘   └──────┬───────┘
-                             │                 │
-                    ┌────────┼────────┐        │
-                    ▼        ▼        ▼        ▼
-              ┌──────────┐ ┌──────┐ ┌────────────┐
-              │Quantics  │ │Tree  │ │QuanticsTCI │
-              │Transform │ │TCI   │ │            │
-              └──────────┘ └──────┘ └────────────┘
-```
+`Tensor4all.jl` is in a review-first skeleton phase.
 
-## Data Flow
+The package now exposes real metadata-level types and integration boundaries for
+review, while backend numerics remain intentionally stubbed.
 
-Tensor4all.jl modules form a pipeline where data flows from grid definition through interpolation to tensor network operations:
+## Current Layers
 
-| Stage | Module | Input | Output |
-|-------|--------|-------|--------|
-| Grid definition | **QuanticsGrids** | Domain bounds, R (bits) | `DiscretizedGrid`, `InherentDiscreteGrid` |
-| Function interpolation | **QuanticsTCI** | Function + Grid | `QuanticsTensorCI2` |
-| Simple tensor train | **SimpleTT** | TCI result via `to_tensor_train()` | `SimpleTensorTrain` |
-| Tensor network | **TreeTN** | SimpleTT via `MPS()` | `MPS` / `TreeTensorNetwork` |
-| Operators | **QuanticsTransform** | MPS + operator | Transformed `MPS` |
-| Tree interpolation | **TreeTCI** | Function + tree graph | `TreeTensorNetwork` |
+| Layer | Responsibility | Current status |
+|------|----------------|----------------|
+| Core | lazy backend loading, common errors, `Index`, `Tensor` | metadata behavior implemented |
+| TreeTN | `TreeTensorNetwork`, chain aliases, runtime topology predicates | metadata behavior implemented |
+| Quantics reuse | adopted `QuanticsGrids.jl` grid and coordinate-conversion surface | curated re-export implemented |
+| Quantics local layer | transform descriptors and QTCI placeholders | metadata/stub behavior implemented |
+| Extensions | ITensors and HDF5 compatibility glue | extension-only stubs implemented |
+| BubbleTeaCI | `TTFunction` and high-level function workflows | intentionally out of scope here |
 
-## Typical Pipelines
+## Behavior Boundary
 
-### Quantics function interpolation
-```
-QuanticsGrids.DiscretizedGrid → QuanticsTCI.quanticscrossinterpolate
-  → QuanticsTCI.to_tensor_train → SimpleTensorTrain
-  → TreeTN.MPS → MPS operations (truncate!, orthogonalize!, inner, contract)
-```
+- Metadata constructors, inspection helpers, and topology predicates work.
+- Backend-backed operations such as contraction, dense materialization, and
+  transforms deliberately throw `SkeletonNotImplemented`.
+- Importing `Tensor4all.jl` does not require a compiled `tensor4all-rs` backend.
 
-### Fourier analysis of interpolated function
-```
-QuanticsTCI result → MPS
-  → QuanticsTransform.fourier_operator → apply → Fourier-space MPS
-  → TreeTCI.evaluate (at specific k-points)
-```
+## Ownership and Re-Export
 
-### Affine coordinate transform
-```
-MPS → QuanticsTransform.affine_pullback_operator → apply → transformed MPS
-```
+- `tensor4all-rs` owns kernels, storage, and numerically heavy backend behavior.
+- `Tensor4all.jl` owns Julia-side wrappers, TreeTN-general abstractions, local
+  quantics transforms, QTCI placeholders, and compatibility extensions.
+- `QuanticsGrids.jl` owns quantics grid semantics and coordinate conversion.
+- `Tensor4all.jl` re-exports a curated `QuanticsGrids.jl` surface for usability,
+  but that re-export does not change ownership.
+- `BubbleTeaCI` remains the home of `TTFunction` and high-level function
+  workflows, and should consume lower-level functionality from `Tensor4all.jl`
+  and adopted dependencies instead of duplicating it.
 
-### Tree-structured interpolation
-```
-TreeTCI.crossinterpolate2 → TreeTensorNetwork
-  → TreeTN operations (contract, truncate!, evaluate)
-```
+## Review Questions Still Open
 
-## Type Relationships
-
-```julia
-# Chain tensor networks
-TensorTrain = TreeTensorNetwork{Int}  # Primary chain type
-MPS = TensorTrain                      # Alias (no type distinction)
-MPO = TensorTrain                      # Alias (no type distinction)
-
-# MPS-like vs MPO-like is a runtime property:
-is_mps_like(tt)  # each vertex has 1 site index
-is_mpo_like(tt)  # each vertex has 2 site indices (unprimed + primed)
-```
+- Should `Index` and `Tensor` gain explicit backend-handle behavior beyond the
+  current nullable-handle skeleton fields before backend integration starts?
+- Is the current curated `QuanticsGrids.jl` re-export scope broad enough for the
+  first downstream consumers?
+- Is the downstream `BubbleTeaCI` contract explicit enough before migration
+  begins?
+- Are the current public names good enough to freeze for backend implementation?

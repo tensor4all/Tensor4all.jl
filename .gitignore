@@ -1,5 +1,7 @@
 # Julia package artifacts
 Manifest.toml
+docs/Manifest.toml
+docs/build/
 
 # Built shared libraries
 deps/*.dylib
@@ -8,3 +10,4 @@ deps/*.dll
 deps/build.log
 
 extern/
+.worktrees/

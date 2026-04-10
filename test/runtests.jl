@@ -1,27 +1,11 @@
 using Test
 using Tensor4all
-import ITensors
 
-# Use qualified names to avoid ambiguity
-const T4AIndex = Tensor4all.Index
-const T4ATensor = Tensor4all.Tensor
-
-skip_hdf5 = get(ENV, "T4A_SKIP_HDF5_TESTS", "") == "1"
-
-@testset "Tensor4all.jl" begin
-    include("test_build_script.jl")
-    include("test_index.jl")
-    include("test_tensor.jl")
-    include("test_treetn.jl")
-    include("test_treetci.jl")
-    include("test_simplett.jl")
-    include("test_quanticsgrids.jl")
-    include("test_quanticstransform.jl")
-    if !skip_hdf5
-        include("test_hdf5.jl")
-    end
-    include("itensors_ext_test.jl")
-    if !skip_hdf5
-        include("test_hdf5_itensors_compat.jl")
-    end
-end
+include("core/bootstrap.jl")
+include("core/index.jl")
+include("core/tensor.jl")
+include("ttn/tree_tensor_network.jl")
+include("quantics/quantics_grids_bridge.jl")
+include("quantics/transforms.jl")
+include("extensions/itensors_ext.jl")
+include("extensions/hdf5_ext.jl")
