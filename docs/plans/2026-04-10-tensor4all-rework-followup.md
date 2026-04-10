@@ -1487,3 +1487,23 @@ git commit -m "chore: record skeleton rework review outcomes"
 - Any public API that is not genuinely implemented must throw `SkeletonNotImplemented`.
 - Pure metadata behavior may be fully implemented when it helps review and testing.
 - Chain-specific behavior must use runtime checks on top of `TreeTensorNetwork`; do not create a separate chain-only core type.
+
+## Execution Notes
+
+- Implemented through Task 8 on branch `tensor4all-rework-impl`.
+- Verified with:
+  - `julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'`
+  - `julia --project=docs docs/make.jl`
+  - `rg -n "SimpleTT|TreeTCI|TTFunction|QuanticsTCI" src test docs/src README.md`
+- Adopted defaults used during implementation:
+  - `Index`, `Tensor`, and `TreeTensorNetwork` carry nullable backend-handle fields to stay aligned with the eventual backend-facing shape while still supporting metadata-only review behavior.
+  - import, metadata helpers, topology predicates, and the curated `QuanticsGrids.jl` re-export remain backend-free.
+  - contraction, dense materialization, transform materialization, and extension conversions remain explicit stubs.
+- Open review decisions:
+  - whether the curated `QuanticsGrids.jl` re-export should widen before downstream migration starts
+  - whether `BubbleTeaCI` should later re-export a curated `Tensor4all.jl` subset or keep imports explicit
+  - whether backend handles should remain nullable fields on the public skeleton types or move behind an internal wrapper during backend enablement
+- Follow-up backend gaps:
+  - tensor-tensor contraction still needs real backend coverage
+  - TreeTN contraction, dense conversion, and evaluation remain stubbed
+  - transform materialization and QTCI execution remain stubbed
