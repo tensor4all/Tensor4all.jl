@@ -18,6 +18,7 @@ include("Core/Errors.jl")
 include("Core/Backend.jl")
 include("Core/Index.jl")
 include("Core/Tensor.jl")
+include("TreeTN/TreeTensorNetwork.jl")
 
 export SKELETON_PHASE
 export SkeletonPhaseError, SkeletonNotImplemented, BackendUnavailableError
@@ -26,5 +27,9 @@ export Index, dim, id, tags, plev, hastag
 export sim, prime, noprime, setprime
 export replaceind, replaceinds, commoninds, uniqueinds
 export Tensor, inds, rank, dims, swapinds, contract
+export TreeTensorNetwork, TensorTrain, MPS, MPO
+export vertices, neighbors, siteinds, linkind
+export is_chain, is_mps_like, is_mpo_like
+export orthogonalize!, truncate!, inner, norm, to_dense, evaluate
 
 end
