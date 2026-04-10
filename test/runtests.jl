@@ -1,10 +1,11 @@
 using Test
 using Tensor4all
 
-@testset "Tensor4all skeleton phase" begin
-    @test Tensor4all.SKELETON_PHASE === true
-
-    err = Tensor4all.SkeletonPhaseError("skeleton placeholder")
-    @test err isa Exception
-    @test sprint(showerror, err) == "skeleton placeholder"
-end
+include("core/bootstrap.jl")
+include("core/index.jl")
+include("core/tensor.jl")
+include("ttn/tree_tensor_network.jl")
+include("quantics/quantics_grids_bridge.jl")
+include("quantics/transforms.jl")
+include("extensions/itensors_ext.jl")
+include("extensions/hdf5_ext.jl")

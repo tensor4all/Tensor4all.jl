@@ -10,18 +10,38 @@ but the real backend-facing types and operations are deferred to a later phase.
 """
 module Tensor4all
 
+using Libdl
+
 const SKELETON_PHASE = true
 
-"""
-    SkeletonPhaseError(message)
+include("Core/Errors.jl")
+include("Core/Backend.jl")
+include("Core/Index.jl")
+include("Core/Tensor.jl")
+include("TreeTN/TreeTensorNetwork.jl")
+include("Quantics/QuanticsGridsBridge.jl")
+include("Quantics/Transforms.jl")
+include("Quantics/QTCI.jl")
 
-Raised when code expects functionality that is intentionally deferred during the
-review-first reset.
-"""
-struct SkeletonPhaseError <: Exception
-    message::String
-end
-
-Base.showerror(io::IO, err::SkeletonPhaseError) = print(io, err.message)
+export SKELETON_PHASE
+export SkeletonPhaseError, SkeletonNotImplemented, BackendUnavailableError
+export backend_library_path, require_backend
+export Index, dim, id, tags, plev, hastag
+export sim, prime, noprime, setprime
+export replaceind, replaceinds, commoninds, uniqueinds
+export Tensor, inds, rank, dims, swapinds, contract
+export TreeTensorNetwork, TensorTrain, MPS, MPO
+export vertices, neighbors, siteinds, linkind
+export is_chain, is_mps_like, is_mpo_like
+export orthogonalize!, truncate!, inner, norm, to_dense, evaluate
+export DiscretizedGrid, InherentDiscreteGrid
+export quantics_to_grididx, quantics_to_origcoord
+export grididx_to_quantics, grididx_to_origcoord
+export origcoord_to_quantics, origcoord_to_grididx
+export QuanticsTransform
+export affine_transform, shift_transform, flip_transform
+export phase_rotation_transform, cumsum_transform, fourier_transform, binaryop_transform
+export materialize_transform
+export QTCIOptions, QTCIDiagnostics, QTCIResultPlaceholder
 
 end

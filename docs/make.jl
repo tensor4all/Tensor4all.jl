@@ -8,6 +8,7 @@ makedocs(
     pages=[
         "Home" => "index.md",
         "Architecture Status" => "modules.md",
+        "API Reference" => "api.md",
         "Design Documents" => "design_documents.md",
         "Deferred Rework Plan" => "deferred_rework_plan.md",
     ],
@@ -16,10 +17,4 @@ makedocs(
         canonical="https://tensor4all.github.io/Tensor4all.jl",
     ),
     warnonly=[:missing_docs],
-)
-
-deploydocs(
-    repo="github.com/tensor4all/Tensor4all.jl.git",
-    devbranch="main",
-    push_preview=true,
 )
