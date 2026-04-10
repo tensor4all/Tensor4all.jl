@@ -11,4 +11,10 @@ module Tensor4allITensorsExt
 using Tensor4all
 using ITensors
 
+to_itensor(::Tensor4all.Index) =
+    throw(Tensor4all.SkeletonNotImplemented(:to_itensor, :extensions))
+
+from_itensor(::ITensors.Index) =
+    throw(Tensor4all.SkeletonNotImplemented(:from_itensor, :extensions))
+
 end # module
