@@ -18,9 +18,3 @@ makedocs(
     ),
     warnonly=[:missing_docs],
 )
-
-deploydocs(
-    repo="github.com/tensor4all/Tensor4all.jl.git",
-    devbranch="main",
-    push_preview=true,
-)

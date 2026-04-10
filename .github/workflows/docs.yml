@@ -2,33 +2,36 @@ name: Documentation
 
 on:
   push:
-    branches: [main]
-    tags: ['v*']
+    branches:
+      - tensor4all-rework
   pull_request:
-    branches: [main]
+    branches:
+      - tensor4all-rework
+  workflow_dispatch:
 
 permissions:
-  contents: write
-  statuses: write
+  contents: read
+  pages: write
+  id-token: write
 
 concurrency:
   group: docs-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  docs:
-    name: Build and Deploy
+  build:
+    name: Build documentation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: julia-actions/setup-julia@v2
         with:
-          version: '1.11'
+          version: "1.11"
 
       - uses: julia-actions/cache@v2
 
-      - name: Install package and build Rust library
+      - name: Install package and build documentation
         run: |
           julia --project=docs -e '
             using Pkg
@@ -36,9 +39,28 @@ jobs:
             Pkg.instantiate()
             Pkg.build("Tensor4all")
           '
+          julia --project=docs docs/make.jl
 
-      - name: Build and deploy documentation
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
-        run: julia --project=docs docs/make.jl
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload documentation artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/build
+
+  deploy:
+    name: Deploy documentation
+    if: github.event_name == 'push' && github.ref == 'refs/heads/tensor4all-rework'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

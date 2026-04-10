@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, tensor4all-rework]
   pull_request:
-    branches: [main]
+    branches: [main, tensor4all-rework]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
