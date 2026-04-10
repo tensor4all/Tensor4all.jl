@@ -20,6 +20,8 @@ include("Core/Index.jl")
 include("Core/Tensor.jl")
 include("TreeTN/TreeTensorNetwork.jl")
 include("Quantics/QuanticsGridsBridge.jl")
+include("Quantics/Transforms.jl")
+include("Quantics/QTCI.jl")
 
 export SKELETON_PHASE
 export SkeletonPhaseError, SkeletonNotImplemented, BackendUnavailableError
@@ -36,5 +38,10 @@ export DiscretizedGrid, InherentDiscreteGrid
 export quantics_to_grididx, quantics_to_origcoord
 export grididx_to_quantics, grididx_to_origcoord
 export origcoord_to_quantics, origcoord_to_grididx
+export QuanticsTransform
+export affine_transform, shift_transform, flip_transform
+export phase_rotation_transform, cumsum_transform, fourier_transform, binaryop_transform
+export materialize_transform
+export QTCIOptions, QTCIDiagnostics, QTCIResultPlaceholder
 
 end
