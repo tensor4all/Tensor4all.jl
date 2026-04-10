@@ -10,3 +10,4 @@ deps/*.dll
 deps/build.log
 
 extern/
+.worktrees/
