@@ -24,12 +24,13 @@ Exit criteria:
 
 ## Phase 3. Quantics and Backend-Neutral Interfaces
 
-- define quantics grid semantics
+- adopt and re-export `QuanticsGrids.jl` for quantics grids and coordinate conversion
 - settle public names for `TTFunction` / `QTTFunction`
 - define the backend-neutral shape of TT-like operations
+- fix the downstream `BubbleTeaCI` contract before migration phases begin
 
 Exit criteria:
-- the Julia frontend knows what the higher-level layer will target.
+- the Julia frontend knows what the higher-level layer will target, and the adopted quantics boundary plus downstream `BubbleTeaCI` contract are explicit.
 
 ## Phase 4. Separate the Reusable BubbleTeaCI Core
 
@@ -54,6 +55,7 @@ Exit criteria:
 - improve naming, readability, and diagnostics
 - harden error handling and user ergonomics
 - migrate application modules onto the refactored core
+- settle whether `BubbleTeaCI` should later re-export a curated `Tensor4all.jl` subset as part of stabilization, not as part of the early skeleton
 
 Exit criteria:
 - the migrated ecosystem is stable enough for day-to-day use.
@@ -72,6 +74,6 @@ Exit criteria:
 ## Dependency Order
 
 - Phase 1 must finish before Phase 2.
-- Phase 2 and Phase 3 should be in place before the reusable BubbleTeaCI core is refactored.
+- Phase 2 and Phase 3 should be in place, including the explicit downstream `BubbleTeaCI` contract, before the reusable BubbleTeaCI core is refactored.
 - Phase 4 must finish before the migration in Phase 5.
 - Phase 6 and Phase 7 are primarily stabilization and completion work after the migration path is clear.

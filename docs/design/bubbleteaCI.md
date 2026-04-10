@@ -73,8 +73,16 @@ A beginner-oriented tutorial should live here as part of the reusable layer.
 - Keep application code separate while the core is migrated.
 - Preserve behavior with parity tests during the transition.
 
+## Dependency and Re-Export Strategy
+
+- `BubbleTeaCI` should consume lower-level tensor-network and grid functionality from `Tensor4all.jl` and its adopted dependencies rather than duplicating them locally.
+- `BubbleTeaCI` may later re-export a curated subset of `Tensor4all.jl` for single-import usability in high-level workflows.
+- Such re-export should stay curated and documented. Ownership of lower-level APIs remains with `Tensor4all.jl` or the adopted dependency that originally provides them.
+- `TTFunction`, `GriddedFunction`, and other high-level workflow semantics remain owned by `BubbleTeaCI` even if lower-level functionality is re-exported.
+
 ## Open Questions
 
 - Should the public abstraction be `TTFunction`, `QTTFunction`, or one name with an alias?
 - Should the reusable core eventually be split into its own package after stabilization, or remain within `BubbleTeaCI`?
 - Which migration helpers should be implemented first to reduce churn for downstream applications?
+- Should `BubbleTeaCI` later re-export all of `Tensor4all.jl` or a curated subset tailored to the high-level workflow story?

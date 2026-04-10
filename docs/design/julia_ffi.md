@@ -23,12 +23,19 @@ This file is only the index. The detailed design lives in the sibling documents 
 - The Julia frontend owns low-level wrappers, backend-facing abstractions, and extension glue.
 - `BubbleTeaCI` owns the reusable high-level `TTFunction` logic and the application code built on top of it.
 
+## Ecosystem Reuse
+
+- When a focused Julia package already owns a reusable concept cleanly, the preferred strategy is to depend on it and re-export the relevant surface rather than reimplement it.
+- For the quantics layer, this means adopting `QuanticsGrids.jl` for grid and coordinate-conversion functionality.
+- Re-export is a usability choice for single-import workflows. It does not change ownership of the underlying functionality.
+
 ## Cross-Cutting Questions
 
 - What is the public naming for the high-level function abstraction: `TTFunction`, `QTTFunction`, or an aliasing pair?
 - How should we normalize quantics layouts internally while keeping user-facing construction flexible?
 - What is the clean boundary between the absorbed raw `TensorTrain` layer and the higher-level `TTFunction` logic in `BubbleTeaCI`?
 - Which compatibility and conversion policies belong in Julia extensions versus the core frontend?
+- How much of an adopted dependency surface should be re-exported directly versus curated into a smaller reviewed subset?
 
 ## Roadmap Pointer
 

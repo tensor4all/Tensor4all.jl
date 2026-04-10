@@ -4,9 +4,9 @@
 
 **Goal:** Rebuild `Tensor4all.jl` from the phase-0 reset into a reviewable, TreeTN-general API skeleton aligned with `docs/design/`, while keeping backend loading lazy, keeping high-level `TTFunction` logic out of this package, and avoiding any fake numerics.
 
-**Architecture:** Build the package bottom-up. `Core` owns common errors, lazy backend loading, `Index`, and `Tensor`; `TreeTN` adds general tensor-network wrappers plus chain aliases and runtime topology predicates; `Quantics` adds grid, layout, transform, and QTCI placeholder types; `ext/` owns ITensors and HDF5 conversion stubs; docs and smoke tests grow in lockstep so every public symbol is reviewable before real backend behavior is enabled.
+**Architecture:** Build the package bottom-up. `Core` owns common errors, lazy backend loading, `Index`, and `Tensor`; `TreeTN` adds general tensor-network wrappers plus chain aliases and runtime topology predicates; the quantics layer adopts `QuanticsGrids.jl` as the grid and coordinate-conversion implementation, re-exporting its public surface through `Tensor4all.jl` while adding only `Tensor4all`-specific transform and QTCI placeholder types; `ext/` owns ITensors and HDF5 conversion stubs; docs and smoke tests grow in lockstep so every public symbol is reviewable before real backend behavior is enabled.
 
-**Tech Stack:** Julia 1.9+, Documenter.jl, package extensions, `tensor4all-rs` C API, `ITensors.jl`, `HDF5.jl`, `Test` stdlib.
+**Tech Stack:** Julia 1.9+, Documenter.jl, package extensions, `tensor4all-rs` C API, `QuanticsGrids.jl`, `ITensors.jl`, `HDF5.jl`, `Test` stdlib.
 
 ---
 
@@ -29,12 +29,81 @@ This plan must remain consistent with `AGENTS.md`, especially:
 - Julia-side composition should be preferred over adding C API calls unless the primitive is genuinely multi-language useful
 - `TTFunction` stays in `BubbleTeaCI`, not in this package
 
+## Ecosystem Reuse Principle
+
+- If a focused Julia package already owns a reusable concept cleanly, prefer depending on it and re-exporting the relevant surface over reimplementing it.
+- In this plan, that means `Tensor4all.jl` adopts `QuanticsGrids.jl` for quantics grids and coordinate conversion.
+- The same strategy should later guide `BubbleTeaCI`: it should build on and potentially re-export `Tensor4all.jl` for lower-level tensor-network and grid functionality, while keeping `TTFunction` and high-level workflow semantics in `BubbleTeaCI` itself.
+- Re-export is a usability strategy, not an ownership transfer. Docs must still make it clear which package owns which functionality.
+
+## Decision Locks Before Implementation
+
+These decisions should be reviewed explicitly before the skeleton work starts.
+Recommended defaults are included to reduce drift, but they are not silently
+settled by this document.
+
+- `Index` / `Tensor` skeleton model
+  - Decision: pure Julia metadata-first structs vs FFI-shaped wrappers with lazy
+    or nullable backend handles.
+  - Recommended default: keep the public shape aligned with the eventual
+    backend-facing design as early as possible, but allow metadata-only behavior
+    where that reduces skeleton friction.
+- Backend boundary in skeleton mode
+  - Decision: which APIs must remain usable without a compiled backend and which
+    ones should immediately route through `require_backend()`.
+  - Recommended default: import, metadata constructors, inspection helpers, and
+    topology predicates should remain backend-free; contraction and materialized
+    backend operations should stay stub-only.
+- `QuanticsGrids.jl` re-export scope
+  - Decision: full public surface vs curated subset.
+  - Recommended default: start with the core grid and coordinate-conversion
+    subset, then expand only if downstream review shows a strong need.
+- `BubbleTeaCI` downstream contract
+  - Decision: which `Tensor4all.jl` layer `BubbleTeaCI` may assume during the
+    migration, and whether later re-export should be full or curated.
+  - Recommended default: let `BubbleTeaCI` assume only the reviewed core,
+    TreeTN, and adopted quantics subset; keep any later re-export curated.
+
+## API Status Matrix
+
+| Surface | Owner | Skeleton status | Default expectation |
+|------|------|------|------|
+| Core metadata APIs (`Index`, `Tensor`, helpers) | `Tensor4all.jl` | real metadata behavior | usable without backend where possible |
+| TT / TreeTN backend-backed operations | `Tensor4all.jl` | stub-only | require explicit backend or raise `SkeletonNotImplemented` |
+| Quantics grid and coordinate conversion | `QuanticsGrids.jl` | adopted dependency and re-export | no local reimplementation |
+| Quantics transforms and QTCI placeholders | `Tensor4all.jl` | local stubs | reviewable names, no fake numerics |
+| Extensions (`ITensors`, `HDF5`) | `Tensor4all.jl` extension layer | loadable stubs | separate from core ownership |
+| `TTFunction` / high-level workflows | `BubbleTeaCI` | out of scope here | consumed downstream, not recreated here |
+
+## BubbleTeaCI Downstream Contract
+
+The `BubbleTeaCI` migration should treat the following as the minimum contract
+target from `Tensor4all.jl`:
+
+- reviewed core tensor-network types and error surfaces
+- `TreeTensorNetwork`, `TensorTrain`, `MPS`, `MPO`, and runtime topology checks
+- the adopted `QuanticsGrids.jl` subset re-exported through `Tensor4all.jl`
+- reviewed quantics transform constructor names and placeholder result types
+
+The contract intentionally does not yet include:
+
+- `TTFunction` or other high-level function abstractions
+- extension-only behavior such as `ITensors` / `HDF5` interoperability
+- any claim that backend-backed numerics are already complete
+
+`BubbleTeaCI` should consume lower-level functionality from `Tensor4all.jl` and
+its adopted dependencies rather than duplicate it. Any later `BubbleTeaCI`
+re-export should be treated as curated convenience, not as a transfer of
+ownership.
+
 ## Non-Goals
 
 - no real contractions, decompositions, or backend numerics beyond lazy loading hooks
 - no eager `dlopen` during `using Tensor4all`
 - no restored pre-reset module tree
 - no `TTFunction`, `GriddedFunction`, or application-level QTT workflows inside this repo
+- no duplicate quantics-grid implementation when `QuanticsGrids.jl` already provides the functionality
+- no plan that would encourage `BubbleTeaCI` to fork or duplicate lower-level functionality that should instead come from `Tensor4all.jl` or adopted dependencies
 - no pretending that a stubbed API is numerically complete
 
 ## Planned File Structure
@@ -53,8 +122,8 @@ This plan must remain consistent with `AGENTS.md`, especially:
   - `Tensor` metadata type, dense-array constructor checks, and stubbed contraction
 - `src/TreeTN/TreeTensorNetwork.jl`
   - `TreeTensorNetwork{V}`, `TensorTrain`, `MPS`, `MPO`, topology predicates, runtime checks
-- `src/Quantics/Grids.jl`
-  - variable, layout, and grid types plus coordinate conversion helpers
+- `src/Quantics/QuanticsGridsBridge.jl`
+  - `QuanticsGrids.jl` imports and re-exports through `Tensor4all.jl`
 - `src/Quantics/Transforms.jl`
   - transform descriptor types and constructor stubs
 - `src/Quantics/QTCI.jl`
@@ -79,8 +148,8 @@ This plan must remain consistent with `AGENTS.md`, especially:
   - `Tensor` construction, metadata access, and stub behavior
 - `test/ttn/tree_tensor_network.jl`
   - `TreeTensorNetwork` aliases, topology predicates, runtime checks
-- `test/quantics/grids.jl`
-  - quantics metadata and coordinate conversion
+- `test/quantics/quantics_grids_bridge.jl`
+  - `QuanticsGrids.jl` re-export coverage and single-import smoke tests
 - `test/quantics/transforms.jl`
   - transform constructor metadata and stub behavior
 - `test/extensions/itensors_ext.jl`
@@ -107,11 +176,31 @@ This plan must remain consistent with `AGENTS.md`, especially:
 
 ## Review Gates
 
-- After Task 2: confirm `Index` naming and metadata semantics
-- After Task 4: confirm `TreeTensorNetwork`, `TensorTrain`, `MPS`, and `MPO` surface
-- After Task 5: confirm quantics type names and grid-layout conventions
-- After Task 6: confirm extension boundary and weak dependency wiring
-- After Task 7: confirm docs site accurately reflects implemented versus stubbed behavior
+### Task 2 Gate
+
+- [ ] Does the chosen `Index` / `Tensor` representation match the direction in the design docs?
+- [ ] Is the metadata-vs-backend boundary explicit rather than implied?
+
+### Task 4 Gate
+
+- [ ] Does the public network surface reflect `TreeTensorNetwork`, `TensorTrain`, `MPS`, and `MPO` exactly as required by `AGENTS.md`?
+
+### Task 5 Gate
+
+- [ ] Is `QuanticsGrids.jl` clearly documented as the owner of quantics grid and coordinate-conversion functionality?
+- [ ] Is `Tensor4all.jl` clearly documented as the re-export and integration layer rather than the owner of those grid semantics?
+- [ ] Is the re-export scope still explicitly open, or has it been deliberately fixed?
+- [ ] Is the downstream `BubbleTeaCI` handoff story documented?
+
+### Task 6 Gate
+
+- [ ] Is the extension boundary still clean, with compatibility glue kept out of the core package body?
+
+### Task 7 Gate
+
+- [ ] Do the docs distinguish owner vs re-exporter?
+- [ ] Do the docs show that `TTFunction` remains in `BubbleTeaCI`?
+- [ ] Do the docs avoid implying that `Tensor4all.jl` reimplements quantics grids?
 
 ---
 
@@ -748,36 +837,151 @@ git commit -m "feat: add tree tensor network skeleton"
 
 ---
 
-### Task 5: Add the Quantics Metadata Skeleton
+### Task 5a: Adopt and Re-Export `QuanticsGrids.jl`
 
 **Files:**
-- Create: `src/Quantics/Grids.jl`
-- Create: `src/Quantics/Transforms.jl`
-- Create: `src/Quantics/QTCI.jl`
+- Modify: `Project.toml`
+- Create: `src/Quantics/QuanticsGridsBridge.jl`
 - Modify: `src/Tensor4all.jl`
-- Create: `test/quantics/grids.jl`
-- Create: `test/quantics/transforms.jl`
+- Create: `test/quantics/quantics_grids_bridge.jl`
 - Modify: `test/runtests.jl`
 
-- [ ] **Step 1: Write the failing quantics tests**
+- [ ] **Step 1: Write the failing re-export tests**
 
 ```julia
-# test/quantics/grids.jl
+# test/quantics/quantics_grids_bridge.jl
+using Test
+using Tensor4all
+using QuanticsGrids
+
+@testset "QuanticsGrids re-export" begin
+    @test Tensor4all.DiscretizedGrid === QuanticsGrids.DiscretizedGrid
+    @test Tensor4all.InherentDiscreteGrid === QuanticsGrids.InherentDiscreteGrid
+
+    grid = Tensor4all.DiscretizedGrid((3, 5); unfoldingscheme=:interleaved)
+    @test Tensor4all.quantics_to_grididx(grid, [1, 2, 1, 2, 1, 2, 1, 2]) == (1, 30)
+    @test Tensor4all.grididx_to_quantics(grid, (1, 30)) == [1, 2, 1, 2, 1, 2, 1, 2]
+end
+```
+
+```julia
+# test/runtests.jl
 using Test
 using Tensor4all
 
-@testset "Quantics grid metadata" begin
-    x = Tensor4all.GridVariable(:x, 3; lower=0.0, upper=1.0, include_endpoint=true)
-    y = Tensor4all.GridVariable(:y, 2; lower=-1.0, upper=1.0, include_endpoint=false)
-    layout = Tensor4all.QuanticsLayout(:interleaved, [[:x, :y]])
-    grid = Tensor4all.QuanticsGrid([x, y], layout)
+include("core/bootstrap.jl")
+include("core/index.jl")
+include("core/tensor.jl")
+include("ttn/tree_tensor_network.jl")
+include("quantics/quantics_grids_bridge.jl")
+```
 
-    coords = Tensor4all.grid_coords(grid, (x=3, y=2))
-    @test keys(coords) == (:x, :y)
-    @test coords.x == 3 / 7
-    @test coords.y == 0.0
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run:
+
+```bash
+julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
+```
+
+Expected: FAIL because `QuanticsGrids.jl` is not yet a `Tensor4all.jl` dependency and the re-export bridge does not exist yet.
+
+- [ ] **Step 3: Implement the adopted quantics bridge without reimplementing grids**
+
+```toml
+# Project.toml
+[deps]
+HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
+Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+QuanticsGrids = "634c7f73-3e90-4749-a1bd-001b8efc642d"
+RustToolChain = "e9dc52e2-edb8-4742-9783-5e542d30dbb5"
+
+[compat]
+HDF5 = "0.17"
+ITensors = "0.6, 0.7, 0.8, 0.9"
+QuanticsGrids = "0.7"
+RustToolChain = "0.1"
+julia = "1.9"
+```
+
+```julia
+# src/Quantics/QuanticsGridsBridge.jl
+using QuanticsGrids: DiscretizedGrid, InherentDiscreteGrid
+using QuanticsGrids: quantics_to_grididx, quantics_to_origcoord
+using QuanticsGrids: grididx_to_quantics, grididx_to_origcoord
+using QuanticsGrids: origcoord_to_quantics, origcoord_to_grididx
+
+export DiscretizedGrid, InherentDiscreteGrid
+export quantics_to_grididx, quantics_to_origcoord
+export grididx_to_quantics, grididx_to_origcoord
+export origcoord_to_quantics, origcoord_to_grididx
 end
 ```
+
+```julia
+# src/Tensor4all.jl
+module Tensor4all
+
+using Libdl
+
+const SKELETON_PHASE = true
+
+include("Core/Errors.jl")
+include("Core/Backend.jl")
+include("Core/Index.jl")
+include("Core/Tensor.jl")
+include("TreeTN/TreeTensorNetwork.jl")
+include("Quantics/QuanticsGridsBridge.jl")
+
+export SKELETON_PHASE
+export SkeletonPhaseError, SkeletonNotImplemented, BackendUnavailableError
+export backend_library_path, require_backend
+export Index, dim, id, tags, plev, hastag
+export sim, prime, noprime, setprime
+export replaceind, replaceinds, commoninds, uniqueinds
+export Tensor, inds, rank, dims, swapinds, contract
+export TreeTensorNetwork, TensorTrain, MPS, MPO
+export vertices, neighbors, siteinds, linkind
+export is_chain, is_mps_like, is_mpo_like
+export orthogonalize!, truncate!, inner, norm, to_dense, evaluate
+export DiscretizedGrid, InherentDiscreteGrid
+export quantics_to_grididx, quantics_to_origcoord
+export grididx_to_quantics, grididx_to_origcoord
+export origcoord_to_quantics, origcoord_to_grididx
+
+end
+```
+
+- [ ] **Step 4: Run tests to verify the adopted quantics layer passes**
+
+Run:
+
+```bash
+julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
+```
+
+Expected: PASS with `QuanticsGrids.jl` re-export coverage.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add Project.toml src/Tensor4all.jl src/Quantics/QuanticsGridsBridge.jl test/runtests.jl test/quantics/quantics_grids_bridge.jl
+git commit -m "feat: re-export quantics grids"
+```
+
+---
+
+### Task 5b: Add Tensor4all-Specific Quantics Transform and QTCI Stubs
+
+**Files:**
+- Create: `src/Quantics/Transforms.jl`
+- Create: `src/Quantics/QTCI.jl`
+- Modify: `src/Tensor4all.jl`
+- Create: `test/quantics/transforms.jl`
+- Modify: `test/runtests.jl`
+
+- [ ] **Step 1: Write the failing transform and QTCI tests**
 
 ```julia
 # test/quantics/transforms.jl
@@ -805,7 +1009,7 @@ include("core/bootstrap.jl")
 include("core/index.jl")
 include("core/tensor.jl")
 include("ttn/tree_tensor_network.jl")
-include("quantics/grids.jl")
+include("quantics/quantics_grids_bridge.jl")
 include("quantics/transforms.jl")
 ```
 
@@ -817,47 +1021,9 @@ Run:
 julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-Expected: FAIL because the quantics types and transform constructors do not exist yet.
+Expected: FAIL because the local transform constructors and QTCI placeholders do not exist yet.
 
-- [ ] **Step 3: Implement the quantics skeleton**
-
-```julia
-# src/Quantics/Grids.jl
-struct GridVariable
-    name::Symbol
-    nbits::Int
-    lower::Float64
-    upper::Float64
-    include_endpoint::Bool
-end
-
-function GridVariable(name::Symbol, nbits::Integer; lower::Real, upper::Real, include_endpoint::Bool=true)
-    nbits > 0 || throw(ArgumentError("GridVariable requires at least one bit, got $nbits"))
-    lower < upper || throw(ArgumentError("GridVariable requires lower < upper, got $lower >= $upper"))
-    return GridVariable(name, Int(nbits), Float64(lower), Float64(upper), include_endpoint)
-end
-
-struct QuanticsLayout
-    style::Symbol
-    groups::Vector{Vector{Symbol}}
-end
-
-struct QuanticsGrid
-    variables::Vector{GridVariable}
-    layout::QuanticsLayout
-end
-
-function grid_coords(grid::QuanticsGrid, sample::NamedTuple)
-    pairs = Pair{Symbol,Float64}[]
-    for var in grid.variables
-        level = getproperty(sample, var.name)
-        levels = 2^var.nbits - (var.include_endpoint ? 1 : 0)
-        step = (var.upper - var.lower) / levels
-        push!(pairs, var.name => (var.lower + step * level))
-    end
-    return (; pairs...)
-end
-```
+- [ ] **Step 3: Implement the Tensor4all-owned quantics stubs**
 
 ```julia
 # src/Quantics/Transforms.jl
@@ -911,7 +1077,7 @@ include("Core/Backend.jl")
 include("Core/Index.jl")
 include("Core/Tensor.jl")
 include("TreeTN/TreeTensorNetwork.jl")
-include("Quantics/Grids.jl")
+include("Quantics/QuanticsGridsBridge.jl")
 include("Quantics/Transforms.jl")
 include("Quantics/QTCI.jl")
 
@@ -926,7 +1092,10 @@ export TreeTensorNetwork, TensorTrain, MPS, MPO
 export vertices, neighbors, siteinds, linkind
 export is_chain, is_mps_like, is_mpo_like
 export orthogonalize!, truncate!, inner, norm, to_dense, evaluate
-export GridVariable, QuanticsLayout, QuanticsGrid, grid_coords
+export DiscretizedGrid, InherentDiscreteGrid
+export quantics_to_grididx, quantics_to_origcoord
+export grididx_to_quantics, grididx_to_origcoord
+export origcoord_to_quantics, origcoord_to_grididx
 export QuanticsTransform
 export affine_transform, shift_transform, flip_transform
 export phase_rotation_transform, cumsum_transform, fourier_transform, binaryop_transform
@@ -936,6 +1105,15 @@ export QTCIOptions, QTCIDiagnostics, QTCIResultPlaceholder
 end
 ```
 
+- [ ] **Step 3b: Record the downstream reuse rule in package-facing docs while touching this layer**
+
+When updating the docs in Task 7, make sure the quantics section explicitly states:
+
+- `QuanticsGrids.jl` remains the owner of grid semantics
+- `Tensor4all.jl` re-exports that surface for single-import usability
+- `BubbleTeaCI` is expected to follow the same dependency-and-re-export strategy for lower layers rather than duplicating them
+- users should be able to understand where APIs come from even when re-exported
+
 - [ ] **Step 4: Run tests to verify quantics passes**
 
 Run:
@@ -944,13 +1122,13 @@ Run:
 julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-Expected: PASS with grid metadata, transform metadata, and QTCI placeholder coverage.
+Expected: PASS with `QuanticsGrids.jl` re-export coverage, transform metadata, and QTCI placeholder coverage.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/Tensor4all.jl src/Quantics/Grids.jl src/Quantics/Transforms.jl src/Quantics/QTCI.jl test/runtests.jl test/quantics/grids.jl test/quantics/transforms.jl
-git commit -m "feat: add quantics skeleton"
+git add src/Tensor4all.jl src/Quantics/Transforms.jl src/Quantics/QTCI.jl test/runtests.jl test/quantics/transforms.jl
+git commit -m "feat: add quantics transform skeleton"
 ```
 
 ---
@@ -1002,7 +1180,7 @@ include("core/bootstrap.jl")
 include("core/index.jl")
 include("core/tensor.jl")
 include("ttn/tree_tensor_network.jl")
-include("quantics/grids.jl")
+include("quantics/quantics_grids_bridge.jl")
 include("quantics/transforms.jl")
 include("extensions/itensors_ext.jl")
 include("extensions/hdf5_ext.jl")
@@ -1132,9 +1310,14 @@ Tensor4all.is_mpo_like
 ## Quantics
 
 ```@docs
-Tensor4all.GridVariable
-Tensor4all.QuanticsLayout
-Tensor4all.QuanticsGrid
+Tensor4all.DiscretizedGrid
+Tensor4all.InherentDiscreteGrid
+Tensor4all.quantics_to_grididx
+Tensor4all.quantics_to_origcoord
+Tensor4all.grididx_to_quantics
+Tensor4all.grididx_to_origcoord
+Tensor4all.origcoord_to_quantics
+Tensor4all.origcoord_to_grididx
 Tensor4all.QuanticsTransform
 Tensor4all.QTCIOptions
 Tensor4all.QTCIDiagnostics
@@ -1172,6 +1355,15 @@ makedocs(
 being rebuilt around the design documents under `docs/design/`. Public APIs may
 exist before backend numerics are implemented; such calls should fail with
 actionable skeleton exceptions rather than silently doing work.
+
+The quantics grid layer is planned around `QuanticsGrids.jl` as an adopted
+dependency. Users should get access to its grid and coordinate-conversion APIs
+through `using Tensor4all` rather than needing a second package import.
+
+This adopted-dependency pattern is also intended as the model for
+`BubbleTeaCI`: high-level workflows stay there, but lower-level functionality
+should be consumed from and potentially re-exported through `Tensor4all.jl`
+rather than reimplemented.
 
 ## Design and planning docs
 
@@ -1273,17 +1465,20 @@ git commit -m "chore: record skeleton rework review outcomes"
 
 - `julia_ffi_core.md`: covered by Tasks 1-3
 - `julia_ffi_tt.md`: covered by Task 4
-- `julia_ffi_quantics.md`: covered by Task 5
+- `julia_ffi_quantics.md`: covered by Tasks 5a-5b
 - `julia_ffi_extensions.md`: covered by Task 6
 - review-first docs protocol: covered by Task 7
 - staged review and verification: covered by Task 8
+- `bubbleteaCI.md` dependency-boundary implications: reflected in the ecosystem reuse principle, Task 5 review gate, and Task 7 docs updates
 
 ## Important Open Decisions Before Execution
 
+- The recommended defaults for these decisions are recorded in `Decision Locks Before Implementation` above.
 - whether `Index` should remain a pure Julia metadata skeleton during the review phase or carry an explicit nullable backend handle field from day one
 - whether `Tensor` should store Julia-owned dense arrays in the skeleton phase or wrap a lightweight backend-handle placeholder object
 - whether `HDF5` should move to weak dependency status immediately or in a follow-up commit paired with CI updates
-- whether `QuanticsLayout.style` should stay as `Symbol` in the skeleton or use an enum type from the beginning
+- whether `Tensor4all.jl` should re-export the full public `QuanticsGrids.jl` surface immediately or start with the core grid/conversion subset and expand deliberately
+- whether `BubbleTeaCI` should later re-export all of `Tensor4all.jl` or a curated subset that best matches its high-level workflow story
 
 ## Notes for Implementers
 

@@ -2,25 +2,31 @@
 
 ## Purpose
 
-This document covers quantics grid semantics and quantics-specific transform behavior on the Julia side.
+This document covers the quantics layer on the Julia side: adopted grid functionality from `QuanticsGrids.jl`, plus `Tensor4all.jl`-owned quantics-specific transform and backend-integration behavior.
 
 ## In Scope
 
-- named-variable quantics grids
-- site layouts and index-table control
-- coordinate conversion
-- layout conventions such as fused, interleaved, and grouped representations
-- quantics transform semantics
-- multiresolution support
+- adoption and re-export of `QuanticsGrids.jl` grid and coordinate-conversion APIs
+- documentation of supported layout and index-table conventions inherited from `QuanticsGrids.jl`
+- `Tensor4all.jl`-owned quantics transform semantics
+- backend-facing quantics integration points
+- multiresolution expectations for higher layers where they depend on the quantics layer
 
 This document does not cover `TTFunction` semantics. Those remain in [bubbleteaCI.md](./bubbleteaCI.md).
 
+## Ownership and Re-Export Boundary
+
+- `QuanticsGrids.jl` owns quantics grid types, layout/index-table semantics, and coordinate-conversion behavior.
+- `Tensor4all.jl` should adopt and re-export a reviewed subset of that surface so users can access it through a single import.
+- `Tensor4all.jl` owns quantics transform constructors, backend operator materialization, and the integration between the adopted grid layer and the TT / TreeTN layer.
+- Re-export improves usability but does not transfer ownership.
+
 ## Grid Semantics
 
-- Grid variables should be named, not just positional.
-- Layout should be explicit and inspectable.
-- Coordinate conversion should be available at the Julia level.
-- Endpoint conventions and mixed bases should be represented clearly.
+- Grid variables should remain named and inspectable through the adopted `QuanticsGrids.jl` interface.
+- Layout and index-table behavior should follow `QuanticsGrids.jl` conventions rather than being redefined locally.
+- Coordinate conversion should be available to `Tensor4all.jl` users through the re-exported `QuanticsGrids.jl` layer.
+- Endpoint conventions and mixed bases should likewise be inherited from `QuanticsGrids.jl` and documented clearly.
 
 ## Layout Conventions
 
@@ -31,7 +37,7 @@ This document does not cover `TTFunction` semantics. Those remain in [bubbleteaC
 
 ## Transform Semantics
 
-Quantics transforms can be represented as backend operators and exposed through Julia:
+Quantics transforms are owned by `Tensor4all.jl` and can be represented as backend operators exposed through Julia:
 
 - affine pullbacks
 - shifts
@@ -54,6 +60,6 @@ Quantics transforms can be represented as backend operators and exposed through 
 
 ## Open Questions
 
-- Which layout should be canonical internally?
-- Which layout forms should be accepted as user-facing construction syntax?
+- Should `Tensor4all.jl` re-export the full `QuanticsGrids.jl` public surface or start with a curated subset?
+- Which `QuanticsGrids.jl` conventions should be documented as part of the reviewed `Tensor4all.jl` public story from day one?
 - Where should weighted integration and quadrature-like behavior live?
