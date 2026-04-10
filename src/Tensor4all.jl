@@ -10,18 +10,15 @@ but the real backend-facing types and operations are deferred to a later phase.
 """
 module Tensor4all
 
+using Libdl
+
 const SKELETON_PHASE = true
 
-"""
-    SkeletonPhaseError(message)
+include("Core/Errors.jl")
+include("Core/Backend.jl")
 
-Raised when code expects functionality that is intentionally deferred during the
-review-first reset.
-"""
-struct SkeletonPhaseError <: Exception
-    message::String
-end
-
-Base.showerror(io::IO, err::SkeletonPhaseError) = print(io, err.message)
+export SKELETON_PHASE
+export SkeletonPhaseError, SkeletonNotImplemented, BackendUnavailableError
+export backend_library_path, require_backend
 
 end
