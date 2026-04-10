@@ -81,6 +81,12 @@ To skip HDF5 tests, set `T4A_SKIP_HDF5_TESTS=1`.
 - `Tensor4all.QuanticsTCI`: quantics tensor cross interpolation
 - `Tensor4all.TreeTCI`: tree-structured tensor cross interpolation
 
+## Design Notes
+
+The imported Julia/frontend architecture notes live in [docs/design](docs/design/README.md).
+Start with [docs/design/julia_ffi.md](docs/design/julia_ffi.md) for the overview and
+the linked subdocuments for the detailed plan.
+
 ## Usage
 
 ```julia
