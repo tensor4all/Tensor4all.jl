@@ -19,6 +19,7 @@ include("Core/Backend.jl")
 include("Core/Index.jl")
 include("Core/Tensor.jl")
 include("TreeTN/TreeTensorNetwork.jl")
+include("Quantics/QuanticsGridsBridge.jl")
 
 export SKELETON_PHASE
 export SkeletonPhaseError, SkeletonNotImplemented, BackendUnavailableError
@@ -31,5 +32,9 @@ export TreeTensorNetwork, TensorTrain, MPS, MPO
 export vertices, neighbors, siteinds, linkind
 export is_chain, is_mps_like, is_mpo_like
 export orthogonalize!, truncate!, inner, norm, to_dense, evaluate
+export DiscretizedGrid, InherentDiscreteGrid
+export quantics_to_grididx, quantics_to_origcoord
+export grididx_to_quantics, grididx_to_origcoord
+export origcoord_to_quantics, origcoord_to_grididx
 
 end
