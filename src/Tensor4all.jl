@@ -16,9 +16,13 @@ const SKELETON_PHASE = true
 
 include("Core/Errors.jl")
 include("Core/Backend.jl")
+include("Core/Index.jl")
 
 export SKELETON_PHASE
 export SkeletonPhaseError, SkeletonNotImplemented, BackendUnavailableError
 export backend_library_path, require_backend
+export Index, dim, id, tags, plev, hastag
+export sim, prime, noprime, setprime
+export replaceind, replaceinds, commoninds, uniqueinds
 
 end
