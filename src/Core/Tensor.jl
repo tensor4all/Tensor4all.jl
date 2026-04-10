@@ -8,6 +8,8 @@ phase. Backend-backed contraction and factorization behavior remains deferred.
 
 # Examples
 ```jldoctest
+julia> using Tensor4all
+
 julia> i = Index(2; tags=["i"]);
 
 julia> j = Index(3; tags=["j"]);

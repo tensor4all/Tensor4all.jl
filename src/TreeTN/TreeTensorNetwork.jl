@@ -38,6 +38,27 @@ const TensorTrain = TreeTensorNetwork{Int}
 const MPS = TensorTrain
 const MPO = TensorTrain
 
+@doc """
+    TensorTrain
+
+Alias for `TreeTensorNetwork{Int}`, the primary chain-shaped network type in
+the Julia API.
+""" TensorTrain
+
+@doc """
+    MPS
+
+Alias for `TensorTrain`. MPS-ness is a runtime structural property rather than a
+separate type.
+""" MPS
+
+@doc """
+    MPO
+
+Alias for `TensorTrain`. MPO-ness is a runtime structural property rather than a
+separate type.
+""" MPO
+
 """
     vertices(ttn)
 

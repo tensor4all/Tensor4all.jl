@@ -3,7 +3,7 @@ Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 Tensor4all = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 
 [sources]
-Tensor4all = {path = "/Users/nepomuk/Documents/GitHub/Tensor4all.jl"}
+Tensor4all = {path = ".."}
 
 [compat]
 Documenter = "1"

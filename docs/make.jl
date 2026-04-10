@@ -8,6 +8,7 @@ makedocs(
     pages=[
         "Home" => "index.md",
         "Architecture Status" => "modules.md",
+        "API Reference" => "api.md",
         "Design Documents" => "design_documents.md",
         "Deferred Rework Plan" => "deferred_rework_plan.md",
     ],

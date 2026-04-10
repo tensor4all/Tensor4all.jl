@@ -1,20 +1,24 @@
 # Deferred Rework Plan
 
-The broader rework is intentionally split. Phase 0 only resets the repository
-and sets up a review-first docs surface.
+The broader rework is intentionally split.
 
-The deferred implementation work is tracked in:
+The repository has now moved beyond the pure reset step and exposes a reviewed
+skeleton surface, but backend numerics and downstream migration work are still
+deferred.
+
+The active execution plan remains tracked in:
 
 - [2026-04-10 tensor4all rework follow-up plan](https://github.com/tensor4all/Tensor4all.jl/blob/tensor4all-rework/docs/plans/2026-04-10-tensor4all-rework-followup.md)
 
-## Deferred Until After Review
+## Still Deferred
 
-- Core skeleton for `Index` and `Tensor`
-- TreeTN-general tensor network skeleton with `TensorTrain`, `MPS`, and `MPO` aliases
-- Quantics grids, transforms, and QTCI skeleton types
-- ITensors and HDF5 extension skeletons
-- staged commit and review cadence for the real API skeleton
-- expanded smoke tests and later API-reference pages
+- backend-backed tensor contraction, factorization, and dense materialization
+- transform materialization and QTCI execution
+- C API expansion where the Julia skeleton reveals genuinely missing
+  multi-language primitives
+- downstream `BubbleTeaCI` migration onto the new skeleton surface
+- beginner-facing tutorials beyond the current review-first documentation
 
-This split is deliberate: the next wave of implementation should land only after
-the architecture and naming choices have been reviewed.
+This split remains deliberate: the next implementation wave should focus on
+backend enablement and downstream migration, not on widening the public surface
+without review.

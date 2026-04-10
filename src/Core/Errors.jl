@@ -6,6 +6,8 @@ review-first skeleton phase.
 
 # Examples
 ```jldoctest
+julia> using Tensor4all
+
 julia> err = SkeletonPhaseError("not ready yet");
 
 julia> sprint(showerror, err)
@@ -26,6 +28,8 @@ backend behavior is implemented.
 
 # Examples
 ```jldoctest
+julia> using Tensor4all
+
 julia> err = SkeletonNotImplemented(:contract, :core);
 
 julia> sprint(showerror, err)
@@ -54,6 +58,8 @@ shared library is not available.
 
 # Examples
 ```jldoctest
+julia> using Tensor4all
+
 julia> err = BackendUnavailableError("backend missing");
 
 julia> sprint(showerror, err)

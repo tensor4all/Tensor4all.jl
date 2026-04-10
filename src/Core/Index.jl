@@ -13,6 +13,8 @@ backend-facing design.
 
 # Examples
 ```jldoctest
+julia> using Tensor4all
+
 julia> i = Index(4; tags=["x"], plev=1);
 
 julia> (dim(i), tags(i), plev(i))

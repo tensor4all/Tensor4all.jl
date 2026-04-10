@@ -12,6 +12,8 @@ inspect where the package would look for the compiled library.
 
 # Examples
 ```jldoctest
+julia> using Tensor4all
+
 julia> backend_library_path() isa String
 true
 ```

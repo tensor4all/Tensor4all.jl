@@ -4,12 +4,23 @@ Julia frontend for [tensor4all-rs](https://github.com/tensor4all/tensor4all-rs).
 
 ## Current Phase
 
-This repository is in a skeleton-review reset.
+This repository is in a review-first skeleton phase.
 
-The previous implementation has been intentionally removed so the Julia package
-can be rebuilt around the design set in `docs/design/` without carrying stale or
-inconsistent APIs forward. The package currently provides only a minimal
-bootstrap module and review-first documentation.
+The previous implementation was intentionally cleared so the Julia package could
+be rebuilt around the design set in `docs/design/` without carrying stale or
+inconsistent APIs forward.
+
+The package now exposes a reviewed skeleton surface:
+
+- metadata-level `Index` and `Tensor` types
+- `TreeTensorNetwork` plus `TensorTrain`, `MPS`, and `MPO` aliases
+- a curated `QuanticsGrids.jl` re-export for single-import quantics grid usage
+- local quantics transform and QTCI placeholder types
+- extension-only ITensors and HDF5 compatibility stubs
+
+Backend numerics are still intentionally stubbed. Public APIs that are not yet
+implemented should fail with actionable skeleton exceptions rather than silently
+pretending to do work.
 
 ## What To Read
 
@@ -19,9 +30,16 @@ bootstrap module and review-first documentation.
 
 ## Development Notes
 
-- `src/` and `test/` have been reset on purpose.
-- The old API reference and tutorial pages have been removed from the active docs site.
-- Future implementation work is intentionally deferred until the architecture has been reviewed.
+- `QuanticsGrids.jl` remains the owner of grid semantics and coordinate
+  conversion. `Tensor4all.jl` adopts and re-exports a curated subset for
+  usability.
+- `BubbleTeaCI` remains the home of `TTFunction` and high-level workflows. It
+  should build on `Tensor4all.jl` rather than duplicating lower-level
+  functionality.
+- The active docs site is review-oriented and includes an API reference for the
+  current skeleton surface.
+- Future implementation work is focused on backend enablement and downstream
+  migration, not on growing a second high-level function layer here.
 
 ## Build Script
 
@@ -46,5 +64,6 @@ Pkg.activate("/path/to/Tensor4all.jl")
 Pkg.test()
 ```
 
-The current test suite is intentionally tiny and only verifies that the package
-loads and exposes the reset-phase markers.
+The current test suite verifies the skeleton metadata layers, the adopted
+quantics re-export, and the extension boundaries without requiring working
+backend numerics.

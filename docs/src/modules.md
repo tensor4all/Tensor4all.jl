@@ -2,39 +2,47 @@
 
 ## Current Phase
 
-`Tensor4all.jl` is in a reset-only phase. The package now exists mainly as a
-review surface for the imported design documents and for the next staged
-implementation plan.
+`Tensor4all.jl` is in a review-first skeleton phase.
 
-## Intentional Removals
+The package now exposes real metadata-level types and integration boundaries for
+review, while backend numerics remain intentionally stubbed.
 
-- The previous `src/` code has been removed.
-- The previous integration-heavy test suite has been removed.
-- The old API reference and tutorial docs have been removed.
+## Current Layers
 
-This was done to avoid a mixed state where outdated behavior appears to be
-supported while the architecture is being reworked.
+| Layer | Responsibility | Current status |
+|------|----------------|----------------|
+| Core | lazy backend loading, common errors, `Index`, `Tensor` | metadata behavior implemented |
+| TreeTN | `TreeTensorNetwork`, chain aliases, runtime topology predicates | metadata behavior implemented |
+| Quantics reuse | adopted `QuanticsGrids.jl` grid and coordinate-conversion surface | curated re-export implemented |
+| Quantics local layer | transform descriptors and QTCI placeholders | metadata/stub behavior implemented |
+| Extensions | ITensors and HDF5 compatibility glue | extension-only stubs implemented |
+| BubbleTeaCI | `TTFunction` and high-level function workflows | intentionally out of scope here |
 
-## Planned Layering
+## Behavior Boundary
 
-| Layer | Planned responsibility | Status |
-|------|-------------------------|--------|
-| Core | low-level Julia wrappers and ownership model | deferred |
-| TreeTN | TreeTN-general tensor network layer, including chain aliases | deferred |
-| Quantics | adopted `QuanticsGrids.jl` grid layer plus `Tensor4all.jl`-owned transforms and integration | deferred |
-| Extensions | ITensors/HDF5 compatibility glue | deferred |
-| BubbleTeaCI | `TTFunction` and high-level function workflows | out of scope for this repo |
+- Metadata constructors, inspection helpers, and topology predicates work.
+- Backend-backed operations such as contraction, dense materialization, and
+  transforms deliberately throw `SkeletonNotImplemented`.
+- Importing `Tensor4all.jl` does not require a compiled `tensor4all-rs` backend.
 
-## Ownership Boundary
+## Ownership and Re-Export
 
 - `tensor4all-rs` owns kernels, storage, and numerically heavy backend behavior.
-- `Tensor4all.jl` will own Julia-side wrappers and TreeTN-general abstractions.
-- `QuanticsGrids.jl` owns quantics grid semantics and coordinate conversion; `Tensor4all.jl` is expected to adopt and re-export that layer rather than reimplement it.
-- `BubbleTeaCI` remains the home of `TTFunction` / `GriddedFunction` logic.
+- `Tensor4all.jl` owns Julia-side wrappers, TreeTN-general abstractions, local
+  quantics transforms, QTCI placeholders, and compatibility extensions.
+- `QuanticsGrids.jl` owns quantics grid semantics and coordinate conversion.
+- `Tensor4all.jl` re-exports a curated `QuanticsGrids.jl` surface for usability,
+  but that re-export does not change ownership.
+- `BubbleTeaCI` remains the home of `TTFunction` and high-level function
+  workflows, and should consume lower-level functionality from `Tensor4all.jl`
+  and adopted dependencies instead of duplicating it.
 
-## Next Review Questions
+## Review Questions Still Open
 
-- Is the TreeTN-first public model the right base for the Julia package?
-- Is the adopted-dependency and re-export policy for the quantics layer clean enough?
-- Is the downstream `BubbleTeaCI` contract explicit enough before implementation starts?
-- Is the staged implementation order acceptable before backend-facing APIs reappear?
+- Should `Index` and `Tensor` gain explicit backend-handle behavior beyond the
+  current nullable-handle skeleton fields before backend integration starts?
+- Is the current curated `QuanticsGrids.jl` re-export scope broad enough for the
+  first downstream consumers?
+- Is the downstream `BubbleTeaCI` contract explicit enough before migration
+  begins?
+- Are the current public names good enough to freeze for backend implementation?
