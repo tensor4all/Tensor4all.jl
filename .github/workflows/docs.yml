@@ -3,10 +3,10 @@ name: Documentation
 on:
   push:
     branches:
-      - tensor4all-rework
+      - main
   pull_request:
     branches:
-      - tensor4all-rework
+      - main
   workflow_dispatch:
 
 permissions:
@@ -51,7 +51,7 @@ jobs:
 
   deploy:
     name: Deploy documentation
-    if: github.event_name == 'push' && github.ref == 'refs/heads/tensor4all-rework'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     permissions:
