@@ -1,78 +1,38 @@
-# [Module Architecture](@id Module-Architecture)
+# Architecture Status
 
-## Dependency Graph
+## Current Phase
 
-```
-                    ┌──────────────────────┐
-                    │   Core Foundation     │
-                    │  Index, Tensor,       │
-                    │  Algorithm            │
-                    └──────────┬───────────┘
-                               │
-               ┌───────────────┼───────────────┐
-               ▼               ▼               ▼
-         ┌──────────┐   ┌──────────┐   ┌──────────────┐
-         │ SimpleTT │◄─►│  TreeTN  │   │QuanticsGrids │
-         │          │   │ MPS/MPO  │   │              │
-         └──────────┘   └────┬─────┘   └──────┬───────┘
-                             │                 │
-                    ┌────────┼────────┐        │
-                    ▼        ▼        ▼        ▼
-              ┌──────────┐ ┌──────┐ ┌────────────┐
-              │Quantics  │ │Tree  │ │QuanticsTCI │
-              │Transform │ │TCI   │ │            │
-              └──────────┘ └──────┘ └────────────┘
-```
+`Tensor4all.jl` is in a reset-only phase. The package now exists mainly as a
+review surface for the imported design documents and for the next staged
+implementation plan.
 
-## Data Flow
+## Intentional Removals
 
-Tensor4all.jl modules form a pipeline where data flows from grid definition through interpolation to tensor network operations:
+- The previous `src/` code has been removed.
+- The previous integration-heavy test suite has been removed.
+- The old API reference and tutorial docs have been removed.
 
-| Stage | Module | Input | Output |
-|-------|--------|-------|--------|
-| Grid definition | **QuanticsGrids** | Domain bounds, R (bits) | `DiscretizedGrid`, `InherentDiscreteGrid` |
-| Function interpolation | **QuanticsTCI** | Function + Grid | `QuanticsTensorCI2` |
-| Simple tensor train | **SimpleTT** | TCI result via `to_tensor_train()` | `SimpleTensorTrain` |
-| Tensor network | **TreeTN** | SimpleTT via `MPS()` | `MPS` / `TreeTensorNetwork` |
-| Operators | **QuanticsTransform** | MPS + operator | Transformed `MPS` |
-| Tree interpolation | **TreeTCI** | Function + tree graph | `TreeTensorNetwork` |
+This was done to avoid a mixed state where outdated behavior appears to be
+supported while the architecture is being reworked.
 
-## Typical Pipelines
+## Planned Layering
 
-### Quantics function interpolation
-```
-QuanticsGrids.DiscretizedGrid → QuanticsTCI.quanticscrossinterpolate
-  → QuanticsTCI.to_tensor_train → SimpleTensorTrain
-  → TreeTN.MPS → MPS operations (truncate!, orthogonalize!, inner, contract)
-```
+| Layer | Planned responsibility | Status |
+|------|-------------------------|--------|
+| Core | low-level Julia wrappers and ownership model | deferred |
+| TreeTN | TreeTN-general tensor network layer, including chain aliases | deferred |
+| Quantics | grid semantics, layouts, transforms, multiresolution | deferred |
+| Extensions | ITensors/HDF5 compatibility glue | deferred |
+| BubbleTeaCI | `TTFunction` and high-level function workflows | out of scope for this repo |
 
-### Fourier analysis of interpolated function
-```
-QuanticsTCI result → MPS
-  → QuanticsTransform.fourier_operator → apply → Fourier-space MPS
-  → TreeTCI.evaluate (at specific k-points)
-```
+## Ownership Boundary
 
-### Affine coordinate transform
-```
-MPS → QuanticsTransform.affine_pullback_operator → apply → transformed MPS
-```
+- `tensor4all-rs` owns kernels, storage, and numerically heavy backend behavior.
+- `Tensor4all.jl` will own Julia-side wrappers and TreeTN-general abstractions.
+- `BubbleTeaCI` remains the home of `TTFunction` / `GriddedFunction` logic.
 
-### Tree-structured interpolation
-```
-TreeTCI.crossinterpolate2 → TreeTensorNetwork
-  → TreeTN operations (contract, truncate!, evaluate)
-```
+## Next Review Questions
 
-## Type Relationships
-
-```julia
-# Chain tensor networks
-TensorTrain = TreeTensorNetwork{Int}  # Primary chain type
-MPS = TensorTrain                      # Alias (no type distinction)
-MPO = TensorTrain                      # Alias (no type distinction)
-
-# MPS-like vs MPO-like is a runtime property:
-is_mps_like(tt)  # each vertex has 1 site index
-is_mpo_like(tt)  # each vertex has 2 site indices (unprimed + primed)
-```
+- Is the TreeTN-first public model the right base for the Julia package?
+- Are the quantics and extension boundaries in the design docs clean enough?
+- Is the staged implementation order acceptable before backend-facing APIs reappear?

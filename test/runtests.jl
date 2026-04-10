@@ -1,27 +1,10 @@
 using Test
 using Tensor4all
-import ITensors
 
-# Use qualified names to avoid ambiguity
-const T4AIndex = Tensor4all.Index
-const T4ATensor = Tensor4all.Tensor
+@testset "Tensor4all skeleton phase" begin
+    @test Tensor4all.SKELETON_PHASE === true
 
-skip_hdf5 = get(ENV, "T4A_SKIP_HDF5_TESTS", "") == "1"
-
-@testset "Tensor4all.jl" begin
-    include("test_build_script.jl")
-    include("test_index.jl")
-    include("test_tensor.jl")
-    include("test_treetn.jl")
-    include("test_treetci.jl")
-    include("test_simplett.jl")
-    include("test_quanticsgrids.jl")
-    include("test_quanticstransform.jl")
-    if !skip_hdf5
-        include("test_hdf5.jl")
-    end
-    include("itensors_ext_test.jl")
-    if !skip_hdf5
-        include("test_hdf5_itensors_compat.jl")
-    end
+    err = Tensor4all.SkeletonPhaseError("skeleton placeholder")
+    @test err isa Exception
+    @test sprint(showerror, err) == "skeleton placeholder"
 end

@@ -1,47 +1,48 @@
 # Tensor4all.jl
 
-A Julia wrapper for [tensor4all-rs](https://github.com/tensor4all/tensor4all-rs), providing tensor network operations via C FFI.
+> Current phase: skeleton review / implementation reset.
+>
+> Old implementation removed intentionally.
+>
+> API layers will land only after review.
 
-## Features
+`Tensor4all.jl` is being reset around the design documents in `docs/design/`.
+The previous implementation was broad but no longer matched the planned Julia
+frontend architecture closely enough to serve as a safe base for future work.
 
-- **Index & Tensor**: Named indices with tags, prime levels, and automatic contraction
-- **SimpleTT**: Simple tensor trains with fixed site dimensions
-- **TreeTN (MPS/MPO)**: Tree tensor networks — MPS, MPO, and general tree topologies
-- **QuanticsGrids**: Coordinate transforms between physical grids and quantics (binary) representation
-- **QuanticsTCI**: Tensor cross interpolation in quantics representation
-- **QuanticsTransform**: Fourier, shift, flip, phase rotation, and affine operators on MPS
-- **TreeTCI**: TCI on arbitrary tree topologies
+## What Exists Right Now
 
-## Quick Start
+- a minimal loadable `Tensor4all` module
+- a review-first documentation site
+- the imported design set under `docs/design/`
+- a deferred rework plan for the next implementation stages
 
-```julia
-using Tensor4all
-using Tensor4all.QuanticsGrids
-using Tensor4all.QuanticsTCI
-using Tensor4all.TreeTN
+## What Has Been Removed For This Phase
 
-# Interpolate a function on a quantics grid
-R = 20  # 2^20 grid points
-grid = DiscretizedGrid{1}(R, 0.0, 1.0)
-f(x) = exp(-10x) * cos(100x)
-ci, ranks, errors = quanticscrossinterpolate(Float64, f, grid; tolerance=1e-8)
+- the previous `src/` implementation surface
+- the previous `test/` suite
+- old API-reference pages and tutorial pages that described behavior no longer present
 
-# Convert to MPS for further operations
-tt = to_tensor_train(ci)
-mps = MPS(tt)
+## Review Entry Points
+
+- [Architecture Status](modules.md)
+- [Design Documents](design_documents.md)
+- [Deferred Rework Plan](deferred_rework_plan.md)
+
+## Ownership Boundary
+
+- `tensor4all-rs` owns kernels, storage, and performance-critical numerics
+- `Tensor4all.jl` will own Julia-side wrappers, TreeTN-general abstractions, and extension glue
+- `BubbleTeaCI` owns the reusable `TTFunction` / `GriddedFunction` layer and application workflows
+
+## Immediate Goal
+
+Use this phase to review the architecture, naming, layering, and documentation
+before reintroducing any real backend-facing APIs.
+
+## Bootstrap API
+
+```@docs
+Tensor4all
+Tensor4all.SkeletonPhaseError
 ```
-
-See the tutorials section in the sidebar for cross-module workflows.
-
-## Installation
-
-```julia
-using Pkg
-Pkg.add(url="https://github.com/tensor4all/Tensor4all.jl")
-```
-
-The Rust backend (`libtensor4all_capi`) is built automatically during `Pkg.build()`.
-
-## Module Overview
-
-See [Module Architecture](@ref) for the dependency graph and data flow.

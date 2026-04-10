@@ -2,30 +2,37 @@
 
 ## Purpose
 
-This document covers backend tensor-train support in the Julia frontend. It is the layer between the low-level core primitives and the higher-level `BubbleTeaCI` function semantics.
+This document covers backend tensor-network support for chain workflows in the
+Julia frontend. It is the layer between the low-level core primitives and the
+higher-level `BubbleTeaCI` function semantics.
 
 ## In Scope
 
-- `TensorTrain` as a Julia-owned chain of `Tensor`
+- `TreeTensorNetwork{V}` as the general Julia-side network model
+- chain aliases such as `TensorTrain`, `MPS`, and `MPO`
 - TT-level contraction and compression
 - TT arithmetic and structural operations
 - TT-level transform operators
 
 This document does not define `TTFunction` / `GriddedFunction` semantics. Those remain in [bubbleteaCI.md](./bubbleteaCI.md).
 
-## `TensorTrain`
+## `TreeTensorNetwork` and Chain Aliases
 
 ```julia
-mutable struct TensorTrain
-    data::Vector{Tensor}
-    llim::Int
-    rlim::Int
+mutable struct TreeTensorNetwork{V}
+    # Julia-facing wrapper over backend-owned tensor-network storage
 end
+
+const TensorTrain = TreeTensorNetwork{Int}
+const MPS = TensorTrain
+const MPO = TensorTrain
 ```
 
-- Julia owns the chain structure.
-- Individual site tensors are Rust-backed `Tensor` objects.
-- The same structure can represent MPS- and MPO-style objects, depending on index layout.
+- `TreeTensorNetwork{V}` is the general user-facing type.
+- `TensorTrain` is the primary chain alias for vertices `1, 2, ..., n`.
+- `MPS` and `MPO` are runtime conventions over the same chain type, distinguished
+  by site-index structure rather than by different Julia types.
+- Chain-specific operations must validate the topology at runtime.
 
 ## TT-Level Operations
 
@@ -47,7 +54,8 @@ end
 
 ## Transform Operators
 
-Quantics transform operators are TT-level linear operators that the Julia frontend can expose as `TensorTrain`-like objects.
+Quantics transform operators are TT-level linear operators that the Julia
+frontend can expose as chain-shaped `TreeTensorNetwork{Int}` values.
 
 ### Backend Flow
 
@@ -73,5 +81,5 @@ Quantics transform operators are TT-level linear operators that the Julia fronte
 
 ## Open Questions
 
-- Should the public `TensorTrain` API remain thin and backend-shaped, or expose more Julia-side convenience methods?
+- Should the public chain API remain thin and backend-shaped, or expose more Julia-side convenience methods?
 - How much of the transform operator surface should be directly materialized as `TensorTrain` versus kept as backend handles?

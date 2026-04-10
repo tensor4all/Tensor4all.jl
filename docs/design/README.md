@@ -1,10 +1,10 @@
 # Design Documents
 
-Repository-scoped design documents (for example, tenferro internals) live in each
-implementation repository, such as
-[tenferro-rs/docs/design/](https://github.com/tensor4all/tenferro-rs/tree/main/docs/design).
+This directory contains the active design set for the `Tensor4all.jl` rework.
 
-Cross-repository architecture/design documents are stored here.
+The current implementation state is intentionally smaller than the scope
+described here. For the staged follow-up work that is deferred beyond the reset,
+see [../plans/2026-04-10-tensor4all-rework-followup.md](../plans/2026-04-10-tensor4all-rework-followup.md).
 
 The Julia frontend design is split into a hub-and-spoke set:
 
