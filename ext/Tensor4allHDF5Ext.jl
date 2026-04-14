@@ -69,6 +69,8 @@ end
 function _read_index(parent::Union{HDF5.File,HDF5.Group}, name::AbstractString)
     g = open_group(parent, name)
     read(attributes(g)["type"]) == _INDEX_TYPE || error("HDF5 group '$name' does not contain Index data")
+    dir = read(g, "dir")
+    dir == 1 || error("Cannot load Index with dir=$dir into Tensor4all.Index. Only dir=1 is supported.")
     return Tensor4all.Index(
         read(g, "dim");
         tags=_read_tagset(g, "tags"),
