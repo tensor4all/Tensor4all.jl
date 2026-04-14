@@ -1,9 +1,13 @@
 module TensorNetworks
 
-using ..Tensor4all: Index, Tensor, SkeletonNotImplemented
+using ..Tensor4all: BackendUnavailableError, Index, Tensor, SkeletonNotImplemented
 
 export TensorTrain, LinearOperator
 export set_input_space!, set_output_space!, set_iospaces!, apply
+export findsite, findsites, findallsiteinds_by_tag, findallsites_by_tag
+export replace_siteinds!, replace_siteinds, replace_siteinds_part!
+export rearrange_siteinds, makesitediagonal, extractdiagonal, matchsiteinds
+export save_as_mps, load_tt
 
 mutable struct TensorTrain
     data::Vector{Tensor}
@@ -82,6 +86,29 @@ set_iospaces!(op::LinearOperator, ::TensorTrain; kwargs...) = throw(
     SkeletonNotImplemented(:set_iospaces!, :tt),
 )
 
+findsite(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemented(:findsite, :tt))
+findsites(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemented(:findsites, :tt))
+findallsiteinds_by_tag(::TensorTrain; kwargs...) = throw(SkeletonNotImplemented(:findallsiteinds_by_tag, :tt))
+findallsites_by_tag(::TensorTrain; kwargs...) = throw(SkeletonNotImplemented(:findallsites_by_tag, :tt))
+
+replace_siteinds!(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemented(Symbol("replace_siteinds!"), :tt))
+replace_siteinds(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemented(:replace_siteinds, :tt))
+replace_siteinds_part!(::TensorTrain, args...; kwargs...) = throw(
+    SkeletonNotImplemented(Symbol("replace_siteinds_part!"), :tt),
+)
+
+rearrange_siteinds(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemented(:rearrange_siteinds, :tt))
+makesitediagonal(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemented(:makesitediagonal, :tt))
+extractdiagonal(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemented(:extractdiagonal, :tt))
+matchsiteinds(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemented(:matchsiteinds, :tt))
+
 apply(::LinearOperator, ::TensorTrain; kwargs...) = throw(SkeletonNotImplemented(:apply, :tt))
+
+save_as_mps(args...; kwargs...) = throw(
+    BackendUnavailableError("`save_as_mps` requires the HDF5 extension. Load `HDF5.jl` and retry."),
+)
+load_tt(args...; kwargs...) = throw(
+    BackendUnavailableError("`load_tt` requires the HDF5 extension. Load `HDF5.jl` and retry."),
+)
 
 end

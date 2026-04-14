@@ -45,6 +45,11 @@ end
 - `llim` and `rlim` follow the historical Julia-side chain convention.
 - MPS-like versus MPO-like interpretation is structural, not type-level.
 - HDF5 interoperability belongs here through `save_as_mps` / `load_tt`.
+- The Phase 2 helper surface also belongs here:
+  `findsite`, `findsites`, `findallsiteinds_by_tag`, `findallsites_by_tag`,
+  `replace_siteinds!`, `replace_siteinds`, `replace_siteinds_part!`,
+  `rearrange_siteinds`, `makesitediagonal`, `extractdiagonal`, and
+  optionally `matchsiteinds`.
 
 ### SimpleTT
 
@@ -144,6 +149,8 @@ The docs should clearly describe:
 - `SimpleTT.TensorTrain(tci)` conversion
 - wrapper re-exports for `QuanticsGrids` and `QuanticsTCI`
 - `TensorNetworks.LinearOperator` plus `QuanticsTransform` constructors
+- the remaining `TensorNetworks` helper names as skeleton APIs even before real
+  backend behavior is wired
 - pure Julia `save_as_mps` / `load_tt`
 - minimized Julia-facing C API assumptions
 

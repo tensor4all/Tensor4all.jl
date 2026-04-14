@@ -33,9 +33,26 @@ Other chain-facing names in this layer include:
 - `Tensor4all.TensorNetworks.set_output_space!`
 - `Tensor4all.TensorNetworks.set_iospaces!`
 - `Tensor4all.TensorNetworks.apply`
+- `Tensor4all.TensorNetworks.findsite`
+- `Tensor4all.TensorNetworks.findsites`
+- `Tensor4all.TensorNetworks.findallsiteinds_by_tag`
+- `Tensor4all.TensorNetworks.findallsites_by_tag`
+- `Tensor4all.TensorNetworks.replace_siteinds!`
+- `Tensor4all.TensorNetworks.replace_siteinds`
+- `Tensor4all.TensorNetworks.replace_siteinds_part!`
+- `Tensor4all.TensorNetworks.rearrange_siteinds`
+- `Tensor4all.TensorNetworks.makesitediagonal`
+- `Tensor4all.TensorNetworks.extractdiagonal`
+- `Tensor4all.TensorNetworks.matchsiteinds`
+- `Tensor4all.TensorNetworks.save_as_mps`
+- `Tensor4all.TensorNetworks.load_tt`
 
 `TensorNetworks.TensorTrain` is the container that HDF5 compatibility works
 against.
+
+Most of these names are still deliberate skeleton entry points in the current
+phase. Their presence is part of the API contract even where backend behavior is
+not implemented yet.
 
 ## SimpleTT
 

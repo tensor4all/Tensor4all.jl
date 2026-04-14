@@ -40,6 +40,9 @@ wrapper modules, but they are not owned by `Tensor4all.jl`.
 - `SimpleTT` owns raw-array numerics.
 - `TensorNetworks` adds index semantics, `LinearOperator`, `apply`, and HDF5
   interoperability.
+- The broader chain-helper surface in `TensorNetworks` is now present as
+  skeleton API: search helpers, site-index replacement helpers, rearrangement,
+  diagonal helpers, and `matchsiteinds`.
 - The Julia-facing C API target is reduced and chain-oriented.
 
 ## Still Deferred

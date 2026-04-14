@@ -12,8 +12,8 @@ using HDF5
         ext = Base.get_extension(Tensor4all, :Tensor4allHDF5Ext)
         @test ext !== nothing
 
-        ext.save_as_mps(path, "psi", tt)
-        tt2 = ext.load_tt(path, "psi")
+        Tensor4all.TensorNetworks.save_as_mps(path, "psi", tt)
+        tt2 = Tensor4all.TensorNetworks.load_tt(path, "psi")
 
         @test tt2 isa Tensor4all.TensorNetworks.TensorTrain
         @test tt2.llim == 0
@@ -41,8 +41,9 @@ using HDF5
         tt = Tensor4all.TensorNetworks.TensorTrain([t1, t2], 0, 3)
 
         ext = Base.get_extension(Tensor4all, :Tensor4allHDF5Ext)
-        ext.save_as_mps(path, "psi", tt)
-        tt2 = ext.load_tt(path, "psi")
+        @test ext !== nothing
+        Tensor4all.TensorNetworks.save_as_mps(path, "psi", tt)
+        tt2 = Tensor4all.TensorNetworks.load_tt(path, "psi")
 
         @test length(tt2) == 2
         @test tt2.llim == 0

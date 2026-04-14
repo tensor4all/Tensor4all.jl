@@ -3,6 +3,7 @@ using Tensor4all
 
 include("api/skeleton_alignment.jl")
 include("tensornetworks/tensortrain.jl")
+include("tensornetworks/skeleton_surface.jl")
 include("simplett/surface.jl")
 include("simplett/compress.jl")
 include("simplett/contraction.jl")
