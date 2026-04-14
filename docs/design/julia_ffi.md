@@ -6,23 +6,24 @@ This design set documents the restored Julia frontend architecture:
 
 - `Core` owns `Index`, `Tensor`, backend loading, and error handling.
 - `TensorNetworks` owns the public chain container `TensorTrain = Vector{Tensor} + llim/rlim`.
+- `TensorNetworks` also owns `LinearOperator` and `apply`.
 - `SimpleTT` owns the raw-array TT numerics.
-- `TensorCI` bridges interpolation output into `SimpleTT`.
-- `QuanticsTransform` owns the Julia-side operator boundary.
+- `TensorCI` returns `TensorCI2` and re-exports the upstream interpolation surface.
+- `QuanticsGrids` and `QuanticsTCI` are adopted wrapper re-export modules.
+- `QuanticsTransform` owns quantics-specific operator constructors.
 
-`TreeTensorNetwork` still exists in the repository, but it is secondary and
-deferred. The docs here assume a reduced, chain-oriented C API target on the
-Rust side.
+The docs here assume a reduced, chain-oriented C API target on the Rust side.
 
 ## Doc Map
 
 | File | Purpose |
 |------|---------|
 | [julia_ffi_core.md](./julia_ffi_core.md) | `Index`, `Tensor`, error handling, and reduced C API assumptions |
-| [julia_ffi_tensornetworks.md](./julia_ffi_tensornetworks.md) | `TensorNetworks.TensorTrain` as `Vector{Tensor} + llim/rlim` |
+| [julia_ffi_tensornetworks.md](./julia_ffi_tensornetworks.md) | `TensorNetworks.TensorTrain`, `LinearOperator`, and `apply` |
 | [julia_ffi_simplett.md](./julia_ffi_simplett.md) | `SimpleTT.TensorTrain{T,N}` and pure Julia TT numerics |
-| [julia_ffi_tci.md](./julia_ffi_tci.md) | `TensorCI -> SimpleTT` adapter boundary |
-| [julia_ffi_quanticstransform.md](./julia_ffi_quanticstransform.md) | `QuanticsTransform` operator semantics and Rust kernel boundary |
+| [julia_ffi_tci.md](./julia_ffi_tci.md) | `TensorCI2` return boundary and `SimpleTT` conversion |
+| [julia_ffi_quantics.md](./julia_ffi_quantics.md) | adopted `QuanticsGrids` / `QuanticsTCI` wrappers |
+| [julia_ffi_quanticstransform.md](./julia_ffi_quanticstransform.md) | `QuanticsTransform` constructors and Rust kernel boundary |
 
 ## Ownership Model
 

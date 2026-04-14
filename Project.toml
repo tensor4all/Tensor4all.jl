@@ -1,12 +1,13 @@
 name = "Tensor4all"
 uuid = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-authors = ["tensor4all collaboration"]
 version = "0.1.0"
+authors = ["tensor4all collaboration"]
 
 [deps]
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 QuanticsGrids = "634c7f73-3e90-4749-a1bd-001b8efc642d"
+QuanticsTCI = "b11687fd-3a1c-4c41-97d0-998ab401d50e"
 RustToolChain = "e9dc52e2-edb8-4742-9783-5e542d30dbb5"
 TensorCrossInterpolation = "b261b2ec-6378-4871-b32e-9173bb050604"
 
@@ -22,6 +23,7 @@ Tensor4allITensorsExt = ["ITensors"]
 HDF5 = "0.17"
 ITensors = "0.6, 0.7, 0.8, 0.9"
 QuanticsGrids = "0.7"
+QuanticsTCI = "0.7.3"
 RustToolChain = "0.1"
 TensorCrossInterpolation = "0.9"
 julia = "1.9"

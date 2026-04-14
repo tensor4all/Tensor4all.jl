@@ -53,9 +53,9 @@ lets `TensorCI` and higher layers consume a pure Julia TT kernel.
 
 ## Boundary to TensorCI
 
-`TensorCI` should return `SimpleTT.TensorTrain` objects, not `TensorNetworks`
-containers. That keeps interpolation output on the raw numerical side of the
-boundary.
+`TensorCI` should return `TensorCI2`, not `SimpleTT.TensorTrain`. The Julia-side
+handoff into the raw numerical layer is `SimpleTT.TensorTrain(tci)`, which keeps
+the interpolation boundary and the raw-array TT boundary separate.
 
 ## Open Questions
 

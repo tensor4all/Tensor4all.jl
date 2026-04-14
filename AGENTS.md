@@ -13,11 +13,10 @@ The intended public layers are:
 - `Tensor4all.TensorNetworks`
 - `Tensor4all.SimpleTT`
 - `Tensor4all.TensorCI`
+- `Tensor4all.QuanticsGrids`
+- `Tensor4all.QuanticsTCI`
 - `Tensor4all.QuanticsTransform`
-- adopted and re-exported `QuanticsGrids.jl` surface
-
-`TreeTensorNetwork` may still exist in the codebase, but it is not the primary
-public architecture of this branch.
+- adopted and re-exported `QuanticsGrids.jl` / `QuanticsTCI.jl` surfaces
 
 ### C API layer
 
@@ -60,18 +59,27 @@ end
 - `N=3` is the MPS-like raw-array form.
 - `N=4` is the MPO-like raw-array form.
 - Compression and MPO-MPO contraction are Julia-owned here.
-- `SimpleTT` is the public output boundary of `TensorCI`.
+- `SimpleTT.TensorTrain(tci)` is the Julia-side conversion boundary from
+  `TensorCI2`.
 
 ### TensorCI
 
-- `TensorCI.crossinterpolate2` should return `SimpleTT.TensorTrain`.
-- A `TensorCrossInterpolation.jl` adapter is acceptable while the full port is
-  still in progress.
+- `TensorCI.crossinterpolate2` should return `TensorCI2`.
+- `TensorCI` should re-export the public `TensorCrossInterpolation.jl` surface
+  where practical.
+- Conversion from `TensorCI2` to `SimpleTT.TensorTrain` is Julia-owned.
 - Do not make `TensorCI` return indexed `TensorNetworks.TensorTrain`.
+
+### QuanticsGrids / QuanticsTCI
+
+- `Tensor4all.QuanticsGrids` is a wrapper re-export over `QuanticsGrids.jl`.
+- `Tensor4all.QuanticsTCI` is a wrapper re-export over `QuanticsTCI.jl`.
+- These modules improve discoverability but do not transfer ownership.
 
 ### QuanticsTransform
 
-- `LinearOperator` is a pure Julia type.
+- `QuanticsTransform` provides quantics-specific operator constructors only.
+- `TensorNetworks` owns the generic `LinearOperator` type and `apply`.
 - Julia owns semantic validation and index mapping.
 - Rust is expected to provide only the operator kernels that Julia should not
   reimplement.
@@ -132,7 +140,10 @@ The docs should clearly describe:
 - the old module split restored in this branch
 - `TensorNetworks.TensorTrain = Vector{Tensor} + llim/rlim`
 - `SimpleTT.TensorTrain{T,N}`
-- `TensorCI -> SimpleTT`
+- `TensorCI.crossinterpolate2 -> TensorCI2`
+- `SimpleTT.TensorTrain(tci)` conversion
+- wrapper re-exports for `QuanticsGrids` and `QuanticsTCI`
+- `TensorNetworks.LinearOperator` plus `QuanticsTransform` constructors
 - pure Julia `save_as_mps` / `load_tt`
 - minimized Julia-facing C API assumptions
 

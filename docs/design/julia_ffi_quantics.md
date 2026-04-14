@@ -2,23 +2,28 @@
 
 ## Purpose
 
-This document covers the quantics layer on the Julia side: adopted grid functionality from `QuanticsGrids.jl`, plus `Tensor4all.jl`-owned quantics-specific transform and backend-integration behavior.
+This document covers the adopted quantics-facing modules on the Julia side:
+`QuanticsGrids`, `QuanticsTCI`, and the relationship between those wrappers and
+`QuanticsTransform`.
 
 ## In Scope
 
-- adoption and re-export of `QuanticsGrids.jl` grid and coordinate-conversion APIs
-- documentation of supported layout and index-table conventions inherited from `QuanticsGrids.jl`
-- `Tensor4all.jl`-owned quantics transform semantics
+- adoption and re-export of `QuanticsGrids.jl`
+- adoption and re-export of `QuanticsTCI.jl`
+- the ownership split between these wrappers and `QuanticsTransform`
 - backend-facing quantics integration points
-- multiresolution expectations for higher layers where they depend on the quantics layer
 
 This document does not cover `TTFunction` semantics. Those remain in [bubbleteaCI.md](./bubbleteaCI.md).
 
 ## Ownership and Re-Export Boundary
 
-- `QuanticsGrids.jl` owns quantics grid types, layout/index-table semantics, and coordinate-conversion behavior.
-- `Tensor4all.jl` should adopt and re-export a reviewed subset of that surface so users can access it through a single import.
-- `Tensor4all.jl` owns quantics transform constructors, backend operator materialization, and the integration between the adopted grid layer and the TT / TreeTN layer.
+- `QuanticsGrids.jl` owns quantics grid types, layout/index-table semantics,
+  and coordinate-conversion behavior.
+- `QuanticsTCI.jl` owns its quantics-TCI algorithms and convenience functions.
+- `Tensor4all.jl` re-exports both through wrapper submodules so users can stay
+  in a single import.
+- `Tensor4all.jl` owns quantics transform constructors, while
+  `TensorNetworks` owns the generic `LinearOperator` type and `apply`.
 - Re-export improves usability but does not transfer ownership.
 
 ## Grid Semantics
@@ -35,31 +40,26 @@ This document does not cover `TTFunction` semantics. Those remain in [bubbleteaC
 - grouped layouts for user-defined groupings
 - explicit index-table control when a specific unfolding is needed
 
-## Transform Semantics
+## Relationship to `QuanticsTransform`
 
-Quantics transforms are owned by `Tensor4all.jl` and can be represented as backend operators exposed through Julia:
-
-- affine pullbacks
-- shifts
-- flips and reversals
-- phase rotation
-- cumulative sums
-- Fourier-style transforms
-- binary operations on two variables
-
-## Multiresolution
-
-- coarsening and averaging
-- interpolation and refinement
-- layout-preserving embed/resample workflows
+- `QuanticsTransform` constructs quantics-specific
+  `TensorNetworks.LinearOperator` values.
+- `QuanticsGrids` and `QuanticsTCI` do not own `LinearOperator`.
+- Operator application belongs in `TensorNetworks`, not in the quantics wrapper
+  modules.
 
 ## Relationship to Other Docs
 
-- [julia_ffi_tt.md](./julia_ffi_tt.md) covers the backend TT operator layer that can carry these transforms.
-- [bubbleteaCI.md](./bubbleteaCI.md) covers the higher-level function workflows that consume quantics grids.
+- [julia_ffi_tensornetworks.md](./julia_ffi_tensornetworks.md) covers the
+  generic chain and operator layer.
+- [julia_ffi_quanticstransform.md](./julia_ffi_quanticstransform.md) covers the
+  quantics-specific operator constructors.
+- [bubbleteaCI.md](./bubbleteaCI.md) covers the higher-level function workflows
+  that consume quantics grids.
 
 ## Open Questions
 
-- Should `Tensor4all.jl` re-export the full `QuanticsGrids.jl` public surface or start with a curated subset?
-- Which `QuanticsGrids.jl` conventions should be documented as part of the reviewed `Tensor4all.jl` public story from day one?
-- Where should weighted integration and quadrature-like behavior live?
+- Which helper functions from the historical `Quantics.jl` layer should be
+  restored in Phase 2?
+- Which `QuanticsTCI.jl` conveniences should be documented as part of the
+  single-import `Tensor4all.jl` story?

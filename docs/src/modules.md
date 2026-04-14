@@ -6,18 +6,18 @@ The restored Julia frontend is layered like this:
 
 ```text
 Core (Index, Tensor)
-  ↓
-TensorNetworks (public chain wrapper, HDF5 boundary)
-  ↓
-SimpleTT (raw-array TT numerics)
-  ↓
-TensorCI (interpolation boundary back into SimpleTT)
-  ↓
-QuanticsTransform (operator boundary)
+  ↓                ↓
+TensorNetworks     SimpleTT
+  ↓                ↑
+QuanticsTransform  TensorCI
+
+Adopted wrapper modules:
+- QuanticsGrids
+- QuanticsTCI
 ```
 
-`QuanticsGrids.jl` is adopted and re-exported for grid semantics, but it is not
-owned by `Tensor4all.jl`.
+`QuanticsGrids.jl` and `QuanticsTCI.jl` are adopted and re-exported through
+wrapper modules, but they are not owned by `Tensor4all.jl`.
 
 ## Layers
 
@@ -26,19 +26,24 @@ owned by `Tensor4all.jl`.
 | `Core` | `Index`, `Tensor`, base metadata behavior | implemented |
 | `TensorNetworks` | indexed chain wrapper with `data`, `llim`, `rlim` | implemented as public chain type |
 | `SimpleTT` | raw-array tensor trains, compression, MPO contraction | implemented in POC scope |
-| `TensorCI` | interpolation boundary returning `SimpleTT` | implemented as POC adapter |
-| `QuanticsTransform` | Julia-owned operator semantics | skeleton / deferred |
+| `TensorCI` | interpolation boundary returning `TensorCI2` | implemented as adapter layer |
+| `QuanticsGrids` | adopted grid re-export layer | implemented |
+| `QuanticsTCI` | adopted quantics-TCI re-export layer | implemented |
+| `QuanticsTransform` | quantics-specific constructors of `TensorNetworks.LinearOperator` | skeleton / deferred |
 | HDF5 extension | pure Julia `save_as_mps` / `load_tt` | implemented |
 
 ## Key Boundaries
 
 - `TensorCI` should not return indexed `TensorNetworks.TensorTrain`.
+- `TensorCI.crossinterpolate2` returns `TensorCI2`; `SimpleTT` owns conversion
+  into raw-array TT form.
 - `SimpleTT` owns raw-array numerics.
-- `TensorNetworks` adds index semantics and HDF5 interoperability.
+- `TensorNetworks` adds index semantics, `LinearOperator`, `apply`, and HDF5
+  interoperability.
 - The Julia-facing C API target is reduced and chain-oriented.
 
 ## Still Deferred
 
 - finalized reduced `tensor4all-rs` ABI documentation
 - deeper `QuanticsTransform` kernel coverage
-- broader non-chain / TreeTN behavior
+- broader non-chain behavior

@@ -28,13 +28,11 @@ end
 
 Other chain-facing names in this layer include:
 
-- `Tensor4all.vertices`
-- `Tensor4all.neighbors`
-- `Tensor4all.siteinds`
-- `Tensor4all.linkind`
-- `Tensor4all.is_chain`
-- `Tensor4all.is_mps_like`
-- `Tensor4all.is_mpo_like`
+- `Tensor4all.TensorNetworks.LinearOperator`
+- `Tensor4all.TensorNetworks.set_input_space!`
+- `Tensor4all.TensorNetworks.set_output_space!`
+- `Tensor4all.TensorNetworks.set_iospaces!`
+- `Tensor4all.TensorNetworks.apply`
 
 `TensorNetworks.TensorTrain` is the container that HDF5 compatibility works
 against.
@@ -65,15 +63,28 @@ The important conventions are:
 
 `Tensor4all.TensorCI.crossinterpolate2` is the interpolation boundary.
 
-It returns `SimpleTT.TensorTrain`, not a chain wrapper. That keeps
-interpolation output on the raw numerical side of the architecture.
+It returns `TensorCI2` for the supported multi-site path. Conversion into the
+raw numerical TT layer happens through `Tensor4all.SimpleTT.TensorTrain(tci)`.
 
 ## QuanticsTransform
 
-`Tensor4all.QuanticsTransform.LinearOperator` is the public operator boundary.
+`Tensor4all.QuanticsTransform` provides transform-constructor skeletons such as:
 
-This layer is intentionally lightweight. The docs for this phase assume a
-minimized chain-oriented backend ABI for materialization and apply kernels.
+- `shift_operator`
+- `flip_operator`
+- `phase_rotation_operator`
+- `cumsum_operator`
+- `fourier_operator`
+- `affine_operator`
+- `binaryop_operator`
+
+These constructors return `TensorNetworks.LinearOperator` values. The generic
+operator type itself does not live in `QuanticsTransform`.
+
+## Adopted Modules
+
+- `Tensor4all.QuanticsGrids` re-exports the public `QuanticsGrids.jl` surface
+- `Tensor4all.QuanticsTCI` re-exports the public `QuanticsTCI.jl` surface
 
 ## HDF5 Compatibility
 
@@ -84,9 +95,3 @@ type:
 - `load_tt` reads that schema back into `TensorNetworks.TensorTrain`
 - the public docs assume a reduced, chain-oriented C API target on the Rust
   side
-
-## Deferred TreeTN Surface
-
-`TreeTensorNetwork` still exists in the repository, but it is secondary in this
-branch. The restored public architecture is the `Core` → `TensorNetworks` →
-`SimpleTT` → `TensorCI` → `QuanticsTransform` split above.

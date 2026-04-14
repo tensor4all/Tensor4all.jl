@@ -1,7 +1,7 @@
 using Test
 using Tensor4all
 
-include("legacy/smoke.jl")
+include("api/skeleton_alignment.jl")
 include("tensornetworks/tensortrain.jl")
 include("simplett/surface.jl")
 include("simplett/compress.jl")
