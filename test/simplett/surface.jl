@@ -9,4 +9,7 @@ using Tensor4all
     @test length(tt) == 1
     @test isa(tt, Tensor4all.SimpleTT.TensorTrain{Float64,3})
     @test tt.sitetensors == [ones(1, 2, 1)]
+
+    tt.sitetensors = [zeros(1, 2, 1)]
+    @test tt.sitetensors == [zeros(1, 2, 1)]
 end

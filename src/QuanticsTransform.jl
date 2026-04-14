@@ -2,9 +2,8 @@ module QuanticsTransform
 
 export LinearOperator
 
-struct LinearOperator{T}
-    payload::T
+struct LinearOperator
+    payload
 end
 
 end
-
