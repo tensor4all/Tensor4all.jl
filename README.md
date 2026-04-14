@@ -1,74 +1,62 @@
 # Tensor4all.jl
 
-Julia wrapper for the [tensor4all](https://github.com/tensor4all/tensor4all-rs) Rust library.
+Julia frontend for [tensor4all-rs](https://github.com/tensor4all/tensor4all-rs).
 
-Provides tensor network types compatible with [ITensors.jl](https://github.com/ITensor/ITensors.jl), backed by efficient Rust implementations.
+## Current Phase
 
-## Prerequisites
+This repository is in a review-first skeleton phase.
 
-### Rust
+The previous implementation was intentionally cleared so the Julia package could
+be rebuilt around the design set in `docs/design/` without carrying stale or
+inconsistent APIs forward.
 
-If Rust is not installed, run:
+The package now exposes a reviewed skeleton surface:
 
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
+- metadata-level `Index` and `Tensor` types
+- `TreeTensorNetwork` plus `TensorTrain`, `MPS`, and `MPO` aliases
+- a curated `QuanticsGrids.jl` re-export for single-import quantics grid usage
+- local quantics transform and QTCI placeholder types
+- extension-only ITensors and HDF5 compatibility stubs
 
-After installation, open a new terminal or run `source ~/.cargo/env`.
+Backend numerics are still intentionally stubbed. Public APIs that are not yet
+implemented should fail with actionable skeleton exceptions rather than silently
+pretending to do work.
 
-## Installation
+## What To Read
 
-The Rust shared library is **automatically compiled** by `Pkg.build()`. No manual build steps are required.
+- [docs/design/README.md](docs/design/README.md)
+- [docs/design/julia_ffi.md](docs/design/julia_ffi.md)
+- [docs/plans/2026-04-10-tensor4all-rework-followup.md](docs/plans/2026-04-10-tensor4all-rework-followup.md)
 
-### Option 1: Develop locally (for package development)
+## Development Notes
 
-```julia
-using Pkg
-Pkg.activate("/path/to/Tensor4all.jl")
-Pkg.build()  # Automatically compiles the Rust backend
-```
+- `QuanticsGrids.jl` remains the owner of grid semantics and coordinate
+  conversion. `Tensor4all.jl` adopts and re-exports a curated subset for
+  usability.
+- `BubbleTeaCI` remains the home of `TTFunction` and high-level workflows. It
+  should build on `Tensor4all.jl` rather than duplicating lower-level
+  functionality.
+- The active docs site is review-oriented and includes an API reference for the
+  current skeleton surface.
+- Future implementation work is focused on backend enablement and downstream
+  migration, not on growing a second high-level function layer here.
 
-The shared library is installed to:
-```
-/path/to/Tensor4all.jl/deps/libtensor4all_capi.{dylib,so,dll}
-```
+## Build Script
 
-### Option 2: Develop from another environment or global
-
-```julia
-using Pkg
-Pkg.develop(path="/path/to/Tensor4all.jl")
-Pkg.build("Tensor4all")  # Automatically compiles the Rust backend
-```
-
-The shared library is installed to:
-```
-/path/to/Tensor4all.jl/deps/libtensor4all_capi.{dylib,so,dll}
-```
-(Same location as the source — `Pkg.develop` symlinks to the local directory.)
-
-### Option 3: Add from another environment (e.g., from GitHub URL)
-
-```julia
-using Pkg
-Pkg.add(url="https://github.com/tensor4all/Tensor4all.jl.git")
-Pkg.build("Tensor4all")  # Automatically compiles the Rust backend
-```
-
-The shared library is installed to:
-```
-~/.julia/packages/Tensor4all/<hash>/deps/libtensor4all_capi.{dylib,so,dll}
-```
-
-### Rust source resolution
-
-The build script locates the `tensor4all-rs` Rust workspace in this priority order:
+The backend build script remains in place for later phases. It looks for
+`tensor4all-rs` in this order:
 
 1. `TENSOR4ALL_RS_PATH` environment variable
-2. Sibling directory `../tensor4all-rs/` (relative to the package root)
-3. Automatic clone from GitHub
+2. sibling directory `../tensor4all-rs/`
+3. clone from GitHub at the pinned fallback commit in [deps/build.jl](deps/build.jl)
 
-## Running Tests
+If you run the build script directly, use the package project:
+
+```bash
+julia --startup-file=no --project=. deps/build.jl
+```
+
+## Smoke Checks
 
 ```julia
 using Pkg
@@ -76,219 +64,6 @@ Pkg.activate("/path/to/Tensor4all.jl")
 Pkg.test()
 ```
 
-To skip HDF5 tests: set `T4A_SKIP_HDF5_TESTS=1` before running.
-
-## Usage
-
-```julia
-using Tensor4all
-```
-
-### Index
-
-```julia
-# Create an index with dimension 5
-i = Index(5)
-
-# Create an index with tags
-j = Index(3; tags="Site,n=1")
-
-# Access properties
-dim(i)            # 5
-id(i)             # unique UInt64 ID
-tags(j)           # "Site,n=1"
-hastag(j, "Site") # true
-
-# Copy an index (same ID)
-j2 = copy(j)
-
-# Create a similar index (new ID, same dim and tags)
-j3 = sim(j)
-```
-
-### Tensor
-
-```julia
-i = Index(2)
-j = Index(3)
-
-# Create a dense Float64 tensor
-data = rand(2, 3)
-t = Tensor([i, j], data)
-
-# Access properties
-rank(t)          # 2
-dims(t)          # (2, 3)
-storage_kind(t)  # DenseF64
-indices(t)       # [i, j]
-
-# Retrieve data (column-major Julia array)
-retrieved = Tensor4all.data(t)
-
-# Retrieve data in a specific index order
-arr = Array(t, [j, i])  # shape (3, 2), transposed
-
-# Create a complex tensor
-z = Tensor([i, j], rand(ComplexF64, 2, 3))
-
-# Create a higher-rank tensor
-k = Index(4)
-t3 = Tensor([i, j, k], rand(2, 3, 4))
-
-# Create a one-hot tensor
-oh = onehot(i => 1, j => 2)  # 1.0 at position [1, 2]
-```
-
-### MPS (Matrix Product State) / Tensor Train
-
-```julia
-using Tensor4all.TreeTN
-
-# Create a random MPS
-sites = [Index(2) for _ in 1:5]
-mps = random_mps(sites; linkdims=4)
-
-# Properties
-length(mps)       # 5
-nv(mps)           # 5 (number of vertices)
-ne(mps)           # 4 (number of edges)
-maxbonddim(mps)   # 4
-linkdims(mps)     # [4, 4, 4, 4]
-
-# Access tensors (1-indexed)
-mps[1]            # first tensor
-collect(mps)      # all tensors as a vector
-
-# Orthogonalize (QR-based canonical form)
-orthogonalize!(mps, 3)
-canonical_form(mps)  # Unitary
-
-# Other canonical forms: LU, CI
-orthogonalize!(mps, 1; form=LU)
-
-# Truncate bond dimensions
-truncate!(mps; maxdim=2)
-
-# Inner product and norm
-ip = inner(mps, mps)
-n  = norm(mps)
-
-# Contract to a dense tensor
-dense = to_dense(mps)
-
-# Contract two MPS/MPO
-result = contract(mps_a, mps_b)                     # zipup (default)
-result = contract(mps_a, mps_b; method=:fit)         # fit
-result = contract(mps_a, mps_b; method=:naive)       # naive
-```
-
-### Tensor Cross Interpolation (TCI)
-
-```julia
-using Tensor4all.TensorCI
-using Tensor4all.SimpleTT
-
-# Approximate a function as a tensor train
-f(i, j, k) = Float64((1 + i) * (1 + j) * (1 + k))  # 0-based indices
-tt, err = crossinterpolate2(f, [3, 4, 5]; tolerance=1e-10)
-
-# Evaluate the tensor train
-tt(0, 0, 0)  # ≈ 1.0
-tt(2, 3, 4)  # ≈ 60.0
-
-# Sum over all elements
-sum(tt)
-```
-
-### HDF5 Save/Load
-
-Tensors and MPS can be saved to HDF5 files in a format compatible with ITensors.jl.
-
-```julia
-# Save/load a single tensor
-save_itensor("data.h5", "my_tensor", t)
-t_loaded = load_itensor("data.h5", "my_tensor")
-
-# Save/load an MPS
-using Tensor4all.TreeTN: save_mps, load_mps
-
-save_mps("data.h5", "my_mps", mps)
-mps_loaded = load_mps("data.h5", "my_mps")
-```
-
-### ITensors.jl Integration
-
-When ITensors.jl is loaded, bidirectional conversion is available via the package extension:
-
-```julia
-using Tensor4all
-using ITensors
-
-# Tensor4all.Index → ITensors.Index
-t4a_idx = Tensor4all.Index(4; tags="Site")
-it_idx  = convert(ITensors.Index, t4a_idx)
-
-# ITensors.Index → Tensor4all.Index
-it_idx2  = ITensors.Index(3, "Link")
-t4a_idx2 = convert(Tensor4all.Index, it_idx2)
-
-# Same conversions work for Tensor ↔ ITensor
-```
-
-## Debugging
-
-### Rust backtraces
-
-When a Rust-side error occurs, Tensor4all.jl automatically includes a Rust
-backtrace in the error message (via `RUST_BACKTRACE=1`).  The release build
-ships with debug info (`[optimized + debuginfo]`), so backtraces show file
-names and line numbers:
-
-```
-ERROR: Tensor4all C API error: Internal error: Invalid pivot: ...
-
-Rust backtrace:
-   0: tensor4all_capi::set_last_error
-             at .../src/lib.rs:91:14
-   1: tensor4all_capi::err_status
-             at .../src/lib.rs:105:5
-   2: tensor4all_capi::tensorci::t4a_crossinterpolate2_f64::{{closure}}
-             at .../src/tensorci.rs:477:23
-   ...
-```
-
-You can control this behaviour with the `RUST_BACKTRACE` environment variable:
-
-| Value   | Effect |
-|---------|--------|
-| *(unset)* | Tensor4all.jl sets it to `1` automatically |
-| `0`     | Disable Rust backtraces |
-| `1`     | Show backtraces with file/line info (default) |
-| `full`  | Show backtraces with additional detail |
-
-### Debug build
-
-By default, `Pkg.build` compiles the Rust backend in release mode (optimised +
-debug info).  To build without optimisations (for full backtrace fidelity), set:
-
-```bash
-TENSOR4ALL_BUILD_DEBUG=1 julia -e 'using Pkg; Pkg.build("Tensor4all")'
-```
-
-## Troubleshooting
-
-### Error: "tensor4all-capi library not found"
-
-The shared library has not been built. Run:
-
-```julia
-Pkg.build("Tensor4all")
-```
-
-Then verify the library exists:
-- macOS: `deps/libtensor4all_capi.dylib`
-- Linux: `deps/libtensor4all_capi.so`
-
-### Error: "Could not find cargo"
-
-Rust is not installed or not in PATH. Install Rust (see Prerequisites above), then open a new terminal.
+The current test suite verifies the skeleton metadata layers, the adopted
+quantics re-export, and the extension boundaries without requiring working
+backend numerics.
