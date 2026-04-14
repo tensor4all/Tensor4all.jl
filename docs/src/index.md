@@ -1,53 +1,35 @@
 # Tensor4all.jl
 
-> Current phase: skeleton review / implementation reset.
->
-> Old implementation removed intentionally.
->
-> Public metadata layers now exist for review, while backend numerics remain stubbed.
+> Current phase: restored old Julia frontend POC.
 
-`Tensor4all.jl` is being reset around the design documents in `docs/design/`.
-The previous implementation was broad but no longer matched the planned Julia
-frontend architecture closely enough to serve as a safe base for future work.
+`Tensor4all.jl` is currently organized around the older Julia-facing module
+split rather than the TreeTN-first skeleton.
 
-## What Exists Right Now
+## Primary Public Modules
 
-- a loadable `Tensor4all` module with reviewable metadata types
-- `Index`, `Tensor`, and `TreeTensorNetwork` skeletons
-- adopted and re-exported quantics grid functionality from `QuanticsGrids.jl`
-- local quantics transform and QTCI placeholder types
-- extension-only ITensors and HDF5 compatibility stubs
-- a review-first documentation site
-- the imported design set under `docs/design/`
-- an execution plan documenting remaining backend-facing work
+- `TensorNetworks` for indexed chain objects
+- `SimpleTT` for raw-array tensor trains
+- `TensorCI` for cross interpolation that returns `SimpleTT`
+- `QuanticsTransform` for Julia-owned operator semantics
+- adopted `QuanticsGrids.jl` re-export for grid semantics
 
-## What Has Been Removed For This Phase
+## Current Public Story
 
-- stale pre-reset APIs that no longer matched the planned architecture
-- old behavior claims that implied numerics were already implemented
-- high-level `TTFunction` functionality that belongs in `BubbleTeaCI`, not here
+- `TensorNetworks.TensorTrain` is the indexed chain type and stores
+  `Vector{Tensor}` plus `llim` / `rlim`.
+- `SimpleTT.TensorTrain{T,N}` owns raw-array compression and MPO contraction.
+- `TensorCI.crossinterpolate2` returns `SimpleTT.TensorTrain`.
+- HDF5 interoperability is provided in pure Julia through `save_as_mps` and
+  `load_tt`.
 
-## Review Entry Points
+## Secondary / Deferred Surface
 
-- [Architecture Status](modules.md)
-- [API Reference](api.md)
+`TreeTensorNetwork` and other TreeTN-oriented skeletons may still exist in the
+codebase, but they are not the primary public architecture of this branch.
+
+## Entry Points
+
+- [Module Overview](modules.md)
+- [API Notes](api.md)
 - [Design Documents](design_documents.md)
 - [Deferred Rework Plan](deferred_rework_plan.md)
-
-## Ownership Boundary
-
-- `tensor4all-rs` owns kernels, storage, and performance-critical numerics
-- `Tensor4all.jl` owns Julia-side wrappers, TreeTN-general abstractions, quantics integration, and extension glue
-- `QuanticsGrids.jl` owns grid semantics and coordinate conversion; `Tensor4all.jl` adopts and re-exports a curated subset for single-import usability
-- `BubbleTeaCI` owns the reusable `TTFunction` / `GriddedFunction` layer and application workflows, and should build on lower layers instead of duplicating them
-
-## Immediate Goal
-
-Use this phase to review the architecture, naming, layering, and documentation
-of the new skeleton surface before backend numerics are wired in.
-
-## Skeleton API Snapshot
-
-See the [API Reference](api.md) for the full review surface. The homepage stays
-focused on architecture and package boundaries so it does not duplicate the
-reference listings.

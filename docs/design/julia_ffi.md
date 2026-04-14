@@ -2,41 +2,50 @@
 
 ## Overview
 
-This directory now uses a hub-and-spoke structure. The Julia frontend owns backend-facing primitives and extension glue, `tensor4all-rs` owns kernels and storage, and the reusable high-level `TTFunction` / `GriddedFunction` logic stays in `BubbleTeaCI`.
+This design set documents the restored Julia frontend architecture:
 
-This file is only the index. The detailed design lives in the sibling documents linked below.
+- `Core` owns `Index`, `Tensor`, backend loading, and error handling.
+- `TensorNetworks` owns the public chain container `TensorTrain = Vector{Tensor} + llim/rlim`.
+- `SimpleTT` owns the raw-array TT numerics.
+- `TensorCI` bridges interpolation output into `SimpleTT`.
+- `QuanticsTransform` owns the Julia-side operator boundary.
+
+`TreeTensorNetwork` still exists in the repository, but it is secondary and
+deferred. The docs here assume a reduced, chain-oriented C API target on the
+Rust side.
 
 ## Doc Map
 
 | File | Purpose |
 |------|---------|
-| [julia_ffi_core.md](./julia_ffi_core.md) | `Index`, `Tensor`, ownership, low-level FFI, base Julia APIs |
-| [julia_ffi_tt.md](./julia_ffi_tt.md) | backend `TensorTrain` support and TT-level operations |
-| [julia_ffi_quantics.md](./julia_ffi_quantics.md) | grids, layouts, coordinates, quantics transforms, multiresolution |
-| [bubbleteaCI.md](./bubbleteaCI.md) | reusable `TTFunction` / `GriddedFunction` layer and migration plan |
-| [julia_ffi_extensions.md](./julia_ffi_extensions.md) | ITensors/HDF5 compatibility and package extension boundary |
-| [julia_ffi_roadmap.md](./julia_ffi_roadmap.md) | phased implementation order and dependencies |
+| [julia_ffi_core.md](./julia_ffi_core.md) | `Index`, `Tensor`, error handling, and reduced C API assumptions |
+| [julia_ffi_tensornetworks.md](./julia_ffi_tensornetworks.md) | `TensorNetworks.TensorTrain` as `Vector{Tensor} + llim/rlim` |
+| [julia_ffi_simplett.md](./julia_ffi_simplett.md) | `SimpleTT.TensorTrain{T,N}` and pure Julia TT numerics |
+| [julia_ffi_tci.md](./julia_ffi_tci.md) | `TensorCI -> SimpleTT` adapter boundary |
+| [julia_ffi_quanticstransform.md](./julia_ffi_quanticstransform.md) | `QuanticsTransform` operator semantics and Rust kernel boundary |
 
 ## Ownership Model
 
 - `tensor4all-rs` owns performance-critical kernels, storage, and numerics.
-- The Julia frontend owns low-level wrappers, backend-facing abstractions, and extension glue.
-- `BubbleTeaCI` owns the reusable high-level `TTFunction` logic and the application code built on top of it.
+- The Julia frontend owns the public module split, validation, composition, and
+  compatibility glue.
+- `save_as_mps` / `load_tt` live at the HDF5 extension boundary and use the
+  `MPS` schema.
 
-## Ecosystem Reuse
+## Reuse Boundary
 
-- When a focused Julia package already owns a reusable concept cleanly, the preferred strategy is to depend on it and re-export the relevant surface rather than reimplement it.
-- For the quantics layer, this means adopting `QuanticsGrids.jl` for grid and coordinate-conversion functionality.
-- Re-export is a usability choice for single-import workflows. It does not change ownership of the underlying functionality.
+- When a focused Julia package already owns a reusable concept cleanly, prefer
+  adopting it over reimplementing it.
+- The Julia docs still assume `QuanticsGrids.jl` owns grid semantics and
+  coordinate conversion.
+- Re-export is a usability choice for single-import workflows. It does not
+  change ownership of the underlying functionality.
 
 ## Cross-Cutting Questions
 
-- What is the public naming for the high-level function abstraction: `TTFunction`, `QTTFunction`, or an aliasing pair?
-- How should we normalize quantics layouts internally while keeping user-facing construction flexible?
-- What is the clean boundary between the absorbed raw `TensorTrain` layer and the higher-level `TTFunction` logic in `BubbleTeaCI`?
-- Which compatibility and conversion policies belong in Julia extensions versus the core frontend?
-- How much of an adopted dependency surface should be re-exported directly versus curated into a smaller reviewed subset?
-
-## Roadmap Pointer
-
-See [julia_ffi_roadmap.md](./julia_ffi_roadmap.md) for the implementation phases and dependency order.
+- Which chain-oriented primitives remain in Julia, and which ones stay in Rust
+  for the minimized C API?
+- How much of the TT contraction/compression surface should be expressed in
+  Julia versus exposed as reusable backend kernels?
+- How should the HDF5 boundary preserve ITensorMPS compatibility while keeping
+  the Julia-side API focused on `TensorNetworks.TensorTrain`?
