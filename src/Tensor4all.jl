@@ -23,6 +23,11 @@ include("Quantics/QuanticsGridsBridge.jl")
 include("Quantics/Transforms.jl")
 include("Quantics/QTCI.jl")
 
+include("SimpleTT.jl")
+include("TensorNetworks.jl")
+include("TensorCI.jl")
+include("QuanticsTransform.jl")
+
 export SKELETON_PHASE
 export SkeletonPhaseError, SkeletonNotImplemented, BackendUnavailableError
 export backend_library_path, require_backend
@@ -43,5 +48,7 @@ export affine_transform, shift_transform, flip_transform
 export phase_rotation_transform, cumsum_transform, fourier_transform, binaryop_transform
 export materialize_transform
 export QTCIOptions, QTCIDiagnostics, QTCIResultPlaceholder
+
+export TensorNetworks, SimpleTT, TensorCI, QuanticsTransform
 
 end

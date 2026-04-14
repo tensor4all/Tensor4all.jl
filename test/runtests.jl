@@ -1,11 +1,7 @@
 using Test
 using Tensor4all
 
-include("core/bootstrap.jl")
-include("core/index.jl")
-include("core/tensor.jl")
-include("ttn/tree_tensor_network.jl")
-include("quantics/quantics_grids_bridge.jl")
-include("quantics/transforms.jl")
-include("extensions/itensors_ext.jl")
-include("extensions/hdf5_ext.jl")
+include("tensornetworks/surface.jl")
+include("simplett/surface.jl")
+include("tensorci/surface.jl")
+include("quanticstransform/surface.jl")
