@@ -4,11 +4,18 @@ using TensorCrossInterpolation
 
 const TensorCI2 = TensorCrossInterpolation.TensorCI2
 
-for sym in names(TensorCrossInterpolation)
-    if sym !== :crossinterpolate2 && Base.isidentifier(sym) && sym ∉ (:eval, :include)
-        @eval const $(sym) = getfield(TensorCrossInterpolation, $(QuoteNode(sym)))
-        @eval export $(sym)
+function _reexportable_symbols()
+    return filter(names(TensorCrossInterpolation)) do sym
+        sym !== :crossinterpolate2 &&
+            sym !== nameof(TensorCrossInterpolation) &&
+            Base.isidentifier(sym) &&
+            sym ∉ (:eval, :include)
     end
+end
+
+for sym in _reexportable_symbols()
+    @eval const $(sym) = getfield(TensorCrossInterpolation, $(QuoteNode(sym)))
+    @eval export $(sym)
 end
 
 export TensorCI2, crossinterpolate2

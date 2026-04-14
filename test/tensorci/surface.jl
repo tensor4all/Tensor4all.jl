@@ -6,4 +6,5 @@ using Tensor4all
     @test isdefined(Tensor4all.TensorCI, :crossinterpolate2)
     @test isdefined(Tensor4all.TensorCI, :TensorCI2)
     @test length(Base.methods(Tensor4all.TensorCI.crossinterpolate2)) >= 1
+    @test :TensorCrossInterpolation ∉ Tensor4all.TensorCI._reexportable_symbols()
 end
