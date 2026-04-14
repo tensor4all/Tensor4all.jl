@@ -1,1509 +1,596 @@
-# Tensor4all Skeleton Rework Implementation Plan
+# Tensor4all Repo-Only Backend Enablement Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Rebuild `Tensor4all.jl` from the phase-0 reset into a reviewable, TreeTN-general API skeleton aligned with `docs/design/`, while keeping backend loading lazy, keeping high-level `TTFunction` logic out of this package, and avoiding any fake numerics.
+**Goal:** Turn `Tensor4all.jl` from a review-only skeleton into a repo-local, backend-enabled Julia frontend for core tensor, index, and TreeTN operations, without modifying `tensor4all-rs` or its C API yet.
 
-**Architecture:** Build the package bottom-up. `Core` owns common errors, lazy backend loading, `Index`, and `Tensor`; `TreeTN` adds general tensor-network wrappers plus chain aliases and runtime topology predicates; the quantics layer adopts `QuanticsGrids.jl` as the grid and coordinate-conversion implementation, re-exporting its public surface through `Tensor4all.jl` while adding only `Tensor4all`-specific transform and QTCI placeholder types; `ext/` owns ITensors and HDF5 conversion stubs; docs and smoke tests grow in lockstep so every public symbol is reviewable before real backend behavior is enabled.
+**Architecture:** Keep the public Julia API centered on `TreeTensorNetwork{V}`, `TensorTrain`, `MPS`, and `MPO`. Rework `Index` and `Tensor` into thin wrappers over the currently available C API, and represent `TreeTensorNetwork{V}` as a Julia label-mapping layer over a backend `t4a_treetn` handle. Keep quantics transform materialization, QTCI execution, and HDF5 persistence deferred until the later `tensor4all-rs` / C-API rework.
 
-**Tech Stack:** Julia 1.9+, Documenter.jl, package extensions, `tensor4all-rs` C API, `QuanticsGrids.jl`, `ITensors.jl`, `HDF5.jl`, `Test` stdlib.
-
----
-
-## Design Inputs
-
-This plan implements the architecture described in:
-
-- `docs/design/julia_ffi.md`
-- `docs/design/julia_ffi_core.md`
-- `docs/design/julia_ffi_tt.md`
-- `docs/design/julia_ffi_quantics.md`
-- `docs/design/julia_ffi_extensions.md`
-- `docs/design/julia_ffi_roadmap.md`
-
-This plan must remain consistent with `AGENTS.md`, especially:
-
-- the Julia API is TreeTN-general, not chain-only
-- `TensorTrain = TreeTensorNetwork{Int}` is the primary chain alias
-- `MPS` and `MPO` are aliases or runtime conventions, not separate Julia types
-- Julia-side composition should be preferred over adding C API calls unless the primitive is genuinely multi-language useful
-- `TTFunction` stays in `BubbleTeaCI`, not in this package
-
-## Ecosystem Reuse Principle
-
-- If a focused Julia package already owns a reusable concept cleanly, prefer depending on it and re-exporting the relevant surface over reimplementing it.
-- In this plan, that means `Tensor4all.jl` adopts `QuanticsGrids.jl` for quantics grids and coordinate conversion.
-- The same strategy should later guide `BubbleTeaCI`: it should build on and potentially re-export `Tensor4all.jl` for lower-level tensor-network and grid functionality, while keeping `TTFunction` and high-level workflow semantics in `BubbleTeaCI` itself.
-- Re-export is a usability strategy, not an ownership transfer. Docs must still make it clear which package owns which functionality.
-
-## Decision Locks Before Implementation
-
-These decisions should be reviewed explicitly before the skeleton work starts.
-Recommended defaults are included to reduce drift, but they are not silently
-settled by this document.
-
-- `Index` / `Tensor` skeleton model
-  - Decision: pure Julia metadata-first structs vs FFI-shaped wrappers with lazy
-    or nullable backend handles.
-  - Recommended default: keep the public shape aligned with the eventual
-    backend-facing design as early as possible, but allow metadata-only behavior
-    where that reduces skeleton friction.
-- Backend boundary in skeleton mode
-  - Decision: which APIs must remain usable without a compiled backend and which
-    ones should immediately route through `require_backend()`.
-  - Recommended default: import, metadata constructors, inspection helpers, and
-    topology predicates should remain backend-free; contraction and materialized
-    backend operations should stay stub-only.
-- `QuanticsGrids.jl` re-export scope
-  - Decision: full public surface vs curated subset.
-  - Recommended default: start with the core grid and coordinate-conversion
-    subset, then expand only if downstream review shows a strong need.
-- `BubbleTeaCI` downstream contract
-  - Decision: which `Tensor4all.jl` layer `BubbleTeaCI` may assume during the
-    migration, and whether later re-export should be full or curated.
-  - Recommended default: let `BubbleTeaCI` assume only the reviewed core,
-    TreeTN, and adopted quantics subset; keep any later re-export curated.
-
-## API Status Matrix
-
-| Surface | Owner | Skeleton status | Default expectation |
-|------|------|------|------|
-| Core metadata APIs (`Index`, `Tensor`, helpers) | `Tensor4all.jl` | real metadata behavior | usable without backend where possible |
-| TT / TreeTN backend-backed operations | `Tensor4all.jl` | stub-only | require explicit backend or raise `SkeletonNotImplemented` |
-| Quantics grid and coordinate conversion | `QuanticsGrids.jl` | adopted dependency and re-export | no local reimplementation |
-| Quantics transforms and QTCI placeholders | `Tensor4all.jl` | local stubs | reviewable names, no fake numerics |
-| Extensions (`ITensors`, `HDF5`) | `Tensor4all.jl` extension layer | loadable stubs | separate from core ownership |
-| `TTFunction` / high-level workflows | `BubbleTeaCI` | out of scope here | consumed downstream, not recreated here |
-
-## BubbleTeaCI Downstream Contract
-
-The `BubbleTeaCI` migration should treat the following as the minimum contract
-target from `Tensor4all.jl`:
-
-- reviewed core tensor-network types and error surfaces
-- `TreeTensorNetwork`, `TensorTrain`, `MPS`, `MPO`, and runtime topology checks
-- the adopted `QuanticsGrids.jl` subset re-exported through `Tensor4all.jl`
-- reviewed quantics transform constructor names and placeholder result types
-
-The contract intentionally does not yet include:
-
-- `TTFunction` or other high-level function abstractions
-- extension-only behavior such as `ITensors` / `HDF5` interoperability
-- any claim that backend-backed numerics are already complete
-
-`BubbleTeaCI` should consume lower-level functionality from `Tensor4all.jl` and
-its adopted dependencies rather than duplicate it. Any later `BubbleTeaCI`
-re-export should be treated as curated convenience, not as a transfer of
-ownership.
-
-## Non-Goals
-
-- no real contractions, decompositions, or backend numerics beyond lazy loading hooks
-- no eager `dlopen` during `using Tensor4all`
-- no restored pre-reset module tree
-- no `TTFunction`, `GriddedFunction`, or application-level QTT workflows inside this repo
-- no duplicate quantics-grid implementation when `QuanticsGrids.jl` already provides the functionality
-- no plan that would encourage `BubbleTeaCI` to fork or duplicate lower-level functionality that should instead come from `Tensor4all.jl` or adopted dependencies
-- no pretending that a stubbed API is numerically complete
-
-## Planned File Structure
-
-### Source Files
-
-- `src/Tensor4all.jl`
-  - top-level module wiring, exports, and includes only
-- `src/Core/Errors.jl`
-  - `SkeletonPhaseError`, `SkeletonNotImplemented`, `BackendUnavailableError`
-- `src/Core/Backend.jl`
-  - lazy backend path resolution and `require_backend()`
-- `src/Core/Index.jl`
-  - `Index` metadata type and Julia-side helpers
-- `src/Core/Tensor.jl`
-  - `Tensor` metadata type, dense-array constructor checks, and stubbed contraction
-- `src/TreeTN/TreeTensorNetwork.jl`
-  - `TreeTensorNetwork{V}`, `TensorTrain`, `MPS`, `MPO`, topology predicates, runtime checks
-- `src/Quantics/QuanticsGridsBridge.jl`
-  - `QuanticsGrids.jl` imports and re-exports through `Tensor4all.jl`
-- `src/Quantics/Transforms.jl`
-  - transform descriptor types and constructor stubs
-- `src/Quantics/QTCI.jl`
-  - `QTCIOptions`, diagnostics, and placeholder result containers
-
-### Extension Files
-
-- `ext/Tensor4allITensorsExt.jl`
-  - extension-only compatibility stubs for `ITensors.jl`
-- `ext/Tensor4allHDF5Ext.jl`
-  - extension-only compatibility stubs for `HDF5.jl`
-
-### Test Files
-
-- `test/runtests.jl`
-  - test entrypoint, includes each layer test file
-- `test/core/bootstrap.jl`
-  - error types, lazy backend helper, import smoke tests
-- `test/core/index.jl`
-  - `Index` construction and metadata helper behavior
-- `test/core/tensor.jl`
-  - `Tensor` construction, metadata access, and stub behavior
-- `test/ttn/tree_tensor_network.jl`
-  - `TreeTensorNetwork` aliases, topology predicates, runtime checks
-- `test/quantics/quantics_grids_bridge.jl`
-  - `QuanticsGrids.jl` re-export coverage and single-import smoke tests
-- `test/quantics/transforms.jl`
-  - transform constructor metadata and stub behavior
-- `test/extensions/itensors_ext.jl`
-  - extension load check and conversion stub errors
-- `test/extensions/hdf5_ext.jl`
-  - extension load check and save/load stub errors
-
-### Documentation Files
-
-- `docs/src/index.md`
-  - review-first landing page plus package status banner
-- `docs/src/modules.md`
-  - module overview and dependency graph for the skeleton
-- `docs/src/api.md`
-  - auto-generated API reference for the skeleton surface
-- `docs/src/design_documents.md`
-  - links to design docs and execution plan
-- `docs/src/deferred_rework_plan.md`
-  - short page that points to this implementation plan
-- `docs/make.jl`
-  - Documenter page list and API reference inclusion
-- `README.md`
-  - package status, design links, and skeleton-phase expectations
-
-## Review Gates
-
-### Task 2 Gate
-
-- [ ] Does the chosen `Index` / `Tensor` representation match the direction in the design docs?
-- [ ] Is the metadata-vs-backend boundary explicit rather than implied?
-
-### Task 4 Gate
-
-- [ ] Does the public network surface reflect `TreeTensorNetwork`, `TensorTrain`, `MPS`, and `MPO` exactly as required by `AGENTS.md`?
-
-### Task 5 Gate
-
-- [ ] Is `QuanticsGrids.jl` clearly documented as the owner of quantics grid and coordinate-conversion functionality?
-- [ ] Is `Tensor4all.jl` clearly documented as the re-export and integration layer rather than the owner of those grid semantics?
-- [ ] Is the re-export scope still explicitly open, or has it been deliberately fixed?
-- [ ] Is the downstream `BubbleTeaCI` handoff story documented?
-
-### Task 6 Gate
-
-- [ ] Is the extension boundary still clean, with compatibility glue kept out of the core package body?
-
-### Task 7 Gate
-
-- [ ] Do the docs distinguish owner vs re-exporter?
-- [ ] Do the docs show that `TTFunction` remains in `BubbleTeaCI`?
-- [ ] Do the docs avoid implying that `Tensor4all.jl` reimplements quantics grids?
+**Tech Stack:** Julia 1.9+, existing `tensor4all-rs` C API as-is, `QuanticsGrids.jl`, `ITensors.jl`, Documenter.jl, `Test`.
 
 ---
 
-### Task 1: Rebuild the Package Scaffold Around Core Layers
+## Summary
 
-**Files:**
-- Create: `src/Core/Errors.jl`
-- Create: `src/Core/Backend.jl`
+This plan replaces the old skeleton-building plan. The skeleton already exists in
+the repository. The next phase should therefore stop adding placeholder surface
+area and instead make the existing core and TreeTN APIs real where the current
+C API already supports them.
+
+This phase is intentionally limited to the `Tensor4all.jl` repository. It must
+not modify:
+
+- `../tensor4all-rs`
+- the Rust C API
+- any sibling downstream repository such as `BubbleTeaCI`
+
+This phase must deliver:
+
+- a consistent local Julia project state (`Manifest.toml` fixed so `Pkg.test()` runs)
+- real backend wrappers for `Index`
+- real backend wrappers for `Tensor`
+- real backend wrappers for `TreeTensorNetwork{V}` and chain aliases
+- minimal real `ITensors` conversions for `Index` and `Tensor`
+- updated docs and tests for the newly real surfaces
+
+This phase must keep deferred:
+
+- quantics transform materialization and execution
+- QTCI execution
+- HDF5 persistence and round-trips
+- any new C-API entrypoint or Rust-side behavior
+
+## Locked Decisions
+
+These decisions are fixed by this plan and must not be reopened during
+implementation unless the user explicitly changes them.
+
+1. **No upstream Rust changes in this phase**
+   - The implementation may call only the C API that already exists today.
+   - If a Julia-level feature would require a new C-API function, that feature stays deferred.
+
+2. **Keep the TreeTN-general public model**
+   - `TreeTensorNetwork{V}` remains the primary public network type.
+   - `TensorTrain = TreeTensorNetwork{Int}` remains the primary chain alias.
+   - `MPS` and `MPO` remain aliases of `TensorTrain`, distinguished only by runtime structure checks.
+
+3. **Use thin backend-handle wrappers for core types**
+   - `Index` becomes a thin owned wrapper around a backend index handle.
+   - `Tensor` becomes a thin owned wrapper around a backend tensor handle.
+   - No long-lived Julia metadata cache is added for either type.
+
+4. **Keep the package in a partially implemented phase**
+   - `SKELETON_PHASE` stays exported and remains `true` in this phase.
+   - `SkeletonNotImplemented` stays in use only for APIs that remain intentionally deferred.
+   - The docs must explain that the package is now partially backend-enabled rather than fully stubbed.
+
+5. **Keep quantics transforms deferred**
+   - `QuanticsTransform` constructors remain metadata-level descriptors.
+   - `materialize_transform` remains deferred and must keep throwing a clear deferred-feature error.
+   - `QTCIOptions`, `QTCIDiagnostics`, and `QTCIResultPlaceholder` remain placeholders.
+
+6. **Keep HDF5 deferred**
+   - `Tensor4allHDF5Ext` remains stub-only in this phase.
+   - The HDF5 tests remain deferred-behavior tests rather than real round-trip tests.
+
+7. **Implement only minimal real `ITensors` extension behavior**
+   - Implement real `Index` and `Tensor` conversions only.
+   - Do not implement `TreeTensorNetwork` / `MPS` / `MPO` conversions in this phase.
+
+## Target File Changes
+
+### Source files
+
 - Modify: `src/Tensor4all.jl`
-- Create: `test/core/bootstrap.jl`
+  - include any new internal helper file
+  - keep the current public export set unless this plan explicitly says otherwise
+  - update the module docstring to describe the partially enabled state
+- Modify: `src/Core/Errors.jl`
+  - keep current public errors
+  - update wording only where needed to distinguish deferred features from fully stubbed layers
+- Modify: `src/Core/Backend.jl`
+  - keep lazy backend loading
+  - do not `dlopen` during `using Tensor4all`
+- Create: `src/Core/CAPI.jl`
+  - internal-only FFI helpers
+- Modify: `src/Core/Index.jl`
+  - convert from metadata-only struct to backend-handle wrapper
+- Modify: `src/Core/Tensor.jl`
+  - convert from metadata-only struct to backend-handle wrapper
+  - add Julia-side dense extraction and axis-permutation helpers needed for `prime` and `swapinds`
+- Modify: `src/TreeTN/TreeTensorNetwork.jl`
+  - convert from metadata-only struct to a hybrid Julia-metadata + backend-handle wrapper
+- Modify: `src/Quantics/Transforms.jl`
+  - keep deferred behavior but make the deferred boundary explicit in docstrings and errors
+- Leave functionally unchanged: `src/Quantics/QuanticsGridsBridge.jl`
+  - no new exports in this phase
+- Leave functionally unchanged: `src/Quantics/QTCI.jl`
+  - placeholder types remain placeholders
+
+### Extension files
+
+- Modify: `ext/Tensor4allITensorsExt.jl`
+  - replace stubs with real `Index` and `Tensor` conversions
+- Keep stubbed: `ext/Tensor4allHDF5Ext.jl`
+
+### Test files
+
 - Modify: `test/runtests.jl`
+- Modify: `test/core/bootstrap.jl`
+- Modify: `test/core/index.jl`
+- Modify: `test/core/tensor.jl`
+- Modify: `test/ttn/tree_tensor_network.jl`
+- Modify: `test/quantics/transforms.jl`
+- Modify: `test/extensions/itensors_ext.jl`
+- Keep deferred-style test: `test/extensions/hdf5_ext.jl`
 
-- [ ] **Step 1: Write the failing bootstrap tests**
+### Documentation files
 
-```julia
-# test/core/bootstrap.jl
-using Test
-using Tensor4all
+- Modify: `README.md`
+- Modify: `docs/src/index.md`
+- Modify: `docs/src/modules.md`
+- Modify: `docs/src/api.md`
+- Modify: `docs/src/design_documents.md`
+- Modify: `docs/src/deferred_rework_plan.md`
+- Modify only if necessary: `docs/make.jl`
 
-@testset "bootstrap errors and lazy backend helpers" begin
-    @test Tensor4all.SKELETON_PHASE === true
-    @test isdefined(Tensor4all, :SkeletonPhaseError)
-    @test isdefined(Tensor4all, :SkeletonNotImplemented)
-    @test isdefined(Tensor4all, :BackendUnavailableError)
-    @test isdefined(Tensor4all, :backend_library_path)
-    @test isdefined(Tensor4all, :require_backend)
+### Project files
 
-    placeholder = Tensor4all.SkeletonNotImplemented(:contract, :core)
-    @test sprint(showerror, placeholder) ==
-        "Tensor4all skeleton phase: `contract` is planned in the `core` layer but not implemented yet."
+- Modify: `Manifest.toml`
+- Leave `Project.toml` unchanged unless manifest refresh proves that a project-level dependency declaration is actually wrong
 
-    missing = Tensor4all.BackendUnavailableError("backend missing")
-    @test sprint(showerror, missing) == "backend missing"
-    @test Tensor4all.backend_library_path() isa String
-end
-```
+## Public API Contract To Implement
 
-```julia
-# test/runtests.jl
-using Test
-using Tensor4all
+### `Index`
 
-include("core/bootstrap.jl")
-```
-
-- [ ] **Step 2: Run tests to verify they fail**
-
-Run:
-
-```bash
-julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
-```
-
-Expected: FAIL because `SkeletonNotImplemented`, `BackendUnavailableError`, `backend_library_path`, and `require_backend` do not exist yet.
-
-- [ ] **Step 3: Implement the scaffold**
+`Index` becomes:
 
 ```julia
-# src/Core/Errors.jl
-"""
-    SkeletonPhaseError(message)
-
-Raised when code expects functionality that is intentionally deferred during the
-skeleton-review phase.
-"""
-struct SkeletonPhaseError <: Exception
-    message::String
+mutable struct Index
+    ptr::Ptr{Cvoid}
 end
-
-Base.showerror(io::IO, err::SkeletonPhaseError) = print(io, err.message)
-
-"""
-    SkeletonNotImplemented(api, layer)
-
-Raised by public APIs that are intentionally present for review but whose
-backend behavior has not been implemented yet.
-"""
-struct SkeletonNotImplemented <: Exception
-    api::Symbol
-    layer::Symbol
-end
-
-Base.showerror(io::IO, err::SkeletonNotImplemented) = print(
-    io,
-    "Tensor4all skeleton phase: `",
-    err.api,
-    "` is planned in the `",
-    err.layer,
-    "` layer but not implemented yet.",
-)
-
-"""
-    BackendUnavailableError(message)
-
-Raised when a backend-backed operation is requested but the `tensor4all-rs`
-shared library is not available.
-"""
-struct BackendUnavailableError <: Exception
-    message::String
-end
-
-Base.showerror(io::IO, err::BackendUnavailableError) = print(io, err.message)
 ```
+
+The concrete field name may differ, but the representation must remain a thin
+owned wrapper around a backend handle with a finalizer.
+
+Behavior:
+
+- `Index(dim; tags=String[], plev=0, id=nothing)` requires a backend.
+- `dim > 0` is validated in Julia before the C call.
+- `tags` are normalized to `sort!(unique!(collect(String.(tags))))` before sending to the backend.
+- `tags(i)` returns normalized, sorted strings.
+- `plev >= 0` is validated in Julia.
+- if `id === nothing`, use backend-generated ID creation
+- if `id !== nothing`, use the explicit-ID constructor path
+- `sim(i)` returns a new backend index with same `dim`, normalized `tags`, and same `plev`, but a fresh ID
+- `prime(i, n)` clones and raises `plev` by `n`; the resulting `plev` must remain nonnegative
+- `noprime(i)` clones and sets `plev = 0`
+- `setprime(i, n)` clones and sets `plev = n`
+- `hastag(i, tag)` queries the backend
+- `==(a, b)` and `hash(a)` are based on `(dim(a), id(a), tags(a), plev(a))`, not pointer identity
+- `show(io, i)` preserves the current public format
+
+### `Tensor`
+
+`Tensor` becomes:
 
 ```julia
-# src/Core/Backend.jl
-const _backend_handle = Ref{Ptr{Cvoid}}(C_NULL)
-
-backend_library_name() = "libtensor4all_capi." * Libdl.dlext
-
-function backend_library_path()
-    return get(
-        ENV,
-        "TENSOR4ALL_CAPI_PATH",
-        normpath(joinpath(@__DIR__, "..", "..", "deps", backend_library_name())),
-    )
-end
-
-function require_backend()
-    path = backend_library_path()
-    isfile(path) || throw(BackendUnavailableError(
-        "tensor4all-rs backend unavailable at `$path`. Run `julia --startup-file=no --project=. deps/build.jl` or set `TENSOR4ALL_CAPI_PATH`.",
-    ))
-    if _backend_handle[] == C_NULL
-        _backend_handle[] = Libdl.dlopen(path)
-    end
-    return _backend_handle[]
+mutable struct Tensor
+    ptr::Ptr{Cvoid}
 end
 ```
+
+Behavior:
+
+- `Tensor(data::Array{Float64,N}, inds)` and `Tensor(data::Array{ComplexF64,N}, inds)` are the supported dense constructors in this phase.
+- Generic `AbstractArray` inputs still throw the existing contiguity-guidance error unless explicitly `collect`ed first.
+- Constructor validation in Julia:
+  - `length(inds) == ndims(data)`
+  - `Tuple(dim.(inds)) == size(data)`
+  - `data` is contiguous in memory
+- `inds(t)` queries backend indices and returns newly wrapped `Index` objects in backend order.
+- `rank(t)` and `dims(t)` query the backend every time; no cache is added.
+- Add an internal helper `_dense_array(t)` that returns `(data, inds)` where `data` is a Julia dense array with the correct real or complex element type.
+- `prime(t, n)` is implemented in Julia by:
+  - extracting dense data
+  - cloning and priming the indices
+  - reconstructing a new backend tensor
+- `swapinds(t, a, b)` is implemented in Julia by:
+  - extracting dense data and index order
+  - checking that `a` and `b` each occur exactly once
+  - permuting both axes and index order
+  - reconstructing a new backend tensor
+- `contract(a, b)` uses the existing backend tensor-tensor contraction API and no longer throws `SkeletonNotImplemented`
+
+### `TreeTensorNetwork{V}`
+
+`TreeTensorNetwork{V}` becomes a hybrid wrapper:
 
 ```julia
-# src/Tensor4all.jl
-"""
-    Tensor4all
-
-`Tensor4all.jl` is in an API-skeleton review phase.
-
-The package is being rebuilt around the design documents in `docs/design/`.
-Importing the package should succeed without a compiled Rust backend. Public
-symbols may exist before their backend behavior is implemented; such calls
-raise review-friendly stub exceptions rather than silently faking numerics.
-"""
-module Tensor4all
-
-using Libdl
-
-const SKELETON_PHASE = true
-
-include("Core/Errors.jl")
-include("Core/Backend.jl")
-
-export SKELETON_PHASE
-export SkeletonPhaseError, SkeletonNotImplemented, BackendUnavailableError
-export backend_library_path, require_backend
-
-end
-```
-
-- [ ] **Step 4: Run tests to verify the scaffold passes**
-
-Run:
-
-```bash
-julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
-```
-
-Expected: PASS with a single bootstrap testset.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add src/Tensor4all.jl src/Core/Errors.jl src/Core/Backend.jl test/runtests.jl test/core/bootstrap.jl
-git commit -m "feat: add skeleton error and backend scaffold"
-```
-
----
-
-### Task 2: Add the `Index` Metadata Skeleton
-
-**Files:**
-- Create: `src/Core/Index.jl`
-- Modify: `src/Tensor4all.jl`
-- Create: `test/core/index.jl`
-- Modify: `test/runtests.jl`
-
-- [ ] **Step 1: Write the failing `Index` tests**
-
-```julia
-# test/core/index.jl
-using Test
-using Tensor4all
-
-@testset "Index skeleton" begin
-    i = Tensor4all.Index(4; tags=["x", "site"], plev=1)
-    j = Tensor4all.sim(i)
-
-    @test Tensor4all.dim(i) == 4
-    @test Tensor4all.tags(i) == ["x", "site"]
-    @test Tensor4all.plev(i) == 1
-    @test Tensor4all.hastag(i, "x")
-    @test Tensor4all.id(i) != Tensor4all.id(j)
-    @test Tensor4all.dim(j) == Tensor4all.dim(i)
-
-    ip = Tensor4all.prime(i, 2)
-    @test Tensor4all.plev(ip) == 3
-    @test Tensor4all.id(ip) == Tensor4all.id(i)
-    @test Tensor4all.plev(Tensor4all.noprime(ip)) == 0
-    @test Tensor4all.plev(Tensor4all.setprime(i, 7)) == 7
-
-    xs = [i, j, ip]
-    ys = [j, ip]
-    @test Tensor4all.commoninds(xs, ys) == [j, ip]
-    @test Tensor4all.uniqueinds(xs, ys) == [i]
-end
-```
-
-```julia
-# test/runtests.jl
-using Test
-using Tensor4all
-
-include("core/bootstrap.jl")
-include("core/index.jl")
-```
-
-- [ ] **Step 2: Run tests to verify they fail**
-
-Run:
-
-```bash
-julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
-```
-
-Expected: FAIL because `Index`, `dim`, `id`, `tags`, `plev`, `sim`, `prime`, and related helpers do not exist yet.
-
-- [ ] **Step 3: Implement `Index`**
-
-```julia
-# src/Core/Index.jl
-struct Index
-    dim::Int
-    id::UInt64
-    tags::Vector{String}
-    plev::Int
-end
-
-const _next_index_id = Ref{UInt64}(0)
-next_index_id() = (_next_index_id[] += 1)
-
-function Index(dim::Integer; tags=String[], plev::Integer=0, id::Integer=next_index_id())
-    dim > 0 || throw(ArgumentError("Index dimension must be positive, got $dim"))
-    plev >= 0 || throw(ArgumentError("Index prime level must be nonnegative, got $plev"))
-    return Index(Int(dim), UInt64(id), collect(String.(tags)), Int(plev))
-end
-
-dim(i::Index) = i.dim
-id(i::Index) = i.id
-tags(i::Index) = copy(i.tags)
-plev(i::Index) = i.plev
-hastag(i::Index, tag::AbstractString) = String(tag) in i.tags
-
-sim(i::Index) = Index(dim(i); tags=tags(i), plev=plev(i))
-prime(i::Index, n::Integer=1) = Index(dim(i); tags=tags(i), plev=plev(i) + Int(n), id=id(i))
-noprime(i::Index) = Index(dim(i); tags=tags(i), plev=0, id=id(i))
-setprime(i::Index, n::Integer) = Index(dim(i); tags=tags(i), plev=Int(n), id=id(i))
-
-Base.:(==)(a::Index, b::Index) =
-    dim(a) == dim(b) && id(a) == id(b) && plev(a) == plev(b) && tags(a) == tags(b)
-
-Base.hash(i::Index, h::UInt) = hash((dim(i), id(i), plev(i), tags(i)), h)
-
-replaceind(xs::AbstractVector{Index}, old::Index, new::Index) =
-    [x == old ? new : x for x in xs]
-
-function replaceinds(xs::AbstractVector{Index}, replacements::Pair{Index,Index}...)
-    ys = collect(xs)
-    for (old, new) in replacements
-        ys = replaceind(ys, old, new)
-    end
-    return ys
-end
-
-commoninds(xs::AbstractVector{Index}, ys::AbstractVector{Index}) = [x for x in xs if x in ys]
-uniqueinds(xs::AbstractVector{Index}, ys::AbstractVector{Index}) = [x for x in xs if x ∉ ys]
-```
-
-```julia
-# src/Tensor4all.jl
-module Tensor4all
-
-using Libdl
-
-const SKELETON_PHASE = true
-
-include("Core/Errors.jl")
-include("Core/Backend.jl")
-include("Core/Index.jl")
-
-export SKELETON_PHASE
-export SkeletonPhaseError, SkeletonNotImplemented, BackendUnavailableError
-export backend_library_path, require_backend
-export Index, dim, id, tags, plev, hastag
-export sim, prime, noprime, setprime
-export replaceind, replaceinds, commoninds, uniqueinds
-
-end
-```
-
-- [ ] **Step 4: Run tests to verify `Index` passes**
-
-Run:
-
-```bash
-julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
-```
-
-Expected: PASS with bootstrap and `Index` testsets.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add src/Tensor4all.jl src/Core/Index.jl test/runtests.jl test/core/index.jl
-git commit -m "feat: add index skeleton"
-```
-
----
-
-### Task 3: Add the `Tensor` Metadata Skeleton and Array-Shape Validation
-
-**Files:**
-- Create: `src/Core/Tensor.jl`
-- Modify: `src/Tensor4all.jl`
-- Create: `test/core/tensor.jl`
-- Modify: `test/runtests.jl`
-
-- [ ] **Step 1: Write the failing `Tensor` tests**
-
-```julia
-# test/core/tensor.jl
-using Test
-using Tensor4all
-
-@testset "Tensor skeleton" begin
-    i = Tensor4all.Index(2; tags=["i"])
-    j = Tensor4all.Index(3; tags=["j"])
-    data = reshape(collect(1.0:6.0), 2, 3)
-    tensor = Tensor4all.Tensor(data, [i, j])
-
-    @test Tensor4all.rank(tensor) == 2
-    @test Tensor4all.dims(tensor) == (2, 3)
-    @test Tensor4all.inds(tensor) == [i, j]
-    @test Tensor4all.inds(Tensor4all.prime(tensor)) == [Tensor4all.prime(i), Tensor4all.prime(j)]
-
-    bad = PermutedDimsArray(reshape(collect(1.0:8.0), 2, 2, 2), (2, 1, 3))
-    k = Tensor4all.Index(2; tags=["k"])
-    @test_throws ArgumentError Tensor4all.Tensor(bad, [i, j, k])
-    @test_throws DimensionMismatch Tensor4all.Tensor(data, [i])
-    @test_throws Tensor4all.SkeletonNotImplemented Tensor4all.contract(tensor, tensor)
-end
-```
-
-```julia
-# test/runtests.jl
-using Test
-using Tensor4all
-
-include("core/bootstrap.jl")
-include("core/index.jl")
-include("core/tensor.jl")
-```
-
-- [ ] **Step 2: Run tests to verify they fail**
-
-Run:
-
-```bash
-julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
-```
-
-Expected: FAIL because `Tensor`, `inds`, `rank`, `dims`, and `contract` do not exist yet.
-
-- [ ] **Step 3: Implement `Tensor`**
-
-```julia
-# src/Core/Tensor.jl
-struct Tensor{T,N}
-    data::Array{T,N}
-    inds::Vector{Index}
-end
-
-function Tensor(data::Array{T,N}, inds::AbstractVector{Index}) where {T,N}
-    length(inds) == N || throw(DimensionMismatch(
-        "Tensor rank $N requires $N indices, got $(length(inds))",
-    ))
-    Tuple(dim.(inds)) == size(data) || throw(DimensionMismatch(
-        "Tensor dimensions $(Tuple(dim.(inds))) do not match data size $(size(data))",
-    ))
-    return Tensor{T,N}(data, collect(inds))
-end
-
-function Tensor(data, inds::AbstractVector{Index})
-    throw(ArgumentError(
-        "Array must be contiguous in memory for C API. Got $(typeof(data)). Use collect(data) to make a contiguous copy.",
-    ))
-end
-
-inds(T::Tensor) = copy(T.inds)
-rank(T::Tensor) = length(T.inds)
-dims(T::Tensor) = size(T.data)
-
-prime(T::Tensor, n::Integer=1) = Tensor(copy(T.data), prime.(inds(T), Ref(n)))
-
-function swapinds(T::Tensor, a::Index, b::Index)
-    newinds = [idx == a ? b : idx == b ? a : idx for idx in inds(T)]
-    return Tensor(copy(T.data), newinds)
-end
-
-contract(::Tensor, ::Tensor) = throw(SkeletonNotImplemented(:contract, :core))
-```
-
-```julia
-# src/Tensor4all.jl
-module Tensor4all
-
-using Libdl
-
-const SKELETON_PHASE = true
-
-include("Core/Errors.jl")
-include("Core/Backend.jl")
-include("Core/Index.jl")
-include("Core/Tensor.jl")
-
-export SKELETON_PHASE
-export SkeletonPhaseError, SkeletonNotImplemented, BackendUnavailableError
-export backend_library_path, require_backend
-export Index, dim, id, tags, plev, hastag
-export sim, prime, noprime, setprime
-export replaceind, replaceinds, commoninds, uniqueinds
-export Tensor, inds, rank, dims, swapinds, contract
-
-end
-```
-
-- [ ] **Step 4: Run tests to verify `Tensor` passes**
-
-Run:
-
-```bash
-julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
-```
-
-Expected: PASS with bootstrap, `Index`, and `Tensor` testsets.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add src/Tensor4all.jl src/Core/Tensor.jl test/runtests.jl test/core/tensor.jl
-git commit -m "feat: add tensor skeleton"
-```
-
----
-
-### Task 4: Add the TreeTN-General Network Skeleton and Chain Aliases
-
-**Files:**
-- Create: `src/TreeTN/TreeTensorNetwork.jl`
-- Modify: `src/Tensor4all.jl`
-- Create: `test/ttn/tree_tensor_network.jl`
-- Modify: `test/runtests.jl`
-
-- [ ] **Step 1: Write the failing TreeTN tests**
-
-```julia
-# test/ttn/tree_tensor_network.jl
-using Test
-using Tensor4all
-
-@testset "TreeTensorNetwork skeleton" begin
-    s1 = Tensor4all.Index(2; tags=["x1"])
-    s2 = Tensor4all.Index(2; tags=["x2"])
-    s3 = Tensor4all.Index(2; tags=["x3"])
-    l12 = Tensor4all.Index(3; tags=["l12"])
-    l23 = Tensor4all.Index(3; tags=["l23"])
-
-    t1 = Tensor4all.Tensor(rand(2, 3), [s1, l12])
-    t2 = Tensor4all.Tensor(rand(3, 2, 3), [l12, s2, l23])
-    t3 = Tensor4all.Tensor(rand(3, 2), [l23, s3])
-
-    tt = Tensor4all.TreeTensorNetwork(
-        Dict(1 => t1, 2 => t2, 3 => t3);
-        adjacency=Dict(1 => [2], 2 => [1, 3], 3 => [2]),
-        siteinds=Dict(1 => [s1], 2 => [s2], 3 => [s3]),
-        linkinds=Dict((1, 2) => l12, (2, 3) => l23),
-    )
-
-    @test Tensor4all.TensorTrain === Tensor4all.TreeTensorNetwork{Int}
-    @test Tensor4all.MPS === Tensor4all.TensorTrain
-    @test Tensor4all.MPO === Tensor4all.TensorTrain
-    @test Tensor4all.vertices(tt) == [1, 2, 3]
-    @test Tensor4all.neighbors(tt, 2) == [1, 3]
-    @test Tensor4all.siteinds(tt, 2) == [s2]
-    @test Tensor4all.linkind(tt, 1, 2) == l12
-    @test Tensor4all.is_chain(tt)
-    @test Tensor4all.is_mps_like(tt)
-    @test !Tensor4all.is_mpo_like(tt)
-
-    @test_throws Tensor4all.SkeletonNotImplemented Tensor4all.norm(tt)
-    @test_throws Tensor4all.SkeletonNotImplemented Tensor4all.to_dense(tt)
-end
-```
-
-```julia
-# test/runtests.jl
-using Test
-using Tensor4all
-
-include("core/bootstrap.jl")
-include("core/index.jl")
-include("core/tensor.jl")
-include("ttn/tree_tensor_network.jl")
-```
-
-- [ ] **Step 2: Run tests to verify they fail**
-
-Run:
-
-```bash
-julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
-```
-
-Expected: FAIL because `TreeTensorNetwork`, `TensorTrain`, `vertices`, `neighbors`, `siteinds`, `linkind`, and the topology predicates do not exist yet.
-
-- [ ] **Step 3: Implement the TreeTN skeleton**
-
-```julia
-# src/TreeTN/TreeTensorNetwork.jl
-struct TreeTensorNetwork{V}
-    tensors::Dict{V,Tensor}
+mutable struct TreeTensorNetwork{V}
+    ptr::Ptr{Cvoid}
+    vertex_order::Vector{V}
+    vertex_to_backend::Dict{V,Int}
+    backend_to_vertex::Dict{Int,V}
     adjacency::Dict{V,Vector{V}}
     site_index_map::Dict{V,Vector{Index}}
     link_index_map::Dict{Tuple{V,V},Index}
 end
-
-function TreeTensorNetwork(
-    tensors::Dict{V,Tensor};
-    adjacency::Dict{V,Vector{V}},
-    siteinds::Dict{V,Vector{Index}},
-    linkinds::Dict{Tuple{V,V},Index},
-) where {V}
-    return TreeTensorNetwork{V}(tensors, adjacency, siteinds, linkinds)
-end
-
-const TensorTrain = TreeTensorNetwork{Int}
-const MPS = TensorTrain
-const MPO = TensorTrain
-
-vertices(ttn::TreeTensorNetwork) = sort(collect(keys(ttn.tensors)))
-neighbors(ttn::TreeTensorNetwork{V}, v::V) where {V} = copy(get(ttn.adjacency, v, V[]))
-siteinds(ttn::TreeTensorNetwork, v) = copy(ttn.site_index_map[v])
-linkind(ttn::TreeTensorNetwork, a, b) = get(ttn.link_index_map, (a, b), ttn.link_index_map[(b, a)])
-
-function is_chain(ttn::TreeTensorNetwork{Int})
-    verts = vertices(ttn)
-    verts == collect(1:length(verts)) || return false
-    degrees = Dict(v => length(neighbors(ttn, v)) for v in verts)
-    count(==(1), values(degrees)) == 2 || return length(verts) == 1
-    count(==(2), values(degrees)) == max(length(verts) - 2, 0)
-end
-
-is_chain(::TreeTensorNetwork) = false
-is_mps_like(ttn::TreeTensorNetwork) = all(length(siteinds(ttn, v)) == 1 for v in vertices(ttn))
-is_mpo_like(ttn::TreeTensorNetwork) = all(length(siteinds(ttn, v)) == 2 for v in vertices(ttn))
-
-function _require_chain(ttn::TreeTensorNetwork, opname::Symbol)
-    is_chain(ttn) || throw(ArgumentError("`$opname` requires a chain topology with vertices 1:n"))
-    return ttn
-end
-
-orthogonalize!(ttn::TreeTensorNetwork, args...) = throw(SkeletonNotImplemented(:orthogonalize!, :tt))
-truncate!(ttn::TreeTensorNetwork, args...) = throw(SkeletonNotImplemented(:truncate!, :tt))
-inner(a::TreeTensorNetwork, b::TreeTensorNetwork) = throw(SkeletonNotImplemented(:inner, :tt))
-norm(ttn::TreeTensorNetwork) = throw(SkeletonNotImplemented(:norm, :tt))
-to_dense(ttn::TreeTensorNetwork) = throw(SkeletonNotImplemented(:to_dense, :tt))
-evaluate(ttn::TreeTensorNetwork, args...) = throw(SkeletonNotImplemented(:evaluate, :tt))
-contract(a::TreeTensorNetwork, b::TreeTensorNetwork) = throw(SkeletonNotImplemented(:contract, :tt))
 ```
+
+The exact field names may differ, but all of this information must be stored.
+
+Constructor contract:
 
 ```julia
-# src/Tensor4all.jl
-module Tensor4all
-
-using Libdl
-
-const SKELETON_PHASE = true
-
-include("Core/Errors.jl")
-include("Core/Backend.jl")
-include("Core/Index.jl")
-include("Core/Tensor.jl")
-include("TreeTN/TreeTensorNetwork.jl")
-
-export SKELETON_PHASE
-export SkeletonPhaseError, SkeletonNotImplemented, BackendUnavailableError
-export backend_library_path, require_backend
-export Index, dim, id, tags, plev, hastag
-export sim, prime, noprime, setprime
-export replaceind, replaceinds, commoninds, uniqueinds
-export Tensor, inds, rank, dims, swapinds, contract
-export TreeTensorNetwork, TensorTrain, MPS, MPO
-export vertices, neighbors, siteinds, linkind
-export is_chain, is_mps_like, is_mpo_like
-export orthogonalize!, truncate!, inner, norm, to_dense, evaluate
-
-end
-```
-
-- [ ] **Step 4: Run tests to verify the TreeTN layer passes**
-
-Run:
-
-```bash
-julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
-```
-
-Expected: PASS with the TreeTN testset verifying topology metadata and stubbed operations.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add src/Tensor4all.jl src/TreeTN/TreeTensorNetwork.jl test/runtests.jl test/ttn/tree_tensor_network.jl
-git commit -m "feat: add tree tensor network skeleton"
-```
-
----
-
-### Task 5a: Adopt and Re-Export `QuanticsGrids.jl`
-
-**Files:**
-- Modify: `Project.toml`
-- Create: `src/Quantics/QuanticsGridsBridge.jl`
-- Modify: `src/Tensor4all.jl`
-- Create: `test/quantics/quantics_grids_bridge.jl`
-- Modify: `test/runtests.jl`
-
-- [ ] **Step 1: Write the failing re-export tests**
-
-```julia
-# test/quantics/quantics_grids_bridge.jl
-using Test
-using Tensor4all
-using QuanticsGrids
-
-@testset "QuanticsGrids re-export" begin
-    @test Tensor4all.DiscretizedGrid === QuanticsGrids.DiscretizedGrid
-    @test Tensor4all.InherentDiscreteGrid === QuanticsGrids.InherentDiscreteGrid
-
-    grid = Tensor4all.DiscretizedGrid((3, 5); unfoldingscheme=:interleaved)
-    @test Tensor4all.quantics_to_grididx(grid, [1, 2, 1, 2, 1, 2, 1, 2]) == (1, 30)
-    @test Tensor4all.grididx_to_quantics(grid, (1, 30)) == [1, 2, 1, 2, 1, 2, 1, 2]
-end
-```
-
-```julia
-# test/runtests.jl
-using Test
-using Tensor4all
-
-include("core/bootstrap.jl")
-include("core/index.jl")
-include("core/tensor.jl")
-include("ttn/tree_tensor_network.jl")
-include("quantics/quantics_grids_bridge.jl")
-```
-
-- [ ] **Step 2: Run tests to verify they fail**
-
-Run:
-
-```bash
-julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
-```
-
-Expected: FAIL because `QuanticsGrids.jl` is not yet a `Tensor4all.jl` dependency and the re-export bridge does not exist yet.
-
-- [ ] **Step 3: Implement the adopted quantics bridge without reimplementing grids**
-
-```toml
-# Project.toml
-[deps]
-HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
-Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
-LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-QuanticsGrids = "634c7f73-3e90-4749-a1bd-001b8efc642d"
-RustToolChain = "e9dc52e2-edb8-4742-9783-5e542d30dbb5"
-
-[compat]
-HDF5 = "0.17"
-ITensors = "0.6, 0.7, 0.8, 0.9"
-QuanticsGrids = "0.7"
-RustToolChain = "0.1"
-julia = "1.9"
-```
-
-```julia
-# src/Quantics/QuanticsGridsBridge.jl
-using QuanticsGrids: DiscretizedGrid, InherentDiscreteGrid
-using QuanticsGrids: quantics_to_grididx, quantics_to_origcoord
-using QuanticsGrids: grididx_to_quantics, grididx_to_origcoord
-using QuanticsGrids: origcoord_to_quantics, origcoord_to_grididx
-
-export DiscretizedGrid, InherentDiscreteGrid
-export quantics_to_grididx, quantics_to_origcoord
-export grididx_to_quantics, grididx_to_origcoord
-export origcoord_to_quantics, origcoord_to_grididx
-end
-```
-
-```julia
-# src/Tensor4all.jl
-module Tensor4all
-
-using Libdl
-
-const SKELETON_PHASE = true
-
-include("Core/Errors.jl")
-include("Core/Backend.jl")
-include("Core/Index.jl")
-include("Core/Tensor.jl")
-include("TreeTN/TreeTensorNetwork.jl")
-include("Quantics/QuanticsGridsBridge.jl")
-
-export SKELETON_PHASE
-export SkeletonPhaseError, SkeletonNotImplemented, BackendUnavailableError
-export backend_library_path, require_backend
-export Index, dim, id, tags, plev, hastag
-export sim, prime, noprime, setprime
-export replaceind, replaceinds, commoninds, uniqueinds
-export Tensor, inds, rank, dims, swapinds, contract
-export TreeTensorNetwork, TensorTrain, MPS, MPO
-export vertices, neighbors, siteinds, linkind
-export is_chain, is_mps_like, is_mpo_like
-export orthogonalize!, truncate!, inner, norm, to_dense, evaluate
-export DiscretizedGrid, InherentDiscreteGrid
-export quantics_to_grididx, quantics_to_origcoord
-export grididx_to_quantics, grididx_to_origcoord
-export origcoord_to_quantics, origcoord_to_grididx
-
-end
-```
-
-- [ ] **Step 4: Run tests to verify the adopted quantics layer passes**
-
-Run:
-
-```bash
-julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
-```
-
-Expected: PASS with `QuanticsGrids.jl` re-export coverage.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add Project.toml src/Tensor4all.jl src/Quantics/QuanticsGridsBridge.jl test/runtests.jl test/quantics/quantics_grids_bridge.jl
-git commit -m "feat: re-export quantics grids"
-```
-
----
-
-### Task 5b: Add Tensor4all-Specific Quantics Transform and QTCI Stubs
-
-**Files:**
-- Create: `src/Quantics/Transforms.jl`
-- Create: `src/Quantics/QTCI.jl`
-- Modify: `src/Tensor4all.jl`
-- Create: `test/quantics/transforms.jl`
-- Modify: `test/runtests.jl`
-
-- [ ] **Step 1: Write the failing transform and QTCI tests**
-
-```julia
-# test/quantics/transforms.jl
-using Test
-using Tensor4all
-
-@testset "Quantics transform metadata" begin
-    shift = Tensor4all.shift_transform(; offsets=(x=1,))
-    affine = Tensor4all.affine_transform(; matrix=[1.0 0.0; 0.0 1.0], shift=[0.0, 0.0])
-    options = Tensor4all.QTCIOptions()
-
-    @test shift.kind == :shift
-    @test affine.kind == :affine
-    @test options.max_rank == 64
-    @test_throws Tensor4all.SkeletonNotImplemented Tensor4all.materialize_transform(shift)
-end
-```
-
-```julia
-# test/runtests.jl
-using Test
-using Tensor4all
-
-include("core/bootstrap.jl")
-include("core/index.jl")
-include("core/tensor.jl")
-include("ttn/tree_tensor_network.jl")
-include("quantics/quantics_grids_bridge.jl")
-include("quantics/transforms.jl")
-```
-
-- [ ] **Step 2: Run tests to verify they fail**
-
-Run:
-
-```bash
-julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
-```
-
-Expected: FAIL because the local transform constructors and QTCI placeholders do not exist yet.
-
-- [ ] **Step 3: Implement the Tensor4all-owned quantics stubs**
-
-```julia
-# src/Quantics/Transforms.jl
-struct QuanticsTransform
-    kind::Symbol
-    parameters::NamedTuple
-end
-
-affine_transform(; matrix, shift) = QuanticsTransform(:affine, (; matrix, shift))
-shift_transform(; offsets) = QuanticsTransform(:shift, (; offsets))
-flip_transform(; variables) = QuanticsTransform(:flip, (; variables))
-phase_rotation_transform(; phase) = QuanticsTransform(:phase_rotation, (; phase))
-cumsum_transform(; variable) = QuanticsTransform(:cumsum, (; variable))
-fourier_transform(; variables) = QuanticsTransform(:fourier, (; variables))
-binaryop_transform(; op, variables) = QuanticsTransform(:binaryop, (; op, variables))
-
-materialize_transform(::QuanticsTransform) =
-    throw(SkeletonNotImplemented(:materialize_transform, :quantics))
-```
-
-```julia
-# src/Quantics/QTCI.jl
-Base.@kwdef struct QTCIOptions
-    tolerance::Float64 = 1.0e-8
-    max_rank::Int = 64
-    max_sweeps::Int = 10
-end
-
-Base.@kwdef struct QTCIDiagnostics
-    converged::Bool = false
-    sweeps::Int = 0
-    final_error::Float64 = Inf
-end
-
-struct QTCIResultPlaceholder
-    options::QTCIOptions
-    diagnostics::QTCIDiagnostics
-end
-```
-
-```julia
-# src/Tensor4all.jl
-module Tensor4all
-
-using Libdl
-
-const SKELETON_PHASE = true
-
-include("Core/Errors.jl")
-include("Core/Backend.jl")
-include("Core/Index.jl")
-include("Core/Tensor.jl")
-include("TreeTN/TreeTensorNetwork.jl")
-include("Quantics/QuanticsGridsBridge.jl")
-include("Quantics/Transforms.jl")
-include("Quantics/QTCI.jl")
-
-export SKELETON_PHASE
-export SkeletonPhaseError, SkeletonNotImplemented, BackendUnavailableError
-export backend_library_path, require_backend
-export Index, dim, id, tags, plev, hastag
-export sim, prime, noprime, setprime
-export replaceind, replaceinds, commoninds, uniqueinds
-export Tensor, inds, rank, dims, swapinds, contract
-export TreeTensorNetwork, TensorTrain, MPS, MPO
-export vertices, neighbors, siteinds, linkind
-export is_chain, is_mps_like, is_mpo_like
-export orthogonalize!, truncate!, inner, norm, to_dense, evaluate
-export DiscretizedGrid, InherentDiscreteGrid
-export quantics_to_grididx, quantics_to_origcoord
-export grididx_to_quantics, grididx_to_origcoord
-export origcoord_to_quantics, origcoord_to_grididx
-export QuanticsTransform
-export affine_transform, shift_transform, flip_transform
-export phase_rotation_transform, cumsum_transform, fourier_transform, binaryop_transform
-export materialize_transform
-export QTCIOptions, QTCIDiagnostics, QTCIResultPlaceholder
-
-end
-```
-
-- [ ] **Step 3b: Record the downstream reuse rule in package-facing docs while touching this layer**
-
-When updating the docs in Task 7, make sure the quantics section explicitly states:
-
-- `QuanticsGrids.jl` remains the owner of grid semantics
-- `Tensor4all.jl` re-exports that surface for single-import usability
-- `BubbleTeaCI` is expected to follow the same dependency-and-re-export strategy for lower layers rather than duplicating them
-- users should be able to understand where APIs come from even when re-exported
-
-- [ ] **Step 4: Run tests to verify quantics passes**
-
-Run:
-
-```bash
-julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
-```
-
-Expected: PASS with `QuanticsGrids.jl` re-export coverage, transform metadata, and QTCI placeholder coverage.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add src/Tensor4all.jl src/Quantics/Transforms.jl src/Quantics/QTCI.jl test/runtests.jl test/quantics/transforms.jl
-git commit -m "feat: add quantics transform skeleton"
-```
-
----
-
-### Task 6: Move Compatibility to Extension-Only Skeletons
-
-**Files:**
-- Modify: `Project.toml`
-- Modify: `ext/Tensor4allITensorsExt.jl`
-- Create: `ext/Tensor4allHDF5Ext.jl`
-- Create: `test/extensions/itensors_ext.jl`
-- Create: `test/extensions/hdf5_ext.jl`
-- Modify: `test/runtests.jl`
-
-- [ ] **Step 1: Write the failing extension tests**
-
-```julia
-# test/extensions/itensors_ext.jl
-using Test
-using Tensor4all
-using ITensors
-
-@testset "ITensors extension skeleton" begin
-    ext = Base.get_extension(Tensor4all, :Tensor4allITensorsExt)
-    @test ext !== nothing
-    @test_throws Tensor4all.SkeletonNotImplemented ext.to_itensor(Tensor4all.Index(2))
-end
-```
-
-```julia
-# test/extensions/hdf5_ext.jl
-using Test
-using Tensor4all
-using HDF5
-
-@testset "HDF5 extension skeleton" begin
-    ext = Base.get_extension(Tensor4all, :Tensor4allHDF5Ext)
-    @test ext !== nothing
-    @test_throws Tensor4all.SkeletonNotImplemented ext.save_hdf5("tmp.h5", nothing)
-end
-```
-
-```julia
-# test/runtests.jl
-using Test
-using Tensor4all
-
-include("core/bootstrap.jl")
-include("core/index.jl")
-include("core/tensor.jl")
-include("ttn/tree_tensor_network.jl")
-include("quantics/quantics_grids_bridge.jl")
-include("quantics/transforms.jl")
-include("extensions/itensors_ext.jl")
-include("extensions/hdf5_ext.jl")
-```
-
-- [ ] **Step 2: Run tests to verify they fail**
-
-Run:
-
-```bash
-julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
-```
-
-Expected: FAIL because the extension modules either do not expose the stub APIs or HDF5 is not wired as an extension yet.
-
-- [ ] **Step 3: Implement extension-only stubs**
-
-```toml
-# Project.toml
-[deps]
-Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
-LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-RustToolChain = "e9dc52e2-edb8-4742-9783-5e542d30dbb5"
-
-[weakdeps]
-HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
-ITensors = "9136182c-28ba-11e9-034c-db9fb085ebd5"
-
-[extensions]
-Tensor4allHDF5Ext = ["HDF5"]
-Tensor4allITensorsExt = ["ITensors"]
-
-[extras]
-HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
-ITensors = "9136182c-28ba-11e9-034c-db9fb085ebd5"
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-
-[targets]
-test = ["HDF5", "ITensors", "Test"]
-```
-
-```julia
-# ext/Tensor4allITensorsExt.jl
-module Tensor4allITensorsExt
-
-using Tensor4all
-using ITensors
-
-to_itensor(::Tensor4all.Index) = throw(Tensor4all.SkeletonNotImplemented(:to_itensor, :extensions))
-from_itensor(::ITensors.Index) = throw(Tensor4all.SkeletonNotImplemented(:from_itensor, :extensions))
-
-end
-```
-
-```julia
-# ext/Tensor4allHDF5Ext.jl
-module Tensor4allHDF5Ext
-
-using Tensor4all
-using HDF5
-
-save_hdf5(args...) = throw(Tensor4all.SkeletonNotImplemented(:save_hdf5, :extensions))
-load_hdf5(args...) = throw(Tensor4all.SkeletonNotImplemented(:load_hdf5, :extensions))
-
-end
-```
-
-- [ ] **Step 4: Run tests to verify extension wiring passes**
-
-Run:
-
-```bash
-julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
-```
-
-Expected: PASS with both extensions loading only when their packages are available.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add Project.toml ext/Tensor4allITensorsExt.jl ext/Tensor4allHDF5Ext.jl test/runtests.jl test/extensions/itensors_ext.jl test/extensions/hdf5_ext.jl
-git commit -m "feat: add extension skeletons"
-```
-
----
-
-### Task 7: Restore the Reviewable API Docs Surface
-
-**Files:**
-- Modify: `docs/make.jl`
-- Modify: `docs/src/index.md`
-- Modify: `docs/src/modules.md`
-- Create: `docs/src/api.md`
-- Modify: `docs/src/design_documents.md`
-- Modify: `docs/src/deferred_rework_plan.md`
-- Modify: `README.md`
-
-- [ ] **Step 1: Write the docs changes**
-
-````markdown
-# docs/src/api.md
-# API Reference
-
-## Core
-
-```@docs
-Tensor4all.Index
-Tensor4all.Tensor
-Tensor4all.SkeletonNotImplemented
-Tensor4all.BackendUnavailableError
-Tensor4all.backend_library_path
-Tensor4all.require_backend
-```
-
-## TreeTN
-
-```@docs
-Tensor4all.TreeTensorNetwork
-Tensor4all.TensorTrain
-Tensor4all.MPS
-Tensor4all.MPO
-Tensor4all.is_chain
-Tensor4all.is_mps_like
-Tensor4all.is_mpo_like
-```
-
-## Quantics
-
-```@docs
-Tensor4all.DiscretizedGrid
-Tensor4all.InherentDiscreteGrid
-Tensor4all.quantics_to_grididx
-Tensor4all.quantics_to_origcoord
-Tensor4all.grididx_to_quantics
-Tensor4all.grididx_to_origcoord
-Tensor4all.origcoord_to_quantics
-Tensor4all.origcoord_to_grididx
-Tensor4all.QuanticsTransform
-Tensor4all.QTCIOptions
-Tensor4all.QTCIDiagnostics
-Tensor4all.QTCIResultPlaceholder
-```
-````
-
-```julia
-# docs/make.jl
-makedocs(
-    sitename="Tensor4all.jl",
-    modules=[Tensor4all],
-    repo=Documenter.Remotes.GitHub("tensor4all", "Tensor4all.jl"),
-    pages=[
-        "Home" => "index.md",
-        "Architecture Status" => "modules.md",
-        "API Reference" => "api.md",
-        "Design Documents" => "design_documents.md",
-        "Deferred Rework Plan" => "deferred_rework_plan.md",
-    ],
-    format=Documenter.HTML(
-        prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://tensor4all.github.io/Tensor4all.jl",
-    ),
-    warnonly=[:missing_docs],
+TreeTensorNetwork(
+    tensors;
+    vertex_order=nothing,
+    adjacency,
+    siteinds,
+    linkinds,
 )
 ```
 
-```markdown
-# README.md
+Rules:
 
-## Current status
+- If `vertex_order === nothing`:
+  - for the chain case with `V == Int` and keys `1:n`, use `1:n`
+  - otherwise throw `ArgumentError("vertex_order must be specified for non-chain or non-Int TreeTensorNetwork construction in this phase")`
+- Validate in Julia before touching the backend:
+  - `Set(keys(tensors)) == Set(vertex_order)`
+  - `Set(keys(adjacency)) == Set(vertex_order)`
+  - `Set(keys(siteinds)) == Set(vertex_order)`
+  - adjacency is symmetric
+  - every edge in `adjacency` has exactly one corresponding link index
+  - each tensor contains exactly the declared site indices for its vertex plus the link indices for its incident edges
+- Build the backend TreeTN by passing tensors in `vertex_order`, which therefore maps backend node names `0:(n-1)` to that order.
+- Store `link_index_map` in both directions: both `(a, b)` and `(b, a)` must exist after construction.
+- After backend construction, query backend site and link indices and verify they match the supplied Julia metadata. If not, release the backend handle and throw.
 
-`Tensor4all.jl` is in a review-first skeleton phase. The package surface is
-being rebuilt around the design documents under `docs/design/`. Public APIs may
-exist before backend numerics are implemented; such calls should fail with
-actionable skeleton exceptions rather than silently doing work.
+Accessor contract:
 
-The quantics grid layer is planned around `QuanticsGrids.jl` as an adopted
-dependency. Users should get access to its grid and coordinate-conversion APIs
-through `using Tensor4all` rather than needing a second package import.
+- `vertices(ttn)` returns `copy(ttn.vertex_order)`
+- `neighbors(ttn, v)` returns `copy(ttn.adjacency[v])`
+- `siteinds(ttn, v)` returns `copy(ttn.site_index_map[v])`
+- `linkind(ttn, a, b)` looks up `ttn.link_index_map[(a, b)]` directly
 
-This adopted-dependency pattern is also intended as the model for
-`BubbleTeaCI`: high-level workflows stay there, but lower-level functionality
-should be consumed from and potentially re-exported through `Tensor4all.jl`
-rather than reimplemented.
+Predicate contract:
 
-## Design and planning docs
+- `is_chain(ttn)` is true exactly when:
+  - `V == Int`
+  - `vertex_order == collect(1:length(vertex_order))`
+  - degree pattern is the expected chain pattern
+- `is_mps_like(ttn)` means every vertex has exactly one site index
+- `is_mpo_like(ttn)` means every vertex has exactly two site indices
 
-- `docs/design/README.md`
-- `docs/plans/2026-04-10-tensor4all-rework-followup.md`
-```
+Operation contract:
 
-- [ ] **Step 2: Add docstrings while touching each public type and function**
+- `orthogonalize!(ttn, v)`:
+  - validates `v ∈ vertices(ttn)`
+  - maps `v` to backend node name and calls backend orthogonalization
+  - refreshes `site_index_map` and `link_index_map` afterward
+- `truncate!(ttn; rtol=0.0, cutoff=0.0, maxdim=0)`:
+  - passes `rtol`, `cutoff`, and `maxdim` directly to backend semantics
+  - refreshes `site_index_map` and `link_index_map` afterward
+- `inner(a, b)`:
+  - requires identical `vertex_order` and identical adjacency
+  - returns `Float64` if the imaginary part is zero, otherwise `ComplexF64`
+- `norm(ttn)`:
+  - returns `Float64`
+  - may mutate the backend canonical form internally, but must not change public vertex metadata
+- `to_dense(ttn)`:
+  - returns a `Tensor`
+  - does **not** try to reorder backend output axes in this phase
+  - the returned tensor index order is therefore backend order and must be documented as such
+- `evaluate(ttn, assignments::AbstractDict{Index,<:Integer})`:
+  - requires an assignment for every site index exactly once
+  - rejects missing keys, duplicate logical assignments, and out-of-range values in Julia before the C call
+  - returns `Float64` if the imaginary part is zero, otherwise `ComplexF64`
+- `evaluate(tt::TensorTrain, values::AbstractVector{<:Integer})` and `evaluate(tt::TensorTrain, values::Integer...)`:
+  - require `is_chain(tt)`
+  - require `is_mps_like(tt)`
+  - use `vertex_order == 1:n`
+  - map the values to the single site index on each chain vertex in order
+- `contract(a, b; alg=:zipup, rtol=0.0, cutoff=0.0, maxdim=0)`:
+  - accepts `alg` as `:zipup`, `:fit`, `:naive`, or the strings `"zipup"`, `"fit"`, `"naive"`
+  - requires `a.vertex_order == b.vertex_order`
+  - requires identical adjacency
+  - reuses the left operand’s `vertex_order` and adjacency
+  - after the backend call, refreshes `site_index_map` and `link_index_map`
+  - if backend contraction changes node count or topology, throw `ArgumentError("TreeTN contraction result topology differs from input topology; this case is deferred in this phase")`
 
-For each file introduced in Tasks 1-6, add docstrings with:
+### Quantics
 
-- one-sentence summary
-- note whether the symbol is implemented metadata or stub-only
-- a `# Examples` section
-- `jldoctest` blocks for pure metadata APIs only
-- fenced `julia` blocks for backend-backed placeholders
+Behavior locked for this phase:
 
-Minimum docstrings to add:
+- do not widen the `QuanticsGrids.jl` re-export
+- do not implement real transform materialization
+- do not implement QTCI execution
+- keep `materialize_transform` throwing `SkeletonNotImplemented(:materialize_transform, :quantics)`
+- update the error text and docstrings so they explicitly say the feature is deferred until the later `tensor4all-rs` / C-API rework
 
-````julia
-"""
-    Index(dim; tags=String[], plev=0, id=next_index_id())
+### Extensions
 
-Create a Julia-side review skeleton for an indexed tensor leg.
+`Tensor4allITensorsExt.jl` must implement:
 
-# Examples
-```jldoctest
-julia> i = Index(4; tags=["x"])
-Index(4|x)
-```
-"""
-````
+- `to_itensor(::Tensor4all.Index) -> ITensors.Index`
+- `from_itensor(::ITensors.Index) -> Tensor4all.Index`
+- `to_itensor(::Tensor4all.Tensor) -> ITensors.ITensor`
+- `from_itensor(::ITensors.ITensor) -> Tensor4all.Tensor`
 
-- [ ] **Step 3: Build docs and fix missing-page or docstring issues**
+Rules:
 
-Run:
+- preserve `dim`, `id`, normalized `tags`, and `plev` in `Index` round-trips
+- preserve tensor index order in `Tensor` round-trips
+- do not add `TreeTensorNetwork` / `MPS` / `MPO` conversions in this phase
 
-```bash
-julia --project=docs docs/make.jl
-```
+`Tensor4allHDF5Ext.jl` stays deferred:
 
-Expected: PASS with a docs site that shows the new API reference page and clearly distinguishes implemented metadata from stubbed backend behavior.
+- keep `save_hdf5` and `load_hdf5` as explicit deferred-feature errors
+- update wording only if needed for clarity
 
-- [ ] **Step 4: Commit**
+## Task Breakdown
 
-```bash
-git add docs/make.jl docs/src/index.md docs/src/modules.md docs/src/api.md docs/src/design_documents.md docs/src/deferred_rework_plan.md README.md src
-git commit -m "docs: restore skeleton api review surface"
-```
-
----
-
-### Task 8: Final Skeleton Validation and Review Handoff
+### Task 0: Refresh the Julia project state
 
 **Files:**
-- Modify: `docs/plans/2026-04-10-tensor4all-rework-followup.md`
+
+- Modify: `Manifest.toml`
+
+- [ ] Refresh the manifest so it matches the current `Project.toml`, including `QuanticsGrids` and both package extensions.
+- [ ] Verify that `julia --startup-file=no --project=. -e 'using Pkg; Pkg.instantiate()'` succeeds.
+- [ ] Verify that the previous failure mode about `QuanticsGrids` missing from the manifest is gone before continuing.
+
+**Acceptance criteria:**
+
+- `Pkg.instantiate()` succeeds from the package root.
+- `Manifest.toml` includes `QuanticsGrids` and the declared extension metadata.
+
+### Task 1: Add the internal FFI helper layer
+
+**Files:**
+
+- Create: `src/Core/CAPI.jl`
+- Modify: `src/Tensor4all.jl`
+- Modify: `src/Core/Backend.jl`
+- Modify: `src/Core/Errors.jl`
+- Modify: `test/core/bootstrap.jl`
+
+- [ ] Add internal helpers for:
+  - status checking
+  - retrieving `t4a_last_error_message()`
+  - query-then-fill buffers for strings and vectors
+  - handle finalizers and release helpers
+  - normalized tag handling
+  - real/complex buffer marshaling
+- [ ] Keep all helper names internal-only, prefixed with `_` where appropriate.
+- [ ] Keep `require_backend()` lazy and unchanged at the public API level.
+- [ ] Update bootstrap tests so they still verify:
+  - `using Tensor4all` works without the backend library present
+  - backend-backed operations fail only on first actual use
+
+**Acceptance criteria:**
+
+- importing the package does not call `dlopen`
+- backend-backed constructors and operations report Rust-side error text when the C API returns a failure status
+
+### Task 2: Rework `Index` into a real backend wrapper
+
+**Files:**
+
+- Modify: `src/Core/Index.jl`
+- Modify: `src/Tensor4all.jl`
+- Modify: `test/core/index.jl`
+- Modify: `docs/src/api.md`
+
+- [ ] Convert `Index` from a metadata struct into an owned backend-handle wrapper with a finalizer.
+- [ ] Implement the constructor paths with Julia-side validation and tag normalization.
+- [ ] Implement `dim`, `id`, `tags`, `plev`, `hastag`, `sim`, `prime`, `noprime`, and `setprime`.
+- [ ] Keep `replaceind`, `replaceinds`, `commoninds`, and `uniqueinds` as pure Julia helpers over `Vector{Index}`.
+- [ ] Preserve equality and hashing by metadata, not pointer identity.
+- [ ] Add or update docstrings so every exported `Index`-related symbol touched here has a `# Examples` section.
+
+**Acceptance criteria:**
+
+- `test/core/index.jl` passes using the real backend wrapper
+- `sim(i)` preserves dimension, tags, and `plev`, but changes `id`
+- tag order is normalized and deterministic in tests
+
+### Task 3: Rework `Tensor` into a real backend wrapper
+
+**Files:**
+
+- Modify: `src/Core/Tensor.jl`
+- Modify: `src/Tensor4all.jl`
+- Modify: `test/core/tensor.jl`
+- Modify: `docs/src/api.md`
+
+- [ ] Convert `Tensor` from a metadata struct into an owned backend-handle wrapper with a finalizer.
+- [ ] Implement real dense constructors for `Float64` and `ComplexF64`.
+- [ ] Keep the contiguity error for unsupported `AbstractArray` inputs, with the current actionable message style from `AGENTS.md`.
+- [ ] Add internal `_dense_array(t)` and storage-kind helpers for tests and extensions.
+- [ ] Implement `inds`, `rank`, and `dims` as backend queries.
+- [ ] Implement `prime(t, n)` in Julia via dense extraction + index rewrite + reconstruction.
+- [ ] Implement `swapinds(t, a, b)` in Julia via dense extraction + axis permutation + reconstruction.
+- [ ] Implement real tensor-tensor `contract(a, b)` through the current backend C API.
+- [ ] Add or update docstrings so every exported `Tensor`-related symbol touched here has a `# Examples` section.
+
+**Acceptance criteria:**
+
+- the tensor-contraction test uses a deterministic small fixture and compares against a known dense reference
+- `swapinds` changes both metadata order and numeric axis order
+- real and complex constructor paths both round-trip through `_dense_array`
+
+### Task 4: Rework `TreeTensorNetwork{V}` into a hybrid Julia/backend wrapper
+
+**Files:**
+
+- Modify: `src/TreeTN/TreeTensorNetwork.jl`
+- Modify: `src/Tensor4all.jl`
+- Modify: `test/ttn/tree_tensor_network.jl`
+- Modify: `docs/src/api.md`
+
+- [ ] Add `vertex_order` as an explicit constructor keyword.
+- [ ] Make non-chain or non-`Int` construction require `vertex_order`.
+- [ ] Build the backend TreeTN using tensors in `vertex_order`.
+- [ ] Store `vertex_order`, `vertex_to_backend`, `backend_to_vertex`, adjacency, site map, and bidirectional link map in Julia.
+- [ ] Add internal metadata-refresh helpers after backend operations.
+- [ ] Implement `vertices`, `neighbors`, `siteinds`, `linkind`, `is_chain`, `is_mps_like`, and `is_mpo_like`.
+- [ ] Implement real `orthogonalize!`, `truncate!`, `inner`, `norm`, `to_dense`, `evaluate`, and `contract`.
+- [ ] Keep chain-only runtime checks explicit and descriptive.
+- [ ] Document the phase-specific contraction restriction: both operands must have identical topology and identical `vertex_order`.
+- [ ] Add or update docstrings so every exported TreeTN-related symbol touched here has a `# Examples` section.
+
+**Acceptance criteria:**
+
+- the TreeTN constructor rejects inconsistent adjacency/site/link metadata before touching the backend
+- `vertices(ttn)` preserves explicit `vertex_order`
+- `norm`, `inner`, `to_dense`, and `evaluate` no longer throw `SkeletonNotImplemented`
+- `contract` rejects topology-changing cases with a Julia-side `ArgumentError`
+
+### Task 5: Keep quantics deferred, but make the deferred boundary explicit
+
+**Files:**
+
+- Modify: `src/Quantics/Transforms.jl`
+- Modify: `test/quantics/transforms.jl`
+- Modify: `README.md`
+- Modify: `docs/src/index.md`
+- Modify: `docs/src/modules.md`
 - Modify: `docs/src/deferred_rework_plan.md`
 
-- [ ] **Step 1: Run the full verification set**
+- [ ] Keep the current transform constructors metadata-only.
+- [ ] Keep `materialize_transform` deferred.
+- [ ] Update docstrings and deferred errors so they explicitly point to the later `tensor4all-rs` / C-API rework as the reason they remain deferred.
+- [ ] Keep `src/Quantics/QTCI.jl` placeholder-only in this phase.
+- [ ] Do not widen the `QuanticsGrids.jl` re-export set.
 
-Run:
+**Acceptance criteria:**
+
+- quantics re-export tests still pass
+- transform tests still assert deferred behavior
+- docs no longer imply that transform materialization is part of this phase
+
+### Task 6: Replace only the `ITensors` stubs with real conversions
+
+**Files:**
+
+- Modify: `ext/Tensor4allITensorsExt.jl`
+- Modify: `test/extensions/itensors_ext.jl`
+- Leave stubbed: `ext/Tensor4allHDF5Ext.jl`
+- Leave deferred-style: `test/extensions/hdf5_ext.jl`
+
+- [ ] Implement real `Index` conversion both ways.
+- [ ] Implement real `Tensor` conversion both ways.
+- [ ] Keep `HDF5` functionality stubbed in this phase.
+- [ ] Make the extension tests reflect the new boundary exactly:
+  - `ITensors` conversions are real
+  - `HDF5` calls remain deferred
+
+**Acceptance criteria:**
+
+- `test/extensions/itensors_ext.jl` verifies actual round-trips
+- `test/extensions/hdf5_ext.jl` still verifies explicit deferred errors
+
+### Task 7: Update docs and run full verification
+
+**Files:**
+
+- Modify: `README.md`
+- Modify: `docs/src/index.md`
+- Modify: `docs/src/modules.md`
+- Modify: `docs/src/api.md`
+- Modify: `docs/src/design_documents.md`
+- Modify: `docs/src/deferred_rework_plan.md`
+- Modify only if needed: `docs/make.jl`
+
+- [ ] Update the package status text from “all skeleton” to “core and TreeTN backend-enabled; quantics materialization, QTCI, and HDF5 still deferred”.
+- [ ] Update API reference pages so they describe the real `Index`, `Tensor`, and TreeTN behavior.
+- [ ] Keep the owner/re-export boundary around `QuanticsGrids.jl` explicit.
+- [ ] Keep `TTFunction` explicitly out of scope and owned by `BubbleTeaCI`.
+- [ ] Ensure every exported symbol touched in this phase has a docstring with `# Examples`.
+- [ ] Run the full verification suite.
+
+**Verification commands:**
 
 ```bash
-julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
-julia --project=docs docs/make.jl
-rg -n "SimpleTT|TreeTCI|TTFunction|QuanticsTCI" src test docs/src README.md
+julia --startup-file=no --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.test()'
+julia --startup-file=no --project=docs docs/make.jl
 ```
 
-Expected:
+If running on `primerose`, use the Docker workaround from `AGENTS.md` instead of direct local testing.
 
-- `Pkg.test()` PASS
-- `docs/make.jl` PASS
-- the final `rg` command returns either no matches or only matches that explain those names are intentionally out of scope or deferred to `BubbleTeaCI`
+**Acceptance criteria:**
 
-- [ ] **Step 2: Record review outcomes inline**
+- `Pkg.test()` passes
+- `docs/make.jl` passes
+- README and docs do not claim any behavior that this phase still defers
 
-At the end of this plan file, add a short implementation note after execution:
+## Specific Test Fixtures To Use
 
-```markdown
-## Execution Notes
+These fixtures are locked to reduce implementation-time choice churn.
 
-- Implemented through Task N
-- Open review decisions:
-  - ...
-- Follow-up backend gaps:
-  - tensor-tensor contraction still needs C API coverage
-```
+### Core tensor fixture
 
-- [ ] **Step 3: Commit**
+Use a deterministic tensor-contraction test of:
 
-```bash
-git add docs/plans/2026-04-10-tensor4all-rework-followup.md docs/src/deferred_rework_plan.md
-git commit -m "chore: record skeleton rework review outcomes"
-```
+- `A :: (2, 3)` with indices `[i, j]`
+- `B :: (3, 4)` with indices `[j, k]`
+- expected result shape `(2, 4)`
+- expected dense values equal to matrix multiplication `A * B`
 
----
+### TreeTN evaluation fixture
 
-## Spec Coverage Check
+Use a 2-site chain MPS-like network with deterministic small tensors so that:
 
-- `julia_ffi_core.md`: covered by Tasks 1-3
-- `julia_ffi_tt.md`: covered by Task 4
-- `julia_ffi_quantics.md`: covered by Tasks 5a-5b
-- `julia_ffi_extensions.md`: covered by Task 6
-- review-first docs protocol: covered by Task 7
-- staged review and verification: covered by Task 8
-- `bubbleteaCI.md` dependency-boundary implications: reflected in the ecosystem reuse principle, Task 5 review gate, and Task 7 docs updates
+- `evaluate(tt, [1, 1])`
+- `evaluate(tt, [1, 2])`
+- `evaluate(tt, [2, 1])`
+- `evaluate(tt, [2, 2])`
 
-## Important Open Decisions Before Execution
+can all be checked against direct dense reference values.
 
-- The recommended defaults for these decisions are recorded in `Decision Locks Before Implementation` above.
-- whether `Index` should remain a pure Julia metadata skeleton during the review phase or carry an explicit nullable backend handle field from day one
-- whether `Tensor` should store Julia-owned dense arrays in the skeleton phase or wrap a lightweight backend-handle placeholder object
-- whether `HDF5` should move to weak dependency status immediately or in a follow-up commit paired with CI updates
-- whether `Tensor4all.jl` should re-export the full public `QuanticsGrids.jl` surface immediately or start with the core grid/conversion subset and expand deliberately
-- whether `BubbleTeaCI` should later re-export all of `Tensor4all.jl` or a curated subset that best matches its high-level workflow story
+### TreeTN contraction restriction fixture
 
-## Notes for Implementers
+Use two identical-topology 3-site chains for the passing case, and one topology
+mismatch case that must fail in Julia before the backend call.
 
-- Keep each task small and reviewable. Do not batch Tasks 2-6 into one commit.
-- Do not restore any pre-reset files unless the new plan explicitly recreates them.
-- Any public API that is not genuinely implemented must throw `SkeletonNotImplemented`.
-- Pure metadata behavior may be fully implemented when it helps review and testing.
-- Chain-specific behavior must use runtime checks on top of `TreeTensorNetwork`; do not create a separate chain-only core type.
+### ITensors extension fixture
 
-## Execution Notes
+Use:
 
-- Implemented through Task 8 on branch `tensor4all-rework-impl`.
-- Verified with:
-  - `julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'`
-  - `julia --project=docs docs/make.jl`
-  - `rg -n "SimpleTT|TreeTCI|TTFunction|QuanticsTCI" src test docs/src README.md`
-- Adopted defaults used during implementation:
-  - `Index`, `Tensor`, and `TreeTensorNetwork` carry nullable backend-handle fields to stay aligned with the eventual backend-facing shape while still supporting metadata-only review behavior.
-  - import, metadata helpers, topology predicates, and the curated `QuanticsGrids.jl` re-export remain backend-free.
-  - contraction, dense materialization, transform materialization, and extension conversions remain explicit stubs.
-- Open review decisions:
-  - whether the curated `QuanticsGrids.jl` re-export should widen before downstream migration starts
-  - whether `BubbleTeaCI` should later re-export a curated `Tensor4all.jl` subset or keep imports explicit
-  - whether backend handles should remain nullable fields on the public skeleton types or move behind an internal wrapper during backend enablement
-- Follow-up backend gaps:
-  - tensor-tensor contraction still needs real backend coverage
-  - TreeTN contraction, dense conversion, and evaluation remain stubbed
-  - transform materialization and QTCI execution remain stubbed
+- one `Index` with nontrivial `id`, `tags`, and `plev`
+- one small dense real `Tensor`
+- one small dense complex `Tensor`
+
+and verify round-trip preservation of metadata and dense values.
+
+## Explicit Non-Goals For This Phase
+
+- no changes to `tensor4all-rs`
+- no new C-API entrypoints
+- no transform materialization
+- no QTCI execution
+- no HDF5 persistence
+- no TreeTN / MPS / MPO `ITensors` conversions
+- no new top-level public exports beyond the optional `vertex_order` constructor keyword
+- no attempt to solve topology-changing TreeTN contraction results
+
+## Final Deliverable Checklist
+
+The implementation phase is complete only when all of the following are true:
+
+- [ ] `Manifest.toml` is synced and `Pkg.instantiate()` works
+- [ ] `Index` is a real backend wrapper
+- [ ] `Tensor` is a real backend wrapper
+- [ ] `TreeTensorNetwork{V}` is a real hybrid Julia/backend wrapper
+- [ ] `Tensor` contraction works through the backend
+- [ ] TreeTN `orthogonalize!`, `truncate!`, `inner`, `norm`, `to_dense`, `evaluate`, and restricted `contract` work
+- [ ] quantics transforms remain explicitly deferred
+- [ ] `ITensors` `Index` and `Tensor` conversions are real
+- [ ] HDF5 remains explicitly deferred
+- [ ] README and docs describe the new partial-enable boundary accurately
+- [ ] `Pkg.test()` passes
+- [ ] `docs/make.jl` passes
