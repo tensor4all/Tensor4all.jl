@@ -3,13 +3,24 @@ module SimpleTT
 export TensorTrain
 
 using LinearAlgebra
-import TensorCrossInterpolation: rrlu, MatrixLUCI, left, right, npivots
+import TensorCrossInterpolation: AbstractTensorTrain, MatrixLUCI, left, npivots, right, rrlu, sitetensors
 
 mutable struct TensorTrain{T,N}
     sitetensors::Vector{Array{T,N}}
 end
 
 Base.length(tt::TensorTrain) = length(tt.sitetensors)
+
+function TensorTrain(tt::AbstractTensorTrain{T}) where {T}
+    local_sitetensors = [Array(t) for t in sitetensors(tt)]
+    isempty(local_sitetensors) && throw(ArgumentError("cannot convert an empty abstract tensor train"))
+    N = ndims(first(local_sitetensors))
+    all(ndims(t) == N for t in local_sitetensors) || throw(
+        ArgumentError("all site tensors must have the same rank"),
+    )
+    typed_sitetensors = convert(Vector{Array{T,N}}, local_sitetensors)
+    return TensorTrain{T,N}(typed_sitetensors)
+end
 
 _getindex(x, indices) = ntuple(i -> x[indices[i]], length(indices))
 

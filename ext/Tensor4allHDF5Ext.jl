@@ -2,6 +2,7 @@ module Tensor4allHDF5Ext
 
 using HDF5: HDF5, attributes, create_group, h5open, open_group, read, write
 using Tensor4all
+import Tensor4all.TensorNetworks: load_tt, save_as_mps
 
 const _MPS_TYPE = "MPS"
 const _INDEX_TYPE = "Index"
@@ -129,8 +130,8 @@ function load_tt(path::AbstractString, name::AbstractString)
 end
 
 save_hdf5(path::AbstractString, name::AbstractString, tt::Tensor4all.TensorNetworks.TensorTrain) =
-    save_as_mps(path, name, tt)
+    Tensor4all.TensorNetworks.save_as_mps(path, name, tt)
 
-load_hdf5(path::AbstractString, name::AbstractString) = load_tt(path, name)
+load_hdf5(path::AbstractString, name::AbstractString) = Tensor4all.TensorNetworks.load_tt(path, name)
 
 end # module

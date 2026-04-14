@@ -9,7 +9,9 @@ core primitives and the raw-array numerical layer.
 
 - `TensorNetworks.TensorTrain`
 - `TensorTrain = Vector{Tensor} + llim/rlim`
-- runtime topology checks for chain-only operations
+- `TensorNetworks.LinearOperator`
+- `TensorNetworks.apply`
+- space-binding helpers for `LinearOperator`
 - the HDF5 boundary that stores and loads chain data
 - the fact that `MPS` and `MPO` are runtime conventions, not separate Julia
   types
@@ -32,23 +34,50 @@ end
 - `length(tt)` is the number of site tensors.
 - `MPS` and `MPO` are public conventions over the same container.
 
-## Runtime Checks
+## `LinearOperator`
 
-Operations that need chain structure must validate the topology at runtime.
-Examples include:
+This layer owns the generic operator/application boundary.
 
-- chain shape
-- MPS-like site-index count
-- MPO-like site-index count
+```julia
+mutable struct LinearOperator
+    mpo::Union{TensorTrain, Nothing}
+    input_indices::Vector{Index}
+    output_indices::Vector{Index}
+    true_input::Vector{Union{Index, Nothing}}
+    true_output::Vector{Union{Index, Nothing}}
+    metadata::NamedTuple
+end
+```
 
-This layer should raise descriptive Julia errors when the structure is not
-compatible.
+- In Phase 1, `metadata` carries the skeleton-level operator description.
+- `mpo = nothing` is allowed until backend materialization is wired.
+- `set_input_space!`, `set_output_space!`, and `set_iospaces!` belong here.
+- `apply` also belongs here because it is generic over operator source.
 
 ## Boundary to SimpleTT
 
 The `TensorNetworks` layer should not reimplement numerical TT kernels. When a
 chain operation needs contraction or compression, the implementation should be
 delegated to `SimpleTT` or to a reusable C API primitive.
+
+## Remaining Helper Surface
+
+The approved skeleton surface in this layer also includes:
+
+- `findsite`
+- `findsites`
+- `findallsiteinds_by_tag`
+- `findallsites_by_tag`
+- `replace_siteinds!`
+- `replace_siteinds`
+- `replace_siteinds_part!`
+- `rearrange_siteinds`
+- `makesitediagonal`
+- `extractdiagonal`
+- `matchsiteinds`
+
+In the current branch these names are part of the contract even where they still
+throw `SkeletonNotImplemented`.
 
 ## HDF5 Boundary
 
@@ -63,5 +92,5 @@ layer.
 ## Open Questions
 
 - How much chain-specific convenience should live in Julia versus Rust?
-- Which operations should remain wrappers around `Tensor` primitives, and which
-  ones should be delegated to `SimpleTT`?
+- Which operator-space binding helpers should move from skeleton to real
+  implementation next?

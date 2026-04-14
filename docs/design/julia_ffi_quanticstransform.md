@@ -2,29 +2,24 @@
 
 ## Purpose
 
-This document covers the Julia-side operator boundary that sits on top of the
-restored TT layers.
+This document covers the Julia-side quantics-transform constructor layer that
+sits on top of `TensorNetworks`.
 
 ## In Scope
 
-- `QuanticsTransform.LinearOperator`
-- operator materialization and apply orchestration
+- quantics-specific operator constructors
+- construction-time metadata and validation
 - the reduced chain-oriented C API assumption for transform kernels
 
-This document does not define the raw TT numerics or the chain container.
+This document does not own the generic operator type or `apply`.
 
-## Public Shape
+## Ownership
 
-```julia
-struct LinearOperator
-    payload
-end
-```
-
-- The public Julia type is intentionally lightweight.
-- The payload carries the operator description or backend handle needed by the
-  higher-level API.
-- The real numeric work is expected to be delegated to reusable kernels.
+- `TensorNetworks` owns `LinearOperator`.
+- `TensorNetworks` owns `apply`, `set_input_space!`, `set_output_space!`, and
+  `set_iospaces!`.
+- `QuanticsTransform` only constructs `LinearOperator` values for quantics
+  semantics.
 
 ## Kernel Boundary
 
@@ -32,17 +27,36 @@ The docs for this phase assume a minimized, chain-oriented backend ABI:
 
 - materialization kernels for TT-like operators
 - apply kernels for chain subsets
-- no tree-specific public ABI promises
+- no tree-specific public ABI promises in this branch
 
-That keeps `QuanticsTransform` aligned with the reduced Julia frontend story and
-avoids reintroducing a TreeTN-first public contract.
+That keeps `QuanticsTransform` aligned with the reduced Julia frontend story.
 
 ## Relationship to the TT Layers
 
 - `TensorNetworks` provides the public chain container.
+- `TensorNetworks` also provides `LinearOperator` and `apply`.
 - `SimpleTT` provides raw-array TT numerics.
-- `TensorCI` provides interpolation output in `SimpleTT` form.
-- `QuanticsTransform` sits on top of those layers as an operator boundary.
+- `TensorCI` provides interpolation output as `TensorCI2`.
+- `QuanticsTransform` sits on top of those layers as a constructor boundary.
+
+## Current Phase 1 Shape
+
+The current skeleton constructors return `TensorNetworks.LinearOperator` values
+whose `metadata` field records the requested transform.
+
+Available constructor names are:
+
+- `shift_operator`
+- `shift_operator_multivar`
+- `flip_operator`
+- `flip_operator_multivar`
+- `phase_rotation_operator`
+- `phase_rotation_operator_multivar`
+- `cumsum_operator`
+- `fourier_operator`
+- `affine_operator`
+- `affine_pullback_operator`
+- `binaryop_operator`
 
 ## Open Questions
 
