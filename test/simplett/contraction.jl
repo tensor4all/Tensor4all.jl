@@ -29,4 +29,11 @@ end
         @test isapprox(zipup.sitetensors[1], mpo.sitetensors[1]; atol=1e-12, rtol=1e-12)
         @test isapprox(zipup.sitetensors[2], mpo.sitetensors[2]; atol=1e-12, rtol=1e-12)
     end
+
+    @test_throws ArgumentError Tensor4all.SimpleTT.contract(
+        mpo,
+        mpo;
+        algorithm=:zipup,
+        unexpected=:kw,
+    )
 end

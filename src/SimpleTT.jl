@@ -87,7 +87,10 @@ function contract_zipup(
     tolerance=1e-12,
     method::Symbol=:SVD,
     maxbonddim::Int=typemax(Int),
+    kwargs...,
 ) where {T}
+    isempty(kwargs) ||
+        throw(ArgumentError("Unsupported keyword arguments for zipup contraction: $(collect(keys(kwargs)))"))
     _check_mpo_contract_compatibility(a, b)
     R::Array{T,3} = ones(T, 1, 1, 1)
     sitetensors = Vector{Array{T,4}}(undef, length(a))
