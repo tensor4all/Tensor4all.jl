@@ -1,11 +1,14 @@
 using Test
 using Tensor4all
 
-include("core/bootstrap.jl")
-include("core/index.jl")
-include("core/tensor.jl")
-include("ttn/tree_tensor_network.jl")
-include("quantics/quantics_grids_bridge.jl")
-include("quantics/transforms.jl")
-include("extensions/itensors_ext.jl")
-include("extensions/hdf5_ext.jl")
+include("legacy/smoke.jl")
+include("tensornetworks/tensortrain.jl")
+include("simplett/surface.jl")
+include("simplett/compress.jl")
+include("simplett/contraction.jl")
+include("tensorci/surface.jl")
+include("tensorci/crossinterpolate2.jl")
+if get(ENV, "T4A_SKIP_HDF5_TESTS", "0") != "1" && Base.find_package("HDF5") !== nothing
+    include("extensions/hdf5_roundtrip.jl")
+end
+include("quanticstransform/surface.jl")

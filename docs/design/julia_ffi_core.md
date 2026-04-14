@@ -2,7 +2,10 @@
 
 ## Purpose
 
-This document covers the low-level Julia frontend primitives that sit directly on top of the `tensor4all-rs` C-FFI. It is intentionally limited to foundational types and their basic Julia-side operations.
+This document covers the low-level Julia frontend primitives that sit directly
+on top of the reduced `tensor4all-rs` C FFI. It is intentionally limited to
+foundational types, error handling, and the ABI assumptions shared by the
+restored module split.
 
 ## In Scope
 
@@ -11,8 +14,22 @@ This document covers the low-level Julia frontend primitives that sit directly o
 - C-API ownership and lifecycle
 - metadata access
 - pure Julia index and tensor manipulation helpers
+- the minimized chain-oriented ABI assumption used by the higher layers
 
-This document does not define backend `TensorTrain` support, quantics grid semantics, or `TTFunction` / `GriddedFunction` behavior.
+This document does not define `TensorNetworks.TensorTrain`, `SimpleTT`,
+`TensorCI`, or `QuanticsTransform` behavior.
+
+## ABI Assumptions
+
+The Julia docs currently assume a reduced C API target:
+
+- low-level `Index` and `Tensor` primitives
+- tensor-tensor contraction
+- chain TT helpers needed by `TensorNetworks` and `SimpleTT`
+- transform kernels needed for operator materialization/apply
+
+Tree-specific or application-specific C APIs are intentionally out of scope for
+this phase.
 
 ## `Index`
 
@@ -22,14 +39,16 @@ struct Index
 end
 ```
 
-- Wraps Rust `DynIndex` through the C-FFI.
-- Matches the `ITensors.Index{Int}` style of indexed tensor work used in the Julia ecosystem.
+- Wraps Rust `DynIndex` through the C FFI.
+- Matches the `ITensors.Index{Int}` style of indexed tensor work used in the
+  Julia ecosystem.
 - Exposes `dim`, `id`, `tags`, and `plev` via getters.
 
 ### C-API Surface
 
 - Lifecycle: `t4a_index_new`, `t4a_index_clone`, `t4a_index_release`
-- Getters: `t4a_index_dim`, `t4a_index_id`, `t4a_index_get_tags`, `t4a_index_get_plev`
+- Getters: `t4a_index_dim`, `t4a_index_id`, `t4a_index_get_tags`,
+  `t4a_index_get_plev`
 - Setter: `t4a_index_set_plev`
 - Predicate: `t4a_index_has_tag`
 
@@ -54,9 +73,12 @@ end
 
 ### C-API Surface
 
-- Creation: `t4a_tensor_new_dense_f64`, `t4a_tensor_new_dense_c64`, `t4a_tensor_new_diag_f64`, `t4a_tensor_new_diag_c64`
+- Creation: `t4a_tensor_new_dense_f64`, `t4a_tensor_new_dense_c64`,
+  `t4a_tensor_new_diag_f64`, `t4a_tensor_new_diag_c64`
 - Lifecycle: `t4a_tensor_clone`, `t4a_tensor_release`
-- Getters: `t4a_tensor_get_rank`, `t4a_tensor_get_dims`, `t4a_tensor_get_indices`, `t4a_tensor_get_data_f64`, `t4a_tensor_get_data_c64`
+- Getters: `t4a_tensor_get_rank`, `t4a_tensor_get_dims`,
+  `t4a_tensor_get_indices`, `t4a_tensor_get_data_f64`,
+  `t4a_tensor_get_data_c64`
 - Compute: `t4a_tensor_contract`
 
 ### Julia Helpers
@@ -72,7 +94,8 @@ end
 
 - Keep the low-level wrappers small and stable.
 - Keep semantic composition out of this file.
-- Let `julia_ffi_tt.md` and `bubbleteaCI.md` build on top of these primitives.
+- Let the `TensorNetworks`, `SimpleTT`, `TensorCI`, and `QuanticsTransform`
+  documents build on top of these primitives.
 
 ## Open Questions
 
