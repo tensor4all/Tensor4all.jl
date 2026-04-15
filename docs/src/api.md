@@ -16,8 +16,6 @@
 
 ```@docs
 Tensor4all
-Tensor4all.SkeletonPhaseError
-Tensor4all.SkeletonNotImplemented
 Tensor4all.BackendUnavailableError
 Tensor4all.backend_library_path
 Tensor4all.require_backend
@@ -91,8 +89,6 @@ Still missing:
 - tensor-train-based `set_input_space!` / `set_output_space!` / `set_iospaces!`
 - the site-query and site-rewrite helpers listed above
 - executable `apply`
-
-The missing entry points currently throw `Tensor4all.SkeletonNotImplemented`.
 
 ```@docs
 Tensor4all.TensorNetworks

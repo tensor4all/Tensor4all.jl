@@ -18,8 +18,9 @@ than the removed TreeTN-first layout.
 
 - `TensorNetworks.TensorTrain` is the indexed chain type and stores
   `Vector{Tensor}` plus `llim` / `rlim`.
-- `TensorNetworks.LinearOperator` and `TensorNetworks.apply` are the generic
-  operator/application boundary.
+- `TensorNetworks.LinearOperator` is the generic operator container, and
+  `TensorNetworks.apply` is the intended execution boundary but is still
+  missing for operator execution.
 - `SimpleTT.TensorTrain{T,N}` owns raw-array compression and MPO contraction.
 - `TensorCI.crossinterpolate2` returns `TensorCI2` for the supported multi-site
   path.

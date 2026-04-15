@@ -38,8 +38,9 @@ wrapper modules, but they are not owned by `Tensor4all.jl`.
 - `TensorCI.crossinterpolate2` returns `TensorCI2`; `SimpleTT` owns conversion
   into raw-array TT form.
 - `SimpleTT` owns raw-array numerics.
-- `TensorNetworks` adds index semantics, `LinearOperator`, `apply`, and HDF5
-  interoperability.
+- `TensorNetworks` adds index semantics, `LinearOperator`, and HDF5
+  interoperability; `apply` remains the intended execution boundary but is
+  still missing.
 - The broader chain-helper surface in `TensorNetworks` is present, with each
   helper documented as implemented or still missing where relevant.
 - The Julia-facing C API target is reduced and chain-oriented.

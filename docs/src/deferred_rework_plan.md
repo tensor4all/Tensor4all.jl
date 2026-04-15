@@ -23,7 +23,7 @@ The single implementation handoff plan is tracked in:
 ## Still Deferred
 
 - the remaining `TensorNetworks` helper implementations that still throw
-  `SkeletonNotImplemented`
+  missing-implementation errors
 - transform materialization and QTCI execution
 - C API expansion where the Julia implementation still reveals missing
   multi-language primitives
