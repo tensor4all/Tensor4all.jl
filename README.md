@@ -14,8 +14,8 @@ implementation target:
 - `QuanticsTransform` is a Julia-owned operator layer
 - HDF5 roundtrip is handled directly through `HDF5.jl`
 
-`TreeTensorNetwork` still exists in the repository, but it is not the primary
-public story of this branch.
+`TreeTensorNetwork` still exists in the repository, but it is no longer the
+primary public story.
 
 ## Implemented Today
 

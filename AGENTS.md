@@ -34,11 +34,13 @@ The intended public layers are:
 ### Docstrings
 
 - Every exported type and function defined in this repository must have a
-  docstring.
+  concise docstring.
 - Keep docstrings concise and task-oriented. Do not add long narrative
   docstrings unless the API surface is genuinely subtle.
-- For deferred placeholder APIs, document the intended contract briefly and say
-  that the current implementation is deferred.
+- Docstrings should describe the implemented behavior and current layer
+  boundary.
+- For partially implemented APIs, call out missing behavior explicitly without
+  centering the API on placeholders.
 
 ## File Organization
 

@@ -2,6 +2,10 @@
 
 The broader rework is intentionally split.
 
+The repository is now in the implementation phase of the restored Julia
+frontend. Backend numerics and downstream migration work are still incomplete,
+but the public architecture is no longer described as an early-stage surface.
+
 The repository has now moved beyond the pure reset step:
 
 - `Core.Index` and `Core.Tensor` are backend-backed wrappers
@@ -21,9 +25,9 @@ The single implementation handoff plan is tracked in:
 - the remaining `TensorNetworks` helper implementations that still throw
   `SkeletonNotImplemented`
 - transform materialization and QTCI execution
-- C API expansion where the Julia skeleton reveals genuinely missing
+- C API expansion where the Julia implementation still reveals missing
   multi-language primitives
-- downstream `BubbleTeaCI` migration onto the new skeleton surface
+- downstream `BubbleTeaCI` migration onto the new public surface
 - beginner-facing tutorials beyond the current review-first documentation
 
 This split remains deliberate: the next implementation wave should focus on

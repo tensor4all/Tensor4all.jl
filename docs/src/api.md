@@ -12,7 +12,7 @@
 - `Tensor4all.replaceind`, `Tensor4all.replaceinds`
 - `Tensor4all.commoninds`, `Tensor4all.uniqueinds`
 - `Tensor4all.inds`, `Tensor4all.rank`, `Tensor4all.dims`,
-  `Tensor4all.swapinds`, `Tensor4all.contract`
+- `Tensor4all.swapinds`, `Tensor4all.contract`
 
 ```@docs
 Tensor4all
@@ -196,6 +196,10 @@ Tensor4all.QuanticsTransform.affine_operator
 Tensor4all.QuanticsTransform.affine_pullback_operator
 Tensor4all.QuanticsTransform.binaryop_operator
 ```
+
+Implemented constructors should be documented with their current semantics.
+Any unsupported transforms or boundary cases should be called out explicitly in
+the relevant docstring.
 
 ## Adopted Modules
 
