@@ -140,6 +140,10 @@ Julia arrays passed to the C API must be contiguous in memory.
 
 - Documentation is built with Documenter under `docs/`.
 - `docs/make.jl` must build cleanly for PR-ready work.
+- In manual pages, prefer `@autodocs` over long hand-written `@docs` lists when
+  a page is primarily mirroring docstrings from source files.
+- Use `Pages = [...]` and `Modules = [...]` filters so `@autodocs` stays scoped
+  to the intended local source files.
 
 ### Documentation structure
 
