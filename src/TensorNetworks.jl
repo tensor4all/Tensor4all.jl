@@ -159,23 +159,31 @@ function _tensor_positions_with_indices(tt::TensorTrain, query_indices::Abstract
     return positions
 end
 
+_siteind_set(tt::TensorTrain) = Set(last.( _siteinds_with_positions(tt)))
+
 function _replacement_mapping(oldsites::AbstractVector{<:Index}, newsites::AbstractVector{<:Index})
     length(oldsites) == length(newsites) || throw(
         DimensionMismatch(
             "Length mismatch: got $(length(oldsites)) old site indices and $(length(newsites)) new site indices",
         ),
     )
+    length(Set(oldsites)) == length(oldsites) || throw(
+        ArgumentError("duplicate old site indices are not allowed in replace_siteinds"),
+    )
     return Dict(oldsites .=> newsites)
 end
 
 function _ensure_replacement_targets_exist(tt::TensorTrain, oldsites::AbstractVector{<:Index})
     present = Set{Index}()
+    siteinds = _siteind_set(tt)
     for tensor in tt
         union!(present, inds(tensor))
     end
     for index in oldsites
-        index in present && continue
-        throw(ArgumentError("Not found: index $index does not occur in TensorTrain"))
+        index in present || throw(ArgumentError("Not found: index $index does not occur in TensorTrain"))
+        index in siteinds || throw(
+            ArgumentError("Expected a site-like index in replace_siteinds, got non-site index $index"),
+        )
     end
     return nothing
 end
@@ -191,6 +199,10 @@ function _replace_tensor_indices(tensor::Tensor, replacements::Dict{Index, Index
         return index
     end
     return changed ? Tensor(tensor.data, new_indices; backend_handle=tensor.backend_handle) : tensor
+end
+
+function _copy_tensor(tensor::Tensor)
+    return Tensor(tensor.data, inds(tensor); backend_handle=tensor.backend_handle)
 end
 
 """
@@ -251,8 +263,8 @@ end
 """
     replace_siteinds!(tt, oldsites, newsites)
 
-Replace each index in `oldsites` by the corresponding index in `newsites`,
-mutating `tt` in place.
+Replace each site-like index in `oldsites` by the corresponding index in
+`newsites`, mutating `tt` in place.
 """
 function replace_siteinds!(
     tt::TensorTrain,
@@ -270,15 +282,15 @@ end
 """
     replace_siteinds(tt, oldsites, newsites)
 
-Return a copy of `tt` with each index in `oldsites` replaced by the
-corresponding index in `newsites`.
+Return a non-aliasing copy of `tt` with each site-like index in `oldsites`
+replaced by the corresponding index in `newsites`.
 """
 function replace_siteinds(
     tt::TensorTrain,
     oldsites::AbstractVector{<:Index},
     newsites::AbstractVector{<:Index},
 )
-    copied = TensorTrain(copy(tt.data), tt.llim, tt.rlim)
+    copied = TensorTrain([_copy_tensor(tensor) for tensor in tt.data], tt.llim, tt.rlim)
     return replace_siteinds!(copied, oldsites, newsites)
 end
 

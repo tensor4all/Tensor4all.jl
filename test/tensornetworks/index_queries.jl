@@ -222,6 +222,28 @@ end
                 Index(2; tags=["y", "y=1"]),
             ]
             replaced = TN.replace_siteinds(fixture.tt, oldsites, newsites)
+            replaced[2] !== fixture.tt[2]
+        end
+
+        @test begin
+            fixture = mps_like_fixture()
+            oldsites = [fixture.sites[3], fixture.sites[1]]
+            newsites = [
+                Index(2; tags=["y", "y=3"]),
+                Index(2; tags=["y", "y=1"]),
+            ]
+            replaced = TN.replace_siteinds(fixture.tt, oldsites, newsites)
+            replaced[2].data !== fixture.tt[2].data
+        end
+
+        @test begin
+            fixture = mps_like_fixture()
+            oldsites = [fixture.sites[3], fixture.sites[1]]
+            newsites = [
+                Index(2; tags=["y", "y=3"]),
+                Index(2; tags=["y", "y=1"]),
+            ]
+            replaced = TN.replace_siteinds(fixture.tt, oldsites, newsites)
             inds(replaced[1]) == [newsites[2], fixture.links[1]]
         end
 
@@ -335,12 +357,30 @@ end
             Index(2; tags=["y", "y=3"]),
         ]
         missing = Index(2; tags=["y", "y=9"])
+        repeated_aux = Index(1; tags=["aux"])
+        repeated_aux_tt = TN.TensorTrain(
+            Tensor[
+                Tensor(ones(2, 1), [fixture.sites[1], repeated_aux]),
+                Tensor(ones(1, 2), [repeated_aux, fixture.sites[2]]),
+            ],
+            0,
+            3,
+        )
 
         assert_throws_with_message(DimensionMismatch, "Length mismatch") do
             TN.replace_siteinds(fixture.tt, fixture.sites, new_sites[1:2])
         end
         assert_throws_with_message(ArgumentError, "Not found") do
             TN.replace_siteinds!(fixture.tt, [missing], [new_sites[1]])
+        end
+        assert_throws_with_message(ArgumentError, "duplicate") do
+            TN.replace_siteinds(fixture.tt, [fixture.sites[1], fixture.sites[1]], new_sites[1:2])
+        end
+        assert_throws_with_message(ArgumentError, "site") do
+            TN.replace_siteinds!(fixture.tt, [fixture.links[1]], [Index(1; tags=["ylink"])])
+        end
+        assert_throws_with_message(ArgumentError, "site") do
+            TN.replace_siteinds(repeated_aux_tt, [repeated_aux], [Index(1; tags=["yaux"])])
         end
     end
 end
