@@ -213,6 +213,45 @@ conversion remains on the Julia side.
 - Main tests: `Pkg.test()` or `julia test/runtests.jl`
 - Skip HDF5 tests in direct runs with `T4A_SKIP_HDF5_TESTS=1`
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contribution flow.
+
+- Before starting work, open a GitHub issue using the appropriate template.
+- Wait for maintainer feedback before writing code.
+- AI tool skills for each phase are in `.claude/skills/`.
+
+### Proactive guidance for AI agents
+
+When the user expresses that a feature is missing, a new capability is needed,
+or existing behavior is insufficient, **proactively suggest opening a GitHub
+issue** using the `spec-proposal` skill. Do not wait for the user to ask about
+the contribution process.
+
+Examples of feature triggers:
+- "This doesn't support X yet"
+- "We need Y for this to work"
+- "There's no way to do Z"
+- "Can we add W?"
+
+Examples of bug triggers:
+- A test fails unexpectedly
+- Behavior contradicts documentation or docstrings
+- A function returns incorrect results
+- An error message is misleading or missing
+- You discover a code path that silently produces wrong output
+
+Suggested response pattern (feature):
+> This looks like it could be a good feature proposal. Would you like me to
+> draft a spec using the `spec-proposal` skill and open a GitHub issue?
+
+Suggested response pattern (bug):
+> This looks like a bug. Would you like me to draft a bug report and open a
+> GitHub issue?
+
+Similarly, after a spec is approved (`spec_approved`), suggest using the
+`plan-proposal` skill to write a detailed implementation plan on the issue.
+
 ## PR Checklist
 
 - Review `README.md` if the public shape or expected workflow changed.

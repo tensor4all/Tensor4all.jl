@@ -35,6 +35,11 @@ primary public story.
 - broader `TreeTensorNetwork` / non-chain functionality
 - finalized Julia-facing reduced `tensor4all-rs` ABI documentation
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution flow (issue →
+spec → plan → implementation).
+
 ## Development Notes
 
 - `tensor4all-rs` remains the backend for low-level kernels.
