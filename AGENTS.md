@@ -40,7 +40,7 @@ The intended public layers are:
 - Docstrings should describe the implemented behavior and current layer
   boundary.
 - For partially implemented APIs, call out missing behavior explicitly without
-  centering the API on placeholders.
+  centering the API on unimplemented stubs.
 
 ## File Organization
 
