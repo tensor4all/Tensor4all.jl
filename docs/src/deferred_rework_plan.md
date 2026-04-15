@@ -6,9 +6,9 @@ The repository has now moved beyond the pure reset step and exposes a reviewed
 skeleton surface, but backend numerics and downstream migration work are still
 deferred.
 
-The active execution plan remains tracked in:
+The single implementation handoff plan is tracked in:
 
-- [2026-04-10 tensor4all rework follow-up plan](https://github.com/tensor4all/Tensor4all.jl/blob/tensor4all-rework/docs/plans/2026-04-10-tensor4all-rework-followup.md)
+- [2026-04-10 tensor4all rework follow-up plan](https://github.com/tensor4all/Tensor4all.jl/blob/main/docs/plans/2026-04-10-tensor4all-rework-followup.md)
 
 ## Still Deferred
 

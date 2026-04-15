@@ -35,5 +35,7 @@ removed TreeTN-first skeleton.
 
 ## Deferred Material
 
-The follow-up implementation plan remains in
+Architecture notes stay in `docs/design/`.
+
+The single implementation handoff plan for the current repo-local phase lives in
 [../plans/2026-04-10-tensor4all-rework-followup.md](../plans/2026-04-10-tensor4all-rework-followup.md).

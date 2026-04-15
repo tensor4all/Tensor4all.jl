@@ -17,3 +17,6 @@ The active Julia frontend design set lives in `docs/design/`.
 Start with the overview, then read `Core`, `TensorNetworks`, `SimpleTT`, and
 `TensorCI` in that order. `QuanticsTransform` describes the deferred operator
 story that sits on top of those layers.
+
+The single implementation handoff plan lives in
+[2026-04-10 tensor4all rework follow-up plan](https://github.com/tensor4all/Tensor4all.jl/blob/main/docs/plans/2026-04-10-tensor4all-rework-followup.md).
