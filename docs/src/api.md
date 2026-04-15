@@ -1,89 +1,114 @@
 # API Reference
 
-```@docs
-Tensor4all
-```
-
 ## Core
 
-```@docs
-Tensor4all.SkeletonPhaseError
-Tensor4all.SkeletonNotImplemented
-Tensor4all.BackendUnavailableError
-Tensor4all.backend_library_path
-Tensor4all.require_backend
-Tensor4all.Index
-Tensor4all.dim
-Tensor4all.id
-Tensor4all.tags
-Tensor4all.plev
-Tensor4all.hastag
-Tensor4all.sim
-Tensor4all.prime
-Tensor4all.noprime
-Tensor4all.setprime
-Tensor4all.replaceind
-Tensor4all.replaceinds
-Tensor4all.commoninds
-Tensor4all.uniqueinds
-Tensor4all.Tensor
-Tensor4all.inds
-Tensor4all.rank
-Tensor4all.dims
-Tensor4all.swapinds
-Tensor4all.contract
+`Core` exposes the low-level wrappers that everything else builds on:
+
+- `Tensor4all.Index`
+- `Tensor4all.Tensor`
+- `Tensor4all.dim`, `Tensor4all.id`, `Tensor4all.tags`, `Tensor4all.plev`
+- `Tensor4all.hastag`, `Tensor4all.sim`, `Tensor4all.prime`,
+  `Tensor4all.noprime`, `Tensor4all.setprime`
+- `Tensor4all.replaceind`, `Tensor4all.replaceinds`
+- `Tensor4all.commoninds`, `Tensor4all.uniqueinds`
+- `Tensor4all.inds`, `Tensor4all.rank`, `Tensor4all.dims`,
+  `Tensor4all.swapinds`, `Tensor4all.contract`
+
+## TensorNetworks
+
+The public chain wrapper is `Tensor4all.TensorNetworks.TensorTrain`.
+
+```julia
+mutable struct TensorTrain
+    data::Vector{Tensor}
+    llim::Int
+    rlim::Int
+end
 ```
 
-## TreeTN
+Other chain-facing names in this layer include:
 
-```@docs
-Tensor4all.TreeTensorNetwork
-Tensor4all.TensorTrain
-Tensor4all.MPS
-Tensor4all.MPO
-Tensor4all.vertices
-Tensor4all.neighbors
-Tensor4all.siteinds
-Tensor4all.linkind
-Tensor4all.is_chain
-Tensor4all.is_mps_like
-Tensor4all.is_mpo_like
-Tensor4all.orthogonalize!
-Tensor4all.truncate!
-Tensor4all.inner
-Tensor4all.norm
-Tensor4all.to_dense
-Tensor4all.evaluate
+- `Tensor4all.TensorNetworks.LinearOperator`
+- `Tensor4all.TensorNetworks.set_input_space!`
+- `Tensor4all.TensorNetworks.set_output_space!`
+- `Tensor4all.TensorNetworks.set_iospaces!`
+- `Tensor4all.TensorNetworks.apply`
+- `Tensor4all.TensorNetworks.findsite`
+- `Tensor4all.TensorNetworks.findsites`
+- `Tensor4all.TensorNetworks.findallsiteinds_by_tag`
+- `Tensor4all.TensorNetworks.findallsites_by_tag`
+- `Tensor4all.TensorNetworks.replace_siteinds!`
+- `Tensor4all.TensorNetworks.replace_siteinds`
+- `Tensor4all.TensorNetworks.replace_siteinds_part!`
+- `Tensor4all.TensorNetworks.rearrange_siteinds`
+- `Tensor4all.TensorNetworks.makesitediagonal`
+- `Tensor4all.TensorNetworks.extractdiagonal`
+- `Tensor4all.TensorNetworks.matchsiteinds`
+- `Tensor4all.TensorNetworks.save_as_mps`
+- `Tensor4all.TensorNetworks.load_tt`
+
+`TensorNetworks.TensorTrain` is the container that HDF5 compatibility works
+against.
+
+Most of these names are still deliberate skeleton entry points in the current
+phase. Their presence is part of the API contract even where backend behavior is
+not implemented yet.
+
+## SimpleTT
+
+The raw-array TT layer is `Tensor4all.SimpleTT.TensorTrain{T,N}`.
+
+```julia
+mutable struct TensorTrain{T,N}
+    sitetensors::Vector{Array{T,N}}
+end
 ```
 
-## Quantics
+Its current public operations are:
 
-### Adopted `QuanticsGrids.jl` Surface
+- `Tensor4all.SimpleTT.compress!`
+- `Tensor4all.SimpleTT.contract`
 
-The following names are re-exported through `Tensor4all.jl` for single-import
-usability, but their grid semantics and original documentation remain owned by
-`QuanticsGrids.jl`:
+The important conventions are:
 
-- `DiscretizedGrid`
-- `InherentDiscreteGrid`
-- `quantics_to_grididx`
-- `quantics_to_origcoord`
-- `grididx_to_quantics`
-- `grididx_to_origcoord`
-- `origcoord_to_quantics`
-- `origcoord_to_grididx`
+- `N=3` for MPS-like site tensors
+- `N=4` for MPO-like site tensors
+- `compress!` supports `:LU`, `:CI`, and `:SVD`
+- `contract` supports `algorithm = :naive` and `algorithm = :zipup`
 
-```@docs
-Tensor4all.QuanticsTransform
-Tensor4all.affine_transform
-Tensor4all.shift_transform
-Tensor4all.flip_transform
-Tensor4all.phase_rotation_transform
-Tensor4all.cumsum_transform
-Tensor4all.fourier_transform
-Tensor4all.binaryop_transform
-Tensor4all.materialize_transform
-Tensor4all.QTCIOptions
-Tensor4all.QTCIDiagnostics
-Tensor4all.QTCIResultPlaceholder
-```
+## TensorCI
+
+`Tensor4all.TensorCI.crossinterpolate2` is the interpolation boundary.
+
+It returns `TensorCI2` for the supported multi-site path. Conversion into the
+raw numerical TT layer happens through `Tensor4all.SimpleTT.TensorTrain(tci)`.
+
+## QuanticsTransform
+
+`Tensor4all.QuanticsTransform` provides transform-constructor skeletons such as:
+
+- `shift_operator`
+- `flip_operator`
+- `phase_rotation_operator`
+- `cumsum_operator`
+- `fourier_operator`
+- `affine_operator`
+- `binaryop_operator`
+
+These constructors return `TensorNetworks.LinearOperator` values. The generic
+operator type itself does not live in `QuanticsTransform`.
+
+## Adopted Modules
+
+- `Tensor4all.QuanticsGrids` re-exports the public `QuanticsGrids.jl` surface
+- `Tensor4all.QuanticsTCI` re-exports the public `QuanticsTCI.jl` surface
+
+## HDF5 Compatibility
+
+The HDF5 extension provides the persistence boundary for the restored chain
+type:
+
+- `save_as_mps` writes a `TensorNetworks.TensorTrain` using the `MPS` schema
+- `load_tt` reads that schema back into `TensorNetworks.TensorTrain`
+- the public docs assume a reduced, chain-oriented C API target on the Rust
+  side

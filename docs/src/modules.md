@@ -1,48 +1,52 @@
-# Architecture Status
+# Module Overview
 
-## Current Phase
+## Current Architecture
 
-`Tensor4all.jl` is in a review-first skeleton phase.
+The restored Julia frontend is layered like this:
 
-The package now exposes real metadata-level types and integration boundaries for
-review, while backend numerics remain intentionally stubbed.
+```text
+Core (Index, Tensor)
+  ↓                ↓
+TensorNetworks     SimpleTT
+  ↓                ↑
+QuanticsTransform  TensorCI
 
-## Current Layers
+Adopted wrapper modules:
+- QuanticsGrids
+- QuanticsTCI
+```
 
-| Layer | Responsibility | Current status |
-|------|----------------|----------------|
-| Core | lazy backend loading, common errors, `Index`, `Tensor` | metadata behavior implemented |
-| TreeTN | `TreeTensorNetwork`, chain aliases, runtime topology predicates | metadata behavior implemented |
-| Quantics reuse | adopted `QuanticsGrids.jl` grid and coordinate-conversion surface | curated re-export implemented |
-| Quantics local layer | transform descriptors and QTCI placeholders | metadata/stub behavior implemented |
-| Extensions | ITensors and HDF5 compatibility glue | extension-only stubs implemented |
-| BubbleTeaCI | `TTFunction` and high-level function workflows | intentionally out of scope here |
+`QuanticsGrids.jl` and `QuanticsTCI.jl` are adopted and re-exported through
+wrapper modules, but they are not owned by `Tensor4all.jl`.
 
-## Behavior Boundary
+## Layers
 
-- Metadata constructors, inspection helpers, and topology predicates work.
-- Backend-backed operations such as contraction, dense materialization, and
-  transforms deliberately throw `SkeletonNotImplemented`.
-- Importing `Tensor4all.jl` does not require a compiled `tensor4all-rs` backend.
+| Module | Responsibility | Current state |
+|------|----------------|---------------|
+| `Core` | `Index`, `Tensor`, base metadata behavior | implemented |
+| `TensorNetworks` | indexed chain wrapper with `data`, `llim`, `rlim` | implemented as public chain type |
+| `SimpleTT` | raw-array tensor trains, compression, MPO contraction | implemented in POC scope |
+| `TensorCI` | interpolation boundary returning `TensorCI2` | implemented as adapter layer |
+| `QuanticsGrids` | adopted grid re-export layer | implemented |
+| `QuanticsTCI` | adopted quantics-TCI re-export layer | implemented |
+| `QuanticsTransform` | quantics-specific constructors of `TensorNetworks.LinearOperator` | skeleton / deferred |
+| HDF5 extension | pure Julia `save_as_mps` / `load_tt` | implemented |
 
-## Ownership and Re-Export
+## Key Boundaries
 
-- `tensor4all-rs` owns kernels, storage, and numerically heavy backend behavior.
-- `Tensor4all.jl` owns Julia-side wrappers, TreeTN-general abstractions, local
-  quantics transforms, QTCI placeholders, and compatibility extensions.
-- `QuanticsGrids.jl` owns quantics grid semantics and coordinate conversion.
-- `Tensor4all.jl` re-exports a curated `QuanticsGrids.jl` surface for usability,
-  but that re-export does not change ownership.
-- `BubbleTeaCI` remains the home of `TTFunction` and high-level function
-  workflows, and should consume lower-level functionality from `Tensor4all.jl`
-  and adopted dependencies instead of duplicating it.
+- `TensorCI` should not return indexed `TensorNetworks.TensorTrain`.
+- `TensorCI.crossinterpolate2` returns `TensorCI2`; `SimpleTT` owns conversion
+  into raw-array TT form.
+- `SimpleTT` owns raw-array numerics.
+- `TensorNetworks` adds index semantics, `LinearOperator`, `apply`, and HDF5
+  interoperability.
+- The broader chain-helper surface in `TensorNetworks` is now present as
+  skeleton API: search helpers, site-index replacement helpers, rearrangement,
+  diagonal helpers, and `matchsiteinds`.
+- The Julia-facing C API target is reduced and chain-oriented.
 
-## Review Questions Still Open
+## Still Deferred
 
-- Should `Index` and `Tensor` gain explicit backend-handle behavior beyond the
-  current nullable-handle skeleton fields before backend integration starts?
-- Is the current curated `QuanticsGrids.jl` re-export scope broad enough for the
-  first downstream consumers?
-- Is the downstream `BubbleTeaCI` contract explicit enough before migration
-  begins?
-- Are the current public names good enough to freeze for backend implementation?
+- finalized reduced `tensor4all-rs` ABI documentation
+- deeper `QuanticsTransform` kernel coverage
+- broader non-chain behavior
