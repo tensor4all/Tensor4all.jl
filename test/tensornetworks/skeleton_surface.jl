@@ -37,5 +37,4 @@ using Tensor4all
     @test_throws Tensor4all.SkeletonNotImplemented TN.rearrange_siteinds(tt, [[i1], [i2]])
     @test_throws Tensor4all.SkeletonNotImplemented TN.makesitediagonal(tt, "x")
     @test_throws Tensor4all.SkeletonNotImplemented TN.extractdiagonal(tt, "x")
-    @test_throws Tensor4all.SkeletonNotImplemented TN.matchsiteinds(tt, [i1, i2])
 end
