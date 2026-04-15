@@ -213,6 +213,17 @@ conversion remains on the Julia side.
 - Main tests: `Pkg.test()` or `julia test/runtests.jl`
 - Skip HDF5 tests in direct runs with `T4A_SKIP_HDF5_TESTS=1`
 
+## Cross-repo development with tensor4all-rs
+
+When a feature requires new C API functions in tensor4all-rs:
+
+1. Develop both sides locally. Use `TENSOR4ALL_RS_PATH` to point
+   `deps/build.jl` at the local Rust build.
+2. Test both sides locally until all tests pass.
+3. Create and merge the tensor4all-rs PR **first**.
+4. Update the pin hash in `deps/build.jl` to the merged commit on remote.
+5. Then create the Tensor4all.jl PR.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contribution flow.
