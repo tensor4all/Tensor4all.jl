@@ -89,6 +89,26 @@ function duplicate_numbered_tag_fixture()
     return (; tt)
 end
 
+function numbered_tag_gap_fixture()
+    s1 = Index(2; tags=["gap", "gap=1"])
+    s2 = Index(2; tags=["gap", "gap=3"])
+    s3 = Index(2; tags=["gap"])
+    l1 = Index(1; tags=["Link", "l=1"])
+    l2 = Index(1; tags=["Link", "l=2"])
+
+    tt = TN.TensorTrain(
+        Tensor[
+            Tensor(ones(2, 1), [s1, l1]),
+            Tensor(ones(1, 2, 1), [l1, s2, l2]),
+            Tensor(ones(1, 2), [l2, s3]),
+        ],
+        0,
+        4,
+    )
+
+    return (; tt, prefix_positions=[1], prefix_sites=[s1], trailing_numbered=s2, bare_only=s3)
+end
+
 @testset "TensorNetworks index queries" begin
     @testset "findsite and findsites on MPS-like TensorTrain" begin
         fixture = mps_like_fixture()
@@ -96,11 +116,13 @@ end
 
         @test TN.findsite(fixture.tt, fixture.sites[2]) == 2
         @test TN.findsite(fixture.tt, [fixture.sites[2], fixture.sites[3]]) == 2
+        @test TN.findsite(fixture.tt, [missing, fixture.sites[3]]) == 3
         @test TN.findsite(fixture.tt, fixture.links[1]) == 1
         @test TN.findsite(fixture.tt, missing) === nothing
 
         @test TN.findsites(fixture.tt, fixture.sites[2]) == [2]
         @test TN.findsites(fixture.tt, [fixture.sites[1], fixture.sites[3]]) == [1, 3]
+        @test TN.findsites(fixture.tt, [missing, fixture.sites[3]]) == [3]
         @test TN.findsites(fixture.tt, fixture.links[1]) == [1, 2]
         @test isempty(TN.findsites(fixture.tt, missing))
     end
@@ -111,11 +133,13 @@ end
 
         @test TN.findsite(fixture.tt, fixture.input_sites[2]) == 2
         @test TN.findsite(fixture.tt, [fixture.output_sites[2], fixture.input_sites[3]]) == 2
+        @test TN.findsite(fixture.tt, [missing, fixture.output_sites[3]]) == 3
         @test TN.findsite(fixture.tt, fixture.links[1]) == 1
         @test TN.findsite(fixture.tt, missing) === nothing
 
         @test TN.findsites(fixture.tt, fixture.output_sites[2]) == [2]
         @test TN.findsites(fixture.tt, [fixture.output_sites[1], fixture.input_sites[3]]) == [1, 3]
+        @test TN.findsites(fixture.tt, [missing, fixture.output_sites[3]]) == [3]
         @test TN.findsites(fixture.tt, fixture.links[1]) == [1, 2]
         @test isempty(TN.findsites(fixture.tt, missing))
     end
@@ -125,6 +149,7 @@ end
         mpo = mpo_like_fixture()
         scan = numbered_tag_scan_fixture()
         dup = duplicate_numbered_tag_fixture()
+        gap = numbered_tag_gap_fixture()
 
         @test TN.findallsites_by_tag(mps.tt; tag="x") == [1, 2, 3]
         @test TN.findallsiteinds_by_tag(mps.tt; tag="x") == mps.sites
@@ -140,6 +165,11 @@ end
         @test TN.findallsiteinds_by_tag(scan.tt; tag="scan") == scan.numbered_sites
         @test scan.bare_only ∉ TN.findallsiteinds_by_tag(scan.tt; tag="scan")
 
+        @test TN.findallsites_by_tag(gap.tt; tag="gap") == gap.prefix_positions
+        @test TN.findallsiteinds_by_tag(gap.tt; tag="gap") == gap.prefix_sites
+        @test gap.trailing_numbered ∉ TN.findallsiteinds_by_tag(gap.tt; tag="gap")
+        @test gap.bare_only ∉ TN.findallsiteinds_by_tag(gap.tt; tag="gap")
+
         @test_throws "Invalid tag" TN.findallsites_by_tag(mps.tt; tag="x=1")
         @test_throws "Invalid tag" TN.findallsiteinds_by_tag(mps.tt; tag="x=1")
         @test_throws "dup=1" TN.findallsites_by_tag(dup.tt; tag="dup")
@@ -147,86 +177,127 @@ end
     end
 
     @testset "replace_siteinds is non-mutating" begin
-        fixture = mps_like_fixture()
-        new_sites = [
-            Index(2; tags=["y", "y=1"]),
-            Index(2; tags=["y", "y=2"]),
-            Index(2; tags=["y", "y=3"]),
-        ]
-
         @test begin
             fixture = mps_like_fixture()
-            replaced = TN.replace_siteinds(fixture.tt, fixture.sites, new_sites)
+            oldsites = [fixture.sites[3], fixture.sites[1]]
+            newsites = [
+                Index(2; tags=["y", "y=3"]),
+                Index(2; tags=["y", "y=1"]),
+            ]
+            replaced = TN.replace_siteinds(fixture.tt, oldsites, newsites)
             replaced !== fixture.tt
         end
 
         @test begin
             fixture = mps_like_fixture()
-            replaced = TN.replace_siteinds(fixture.tt, fixture.sites, new_sites)
-            inds(replaced[1]) == [new_sites[1], fixture.links[1]]
+            oldsites = [fixture.sites[3], fixture.sites[1]]
+            newsites = [
+                Index(2; tags=["y", "y=3"]),
+                Index(2; tags=["y", "y=1"]),
+            ]
+            replaced = TN.replace_siteinds(fixture.tt, oldsites, newsites)
+            inds(replaced[1]) == [newsites[2], fixture.links[1]]
         end
 
         @test begin
             fixture = mps_like_fixture()
-            replaced = TN.replace_siteinds(fixture.tt, fixture.sites, new_sites)
-            inds(replaced[2]) == [fixture.links[1], new_sites[2], fixture.links[2]]
+            oldsites = [fixture.sites[3], fixture.sites[1]]
+            newsites = [
+                Index(2; tags=["y", "y=3"]),
+                Index(2; tags=["y", "y=1"]),
+            ]
+            replaced = TN.replace_siteinds(fixture.tt, oldsites, newsites)
+            inds(replaced[2]) == [fixture.links[1], fixture.sites[2], fixture.links[2]]
         end
 
         @test begin
             fixture = mps_like_fixture()
-            replaced = TN.replace_siteinds(fixture.tt, fixture.sites, new_sites)
-            inds(replaced[3]) == [fixture.links[2], new_sites[3]]
+            oldsites = [fixture.sites[3], fixture.sites[1]]
+            newsites = [
+                Index(2; tags=["y", "y=3"]),
+                Index(2; tags=["y", "y=1"]),
+            ]
+            replaced = TN.replace_siteinds(fixture.tt, oldsites, newsites)
+            inds(replaced[3]) == [fixture.links[2], newsites[1]]
         end
 
         @test begin
             fixture = mps_like_fixture()
-            TN.replace_siteinds(fixture.tt, fixture.sites, new_sites)
+            oldsites = [fixture.sites[3], fixture.sites[1]]
+            newsites = [
+                Index(2; tags=["y", "y=3"]),
+                Index(2; tags=["y", "y=1"]),
+            ]
+            TN.replace_siteinds(fixture.tt, oldsites, newsites)
             inds(fixture.tt[1]) == [fixture.sites[1], fixture.links[1]]
         end
 
         @test begin
             fixture = mps_like_fixture()
-            TN.replace_siteinds(fixture.tt, fixture.sites, new_sites)
+            oldsites = [fixture.sites[3], fixture.sites[1]]
+            newsites = [
+                Index(2; tags=["y", "y=3"]),
+                Index(2; tags=["y", "y=1"]),
+            ]
+            TN.replace_siteinds(fixture.tt, oldsites, newsites)
             inds(fixture.tt[2]) == [fixture.links[1], fixture.sites[2], fixture.links[2]]
         end
 
         @test begin
             fixture = mps_like_fixture()
-            TN.replace_siteinds(fixture.tt, fixture.sites, new_sites)
+            oldsites = [fixture.sites[3], fixture.sites[1]]
+            newsites = [
+                Index(2; tags=["y", "y=3"]),
+                Index(2; tags=["y", "y=1"]),
+            ]
+            TN.replace_siteinds(fixture.tt, oldsites, newsites)
             inds(fixture.tt[3]) == [fixture.links[2], fixture.sites[3]]
         end
     end
 
     @testset "replace_siteinds! mutates in place" begin
-        fixture = mpo_like_fixture()
-        new_output_sites = [
-            Index(2; tags=["yout", "yout=1"]),
-            Index(2; tags=["yout", "yout=2"]),
-            Index(2; tags=["yout", "yout=3"]),
-        ]
-
         @test begin
             fixture = mpo_like_fixture()
-            replaced = TN.replace_siteinds!(fixture.tt, fixture.output_sites, new_output_sites)
+            oldsites = [fixture.output_sites[3], fixture.output_sites[1]]
+            newsites = [
+                Index(2; tags=["yout", "yout=3"]),
+                Index(2; tags=["yout", "yout=1"]),
+            ]
+            replaced = TN.replace_siteinds!(fixture.tt, oldsites, newsites)
             replaced === fixture.tt
         end
 
         @test begin
             fixture = mpo_like_fixture()
-            TN.replace_siteinds!(fixture.tt, fixture.output_sites, new_output_sites)
-            inds(fixture.tt[1]) == [fixture.input_sites[1], new_output_sites[1], fixture.links[1]]
+            oldsites = [fixture.output_sites[3], fixture.output_sites[1]]
+            newsites = [
+                Index(2; tags=["yout", "yout=3"]),
+                Index(2; tags=["yout", "yout=1"]),
+            ]
+            TN.replace_siteinds!(fixture.tt, oldsites, newsites)
+            inds(fixture.tt[1]) == [fixture.input_sites[1], newsites[2], fixture.links[1]]
         end
 
         @test begin
             fixture = mpo_like_fixture()
-            TN.replace_siteinds!(fixture.tt, fixture.output_sites, new_output_sites)
-            inds(fixture.tt[2]) == [fixture.links[1], fixture.input_sites[2], new_output_sites[2], fixture.links[2]]
+            oldsites = [fixture.output_sites[3], fixture.output_sites[1]]
+            newsites = [
+                Index(2; tags=["yout", "yout=3"]),
+                Index(2; tags=["yout", "yout=1"]),
+            ]
+            TN.replace_siteinds!(fixture.tt, oldsites, newsites)
+            inds(fixture.tt[2]) == [fixture.links[1], fixture.input_sites[2], fixture.output_sites[2], fixture.links[2]]
         end
 
         @test begin
             fixture = mpo_like_fixture()
-            TN.replace_siteinds!(fixture.tt, fixture.output_sites, new_output_sites)
-            inds(fixture.tt[3]) == [fixture.links[2], fixture.input_sites[3], new_output_sites[3]]
+            oldsites = [fixture.output_sites[3], fixture.output_sites[1]]
+            newsites = [
+                Index(2; tags=["yout", "yout=3"]),
+                Index(2; tags=["yout", "yout=1"]),
+            ]
+            TN.replace_siteinds!(fixture.tt, oldsites, newsites)
+            inds(fixture.tt[3]) == [fixture.links[2], fixture.input_sites[3], newsites[1]]
         end
     end
 
