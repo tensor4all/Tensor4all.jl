@@ -1,6 +1,6 @@
 module TensorNetworks
 
-using ..Tensor4all: BackendUnavailableError, Index, Tensor, SkeletonNotImplemented, dim, hastag, inds, tags
+using ..Tensor4all: BackendUnavailableError, Index, Tensor, SkeletonNotImplemented, dim, hastag, inds, plev, prime, tags
 
 const _LINK_TAG = "Link"
 
@@ -15,6 +15,7 @@ include("TensorNetworks/types.jl")
 include("TensorNetworks/operator_spaces.jl")
 include("TensorNetworks/site_helpers.jl")
 include("TensorNetworks/matchsiteinds.jl")
+include("TensorNetworks/transforms.jl")
 include("TensorNetworks/deferred.jl")
 
 end

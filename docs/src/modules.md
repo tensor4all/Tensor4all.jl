@@ -24,7 +24,7 @@ wrapper modules, but they are not owned by `Tensor4all.jl`.
 | Module | Responsibility | Current state |
 |------|----------------|---------------|
 | `Core` | `Index`, `Tensor`, base metadata behavior | implemented |
-| `TensorNetworks` | indexed chain wrapper with `data`, `llim`, `rlim` | implemented as public chain type |
+| `TensorNetworks` | indexed chain wrapper, helper surface, operator boundary | implemented as public chain layer |
 | `SimpleTT` | raw-array tensor trains, compression, MPO contraction | implemented |
 | `TensorCI` | interpolation boundary returning `TensorCI2` | implemented as adapter layer |
 | `QuanticsGrids` | adopted grid re-export layer | implemented |
@@ -38,14 +38,17 @@ wrapper modules, but they are not owned by `Tensor4all.jl`.
 - `TensorCI.crossinterpolate2` returns `TensorCI2`; `SimpleTT` owns conversion
   into raw-array TT form.
 - `SimpleTT` owns raw-array numerics.
-- `TensorNetworks` adds index semantics, `LinearOperator`, `apply`, and HDF5
-  interoperability.
-- The broader chain-helper surface in `TensorNetworks` is present, with each
-  helper documented as implemented or still missing where relevant.
+- `TensorNetworks` adds index semantics, chain helpers, `LinearOperator`,
+  `apply`, and HDF5 interoperability.
+- The broader chain-helper surface in `TensorNetworks` is implemented in pure
+  Julia.
+- Operator-space setters are explicit `Vector{Index}` APIs rather than
+  TensorTrain-driven auto-binding.
 - The Julia-facing C API target is reduced and chain-oriented.
 
 ## Still Deferred
 
+- real operator execution through `TensorNetworks.apply`
 - deeper `QuanticsTransform` kernel coverage and edge-case validation
 - broader non-chain behavior
 - any remaining reduced `tensor4all-rs` ABI documentation gaps

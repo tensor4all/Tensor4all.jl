@@ -1,5 +1,10 @@
 # Remaining Skeleton Surface Implementation Plan
 
+> Historical note: this plan described the temporary stub-only alignment pass.
+> The current branch has moved on to real Julia implementations for the
+> `TensorNetworks` helper surface, so treat the details below as superseded
+> implementation history rather than current guidance.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Complete the approved Julia-side skeleton surface from issue #35 without adding real backend behavior.

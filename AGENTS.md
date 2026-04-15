@@ -85,6 +85,9 @@ end
 
 - `QuanticsTransform` provides quantics-specific operator constructors only.
 - `TensorNetworks` owns the generic `LinearOperator` type and `apply`.
+- `set_input_space!`, `set_output_space!`, and `set_iospaces!` should accept
+  explicit `Vector{Index}` arguments only.
+- Do not add `TensorTrain`-based automatic binding for operator I/O spaces.
 - Julia owns semantic validation and index mapping.
 - Rust is expected to provide only the operator kernels that Julia should not
   reimplement.
@@ -125,6 +128,13 @@ Julia arrays passed to the C API must be contiguous in memory.
 - Prefer `jldoctest` examples when they add real value.
 - Docstrings should describe the implemented behavior and current layer
   boundary.
+
+### Source file size
+
+- Keep each submodule source file focused on one responsibility.
+- Use about 250-300 lines as a soft limit for a single source file.
+- If a submodule grows beyond that or starts mixing distinct responsibilities,
+  split it into a dedicated `src/<Submodule>/` directory and separate files.
 
 ### Documenter.jl site
 

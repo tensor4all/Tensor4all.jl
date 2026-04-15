@@ -5,6 +5,13 @@ export TensorTrain
 using LinearAlgebra
 import TensorCrossInterpolation: AbstractTensorTrain, MatrixLUCI, left, npivots, right, rrlu, sitetensors
 
+"""
+    TensorTrain{T,N}(sitetensors)
+    TensorTrain(tt)
+
+Raw-array tensor-train container used for Julia-owned compression and MPO
+contraction.
+"""
 mutable struct TensorTrain{T,N}
     sitetensors::Vector{Array{T,N}}
 end

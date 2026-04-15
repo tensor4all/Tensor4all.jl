@@ -19,6 +19,10 @@ primary public story.
 
 - pure Julia `Index` and `Tensor` metadata types
 - `TensorNetworks.TensorTrain` with `data`, `llim`, and `rlim`
+- pure Julia `TensorNetworks` helper surface for site queries, site replacement,
+  site regrouping, diagonal helpers, and sparse-site matching
+- explicit `Vector{Index}` operator-space setters on
+  `TensorNetworks.LinearOperator`
 - `SimpleTT` compression with `:LU`, `:CI`, and `:SVD`
 - pure Julia MPO-MPO contraction for `SimpleTT` with `:naive` and `:zipup`
 - `TensorCI.crossinterpolate2` returning `SimpleTT.TensorTrain`
@@ -27,6 +31,8 @@ primary public story.
 
 ## Still Missing
 
+- `TensorNetworks.apply` for real operator execution beyond metadata-only
+  constructors
 - deeper `QuanticsTransform` kernels and validation coverage
 - broader `TreeTensorNetwork` / non-chain functionality
 - finalized Julia-facing reduced `tensor4all-rs` ABI documentation

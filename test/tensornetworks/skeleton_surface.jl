@@ -32,9 +32,4 @@ using Tensor4all
         0,
         3,
     )
-
-    @test_throws Tensor4all.SkeletonNotImplemented TN.replace_siteinds_part!(tt, [i1], [sim(i1)])
-    @test_throws Tensor4all.SkeletonNotImplemented TN.rearrange_siteinds(tt, [[i1], [i2]])
-    @test_throws Tensor4all.SkeletonNotImplemented TN.makesitediagonal(tt, "x")
-    @test_throws Tensor4all.SkeletonNotImplemented TN.extractdiagonal(tt, "x")
 end

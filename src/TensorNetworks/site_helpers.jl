@@ -49,6 +49,7 @@ function _numbered_site_matches(tt::TensorTrain, tag::AbstractString)
     numbered = Dict{Int, Tuple{Int, Index}}()
 
     for (position, index) in _siteinds_with_positions(tt)
+        plev(index) == 0 || continue
         for index_tag in tags(index)
             startswith(index_tag, prefix) || continue
             suffix = index_tag[length(prefix)+1:end]
@@ -116,6 +117,7 @@ function _replace_tensor_indices(tensor::Tensor, replacements::Dict{Index, Index
 end
 
 _copy_tensor(tensor::Tensor) = Tensor(tensor.data, inds(tensor); backend_handle=tensor.backend_handle)
+_copy_train(tt::TensorTrain) = TensorTrain([_copy_tensor(tensor) for tensor in tt.data], tt.llim, tt.rlim)
 
 """
     findsite(tt, index_or_indices)
@@ -202,6 +204,20 @@ function replace_siteinds(
     oldsites::AbstractVector{<:Index},
     newsites::AbstractVector{<:Index},
 )
-    copied = TensorTrain([_copy_tensor(tensor) for tensor in tt.data], tt.llim, tt.llim + length(tt.data) + 1)
+    copied = _copy_train(tt)
     return replace_siteinds!(copied, oldsites, newsites)
+end
+
+"""
+    replace_siteinds_part!(tt, oldsites, newsites)
+
+Replace only the listed site-like indices in `tt`, mutating the affected
+tensor slots in place.
+"""
+function replace_siteinds_part!(
+    tt::TensorTrain,
+    oldsites::AbstractVector{<:Index},
+    newsites::AbstractVector{<:Index},
+)
+    return replace_siteinds!(tt, oldsites, newsites)
 end

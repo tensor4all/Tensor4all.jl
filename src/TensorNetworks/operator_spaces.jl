@@ -24,13 +24,6 @@ function set_output_space!(op::LinearOperator, indices::Vector{Index})
     return op
 end
 
-set_input_space!(op::LinearOperator, ::TensorTrain; kwargs...) = throw(
-    SkeletonNotImplemented(:set_input_space!, :tt),
-)
-set_output_space!(op::LinearOperator, ::TensorTrain; kwargs...) = throw(
-    SkeletonNotImplemented(:set_output_space!, :tt),
-)
-
 """
     set_iospaces!(op, input_indices, output_indices=input_indices)
 
@@ -41,7 +34,3 @@ function set_iospaces!(op::LinearOperator, input_indices::Vector{Index}, output_
     set_output_space!(op, output_indices)
     return op
 end
-
-set_iospaces!(op::LinearOperator, ::TensorTrain; kwargs...) = throw(
-    SkeletonNotImplemented(:set_iospaces!, :tt),
-)
