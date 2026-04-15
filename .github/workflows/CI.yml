@@ -40,7 +40,7 @@ jobs:
       - name: Checkout tensor4all-rs backend
         run: |
           git clone https://github.com/tensor4all/tensor4all-rs.git ../tensor4all-rs
-          git -C ../tensor4all-rs checkout d01d0ffe0d16428cae39b09a4c3c4526ba7dbd40
+          git -C ../tensor4all-rs checkout 8fa020da90a8dae133bf6894c2dc7230b1981643
 
       # HDF5 is loaded at runtime from HDF5.jl (no system installation needed)
 
