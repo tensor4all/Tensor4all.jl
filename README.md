@@ -10,7 +10,7 @@ This branch restores the older Julia-facing architecture:
 - `SimpleTT.TensorTrain{T,N}` is the raw-array tensor-train layer
 - `TensorCI` returns `SimpleTT`
 - `QuanticsTransform` is a Julia-owned operator layer
-- HDF5 roundtrip is handled in pure Julia through `save_as_mps` / `load_tt`
+- HDF5 roundtrip is handled directly through `HDF5.jl`
 
 `TreeTensorNetwork` still exists in the repository, but it is not the primary
 public story of this branch.
@@ -22,7 +22,7 @@ public story of this branch.
 - `SimpleTT` compression with `:LU`, `:CI`, and `:SVD`
 - pure Julia MPO-MPO contraction for `SimpleTT` with `:naive` and `:zipup`
 - `TensorCI.crossinterpolate2` returning `SimpleTT.TensorTrain`
-- pure Julia HDF5 MPS-schema roundtrip through the HDF5 extension
+- HDF5.jl-backed MPS-schema roundtrip through `save_as_mps` / `load_tt`
 - adopted quantics grid re-exports from `QuanticsGrids.jl`
 
 ## What Is Still Deferred
@@ -61,6 +61,5 @@ Pkg.activate("/path/to/Tensor4all.jl")
 Pkg.test()
 ```
 
-Direct `julia test/runtests.jl` runs also work. HDF5 extension tests are
-skipped automatically in direct runs when `HDF5` is not visible in the active
-project, and can also be skipped explicitly with `T4A_SKIP_HDF5_TESTS=1`.
+Direct `julia test/runtests.jl` runs also work. HDF5 tests can be skipped
+explicitly with `T4A_SKIP_HDF5_TESTS=1`.

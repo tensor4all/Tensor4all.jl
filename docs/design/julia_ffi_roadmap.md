@@ -63,7 +63,7 @@ Exit criteria:
 ## Phase 7. Tutorial, Validation, and Performance Closure
 
 - add the expanded beginner tutorial
-- complete the ITensors/HDF5 extension layer and round-trip tests
+- complete the HDF5 compatibility layer and round-trip tests
 - complete compatibility and round-trip tests
 - add parity tests for representative BubbleTeaCI workflows
 - profile for any remaining Rust-side kernels that are truly needed

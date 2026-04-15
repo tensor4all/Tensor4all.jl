@@ -18,6 +18,7 @@ const SKELETON_PHASE = true
 
 include("Core/Errors.jl")
 include("Core/Backend.jl")
+include("Core/CAPI.jl")
 include("Core/Index.jl")
 include("Core/Tensor.jl")
 

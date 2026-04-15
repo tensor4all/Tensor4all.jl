@@ -2,9 +2,15 @@
 
 The broader rework is intentionally split.
 
-The repository has now moved beyond the pure reset step and exposes a reviewed
-skeleton surface, but backend numerics and downstream migration work are still
-deferred.
+The repository has now moved beyond the pure reset step:
+
+- `Core.Index` and `Core.Tensor` are backend-backed wrappers
+- HDF5 persistence lives in `TensorNetworks.save_as_mps` / `load_tt`
+- HDF5 compatibility is checked both for Tensor4all roundtrip and
+  Tensor4all/ITensorMPS interoperability
+
+Remaining work is now concentrated in the still-deferred helper and execution
+surfaces, plus downstream migration work.
 
 The single implementation handoff plan is tracked in:
 
@@ -12,7 +18,8 @@ The single implementation handoff plan is tracked in:
 
 ## Still Deferred
 
-- backend-backed tensor contraction, factorization, and dense materialization
+- the remaining `TensorNetworks` helper implementations that still throw
+  `SkeletonNotImplemented`
 - transform materialization and QTCI execution
 - C API expansion where the Julia skeleton reveals genuinely missing
   multi-language primitives

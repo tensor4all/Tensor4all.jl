@@ -5,6 +5,11 @@ export TensorTrain
 using LinearAlgebra
 import TensorCrossInterpolation: AbstractTensorTrain, MatrixLUCI, left, npivots, right, rrlu, sitetensors
 
+"""
+    TensorTrain{T,N}
+
+Raw-array tensor-train container used by the `SimpleTT` layer.
+"""
 mutable struct TensorTrain{T,N}
     sitetensors::Vector{Array{T,N}}
 end

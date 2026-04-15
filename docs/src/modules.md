@@ -30,7 +30,7 @@ wrapper modules, but they are not owned by `Tensor4all.jl`.
 | `QuanticsGrids` | adopted grid re-export layer | implemented |
 | `QuanticsTCI` | adopted quantics-TCI re-export layer | implemented |
 | `QuanticsTransform` | quantics-specific constructors of `TensorNetworks.LinearOperator` | skeleton / deferred |
-| HDF5 extension | pure Julia `save_as_mps` / `load_tt` | implemented |
+| HDF5 boundary | `HDF5.jl`-backed `save_as_mps` / `load_tt` | implemented |
 
 ## Key Boundaries
 

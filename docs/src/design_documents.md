@@ -20,3 +20,7 @@ story that sits on top of those layers.
 
 The single implementation handoff plan lives in
 [2026-04-10 tensor4all rework follow-up plan](https://github.com/tensor4all/Tensor4all.jl/blob/main/docs/plans/2026-04-10-tensor4all-rework-followup.md).
+
+The plan files under `docs/plans/` are useful historical handoff notes, but
+they are not the source of truth for the current HDF5 implementation details.
+For current behavior, prefer `docs/src/`, `docs/design/`, and the source tree.

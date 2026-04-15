@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["tensor4all collaboration"]
 
 [deps]
+HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 QuanticsGrids = "634c7f73-3e90-4749-a1bd-001b8efc642d"
@@ -11,14 +12,10 @@ QuanticsTCI = "b11687fd-3a1c-4c41-97d0-998ab401d50e"
 RustToolChain = "e9dc52e2-edb8-4742-9783-5e542d30dbb5"
 TensorCrossInterpolation = "b261b2ec-6378-4871-b32e-9173bb050604"
 
-[weakdeps]
-HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
-
-[extensions]
-Tensor4allHDF5Ext = ["HDF5"]
-
 [compat]
 HDF5 = "0.17"
+ITensorMPS = "0.3.6"
+ITensors = "0.7.13"
 QuanticsGrids = "0.7"
 QuanticsTCI = "0.7.3"
 RustToolChain = "0.1"
@@ -26,8 +23,9 @@ TensorCrossInterpolation = "0.9"
 julia = "1.9"
 
 [extras]
-HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
+ITensorMPS = "0d1a4710-d33b-49a5-8f18-73bdf49b47e2"
+ITensors = "9136182c-28ba-11e9-034c-db9fb085ebd5"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "HDF5"]
+test = ["Test", "ITensors", "ITensorMPS"]

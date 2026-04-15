@@ -29,6 +29,27 @@ The intended public layers are:
 - Do not grow the C API for operations that can be composed in Julia from
   tensor lists and tensor contraction.
 
+## Documentation
+
+### Docstrings
+
+- Every exported type and function defined in this repository must have a
+  docstring.
+- Keep docstrings concise and task-oriented. Do not add long narrative
+  docstrings unless the API surface is genuinely subtle.
+- For deferred placeholder APIs, document the intended contract briefly and say
+  that the current implementation is deferred.
+
+## File Organization
+
+- Keep submodule files responsibility-focused.
+- Around 300-400 lines is a soft limit. Once a file grows past that range,
+  consider splitting it.
+- Around 500-600 lines is a strong signal to split unless the file is still a
+  single tight unit.
+- Prefer creating a subdirectory such as `src/Foo/` and separating by
+  responsibility instead of accumulating unrelated sections in one file.
+
 
 ## Error Handling
 

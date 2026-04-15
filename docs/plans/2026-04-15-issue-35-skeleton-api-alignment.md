@@ -1,6 +1,9 @@
 # Issue #35 Skeleton API Alignment Status
 
 > Status: completed on the current branch. Do not execute this file as an active work queue.
+>
+> HDF5 details in the current branch are implemented in `src/TensorNetworks/HDF5.jl`
+> rather than an extension file.
 
 This plan was re-checked against the current repository on 2026-04-15.
 

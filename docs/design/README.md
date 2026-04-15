@@ -31,6 +31,8 @@ removed TreeTN-first skeleton.
 
 - HDF5 compatibility uses `save_as_mps` / `load_tt` and stores data using the
   `MPS` schema.
+- The repository tests both Tensor4all HDF5 roundtrip and Tensor4all /
+  ITensorMPS HDF5 interoperability.
 - The Julia-side docs assume a minimized, chain-oriented C API target.
 
 ## Deferred Material

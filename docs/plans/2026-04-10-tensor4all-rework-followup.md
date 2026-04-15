@@ -1,6 +1,11 @@
 # Tensor4all Phase 1 Implementation Handoff Plan
 
-> Status: active as of 2026-04-15. This is the single authoritative implementation handoff document for the current repo-local phase.
+> Status: historical handoff document as of 2026-04-15.
+>
+> Parts of this file are now stale relative to the implemented branch state.
+> In particular, HDF5 no longer uses `ext/Tensor4allHDF5Ext.jl`; it lives in
+> `src/TensorNetworks/HDF5.jl`, and the repository now includes explicit
+> Tensor4all/ITensorMPS interoperability tests.
 >
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

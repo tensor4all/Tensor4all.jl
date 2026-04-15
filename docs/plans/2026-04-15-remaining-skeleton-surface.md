@@ -1,6 +1,9 @@
 # Remaining Skeleton Surface Status
 
 > Status: completed as a skeleton-surface plan. Do not execute this file as written.
+>
+> HDF5 persistence is now part of the main source tree, and the repository tests
+> Tensor4all/ITensorMPS HDF5 interoperability directly.
 
 This plan was re-checked against the current repository on 2026-04-15.
 

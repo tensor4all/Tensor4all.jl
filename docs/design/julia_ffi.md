@@ -30,8 +30,8 @@ The docs here assume a reduced, chain-oriented C API target on the Rust side.
 - `tensor4all-rs` owns performance-critical kernels, storage, and numerics.
 - The Julia frontend owns the public module split, validation, composition, and
   compatibility glue.
-- `save_as_mps` / `load_tt` live at the HDF5 extension boundary and use the
-  `MPS` schema.
+- `save_as_mps` / `load_tt` live at the `HDF5.jl` boundary and use the `MPS`
+  schema.
 
 ## Reuse Boundary
 

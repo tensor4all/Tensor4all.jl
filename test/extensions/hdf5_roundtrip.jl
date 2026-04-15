@@ -9,9 +9,6 @@ using HDF5
         t = Tensor4all.Tensor(ones(2), [i])
         tt = Tensor4all.TensorNetworks.TensorTrain([t], 0, 2)
 
-        ext = Base.get_extension(Tensor4all, :Tensor4allHDF5Ext)
-        @test ext !== nothing
-
         Tensor4all.TensorNetworks.save_as_mps(path, "psi", tt)
         tt2 = Tensor4all.TensorNetworks.load_tt(path, "psi")
 
@@ -19,7 +16,9 @@ using HDF5
         @test tt2.llim == 0
         @test tt2.rlim == 2
         @test length(tt2) == 1
-        @test tt2.data[1].data == t.data
+        tt2_data1, _ = Tensor4all._dense_array(tt2.data[1])
+        orig_data1, _ = Tensor4all._dense_array(t)
+        @test tt2_data1 == orig_data1
         @test Tensor4all.inds(tt2.data[1]) == Tensor4all.inds(t)
 
         h5open(path, "r") do f
@@ -40,16 +39,18 @@ using HDF5
         t2 = Tensor4all.Tensor([0.0, 1.0], [i2])
         tt = Tensor4all.TensorNetworks.TensorTrain([t1, t2], 0, 3)
 
-        ext = Base.get_extension(Tensor4all, :Tensor4allHDF5Ext)
-        @test ext !== nothing
         Tensor4all.TensorNetworks.save_as_mps(path, "psi", tt)
         tt2 = Tensor4all.TensorNetworks.load_tt(path, "psi")
 
         @test length(tt2) == 2
         @test tt2.llim == 0
         @test tt2.rlim == 3
-        @test tt2.data[1].data == t1.data
-        @test tt2.data[2].data == t2.data
+        tt2_data1, _ = Tensor4all._dense_array(tt2.data[1])
+        tt2_data2, _ = Tensor4all._dense_array(tt2.data[2])
+        orig_data1, _ = Tensor4all._dense_array(t1)
+        orig_data2, _ = Tensor4all._dense_array(t2)
+        @test tt2_data1 == orig_data1
+        @test tt2_data2 == orig_data2
 
         h5open(path, "r") do f
             g = f["psi"]

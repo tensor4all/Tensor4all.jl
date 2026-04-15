@@ -25,7 +25,7 @@ split rather than the removed TreeTN-first skeleton.
   path.
 - `SimpleTT.TensorTrain(tci)` converts interpolation results into raw-array TT
   form.
-- HDF5 interoperability is provided in pure Julia through `save_as_mps` and
+- HDF5 interoperability is provided through `HDF5.jl` via `save_as_mps` and
   `load_tt`.
 
 ## Secondary / Deferred Surface

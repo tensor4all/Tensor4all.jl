@@ -86,6 +86,8 @@ layer.
 
 - save uses the `MPS` schema
 - load returns `TensorNetworks.TensorTrain`
+- the repository tests Tensor4all/ITensorMPS HDF5 interoperability in both
+  directions
 - the restored Julia docs assume a minimized chain-oriented C API target on the
   Rust side
 
