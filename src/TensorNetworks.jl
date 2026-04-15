@@ -107,7 +107,8 @@ end
 """
     set_input_space!(op, tt; kwargs...)
 
-Deferred tensor-train-based input-space binding entry point.
+Bind input-space indices from a tensor train.
+Not yet implemented for `TensorTrain`.
 """
 set_input_space!(op::LinearOperator, ::TensorTrain; kwargs...) = throw(
     SkeletonNotImplemented(:set_input_space!, :tt),
@@ -116,7 +117,8 @@ set_input_space!(op::LinearOperator, ::TensorTrain; kwargs...) = throw(
 """
     set_output_space!(op, tt; kwargs...)
 
-Deferred tensor-train-based output-space binding entry point.
+Bind output-space indices from a tensor train.
+Not yet implemented for `TensorTrain`.
 """
 set_output_space!(op::LinearOperator, ::TensorTrain; kwargs...) = throw(
     SkeletonNotImplemented(:set_output_space!, :tt),
@@ -136,7 +138,8 @@ end
 """
     set_iospaces!(op, tt; kwargs...)
 
-Deferred tensor-train-based input/output-space binding entry point.
+Bind both input and output spaces from a tensor train.
+Not yet implemented for `TensorTrain`.
 """
 set_iospaces!(op::LinearOperator, ::TensorTrain; kwargs...) = throw(
     SkeletonNotImplemented(:set_iospaces!, :tt),
@@ -146,7 +149,7 @@ set_iospaces!(op::LinearOperator, ::TensorTrain; kwargs...) = throw(
     findsite(tt, args...; kwargs...)
 
 Return the first site in `tt` matching the requested index query.
-Currently deferred for `TensorTrain`.
+Not yet implemented for `TensorTrain`.
 """
 findsite(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemented(:findsite, :tt))
 
@@ -154,7 +157,7 @@ findsite(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemented(:find
     findsites(tt, args...; kwargs...)
 
 Return all sites in `tt` matching the requested index query.
-Currently deferred for `TensorTrain`.
+Not yet implemented for `TensorTrain`.
 """
 findsites(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemented(:findsites, :tt))
 
@@ -162,7 +165,7 @@ findsites(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemented(:fin
     findallsiteinds_by_tag(tt; kwargs...)
 
 Return the physical site indices in `tt` for a numbered tag family.
-Currently deferred for `TensorTrain`.
+Not yet implemented for `TensorTrain`.
 """
 findallsiteinds_by_tag(::TensorTrain; kwargs...) = throw(SkeletonNotImplemented(:findallsiteinds_by_tag, :tt))
 
@@ -170,7 +173,7 @@ findallsiteinds_by_tag(::TensorTrain; kwargs...) = throw(SkeletonNotImplemented(
     findallsites_by_tag(tt; kwargs...)
 
 Return the tensor positions in `tt` for a numbered tag family.
-Currently deferred for `TensorTrain`.
+Not yet implemented for `TensorTrain`.
 """
 findallsites_by_tag(::TensorTrain; kwargs...) = throw(SkeletonNotImplemented(:findallsites_by_tag, :tt))
 
@@ -178,7 +181,7 @@ findallsites_by_tag(::TensorTrain; kwargs...) = throw(SkeletonNotImplemented(:fi
     replace_siteinds!(tt, args...; kwargs...)
 
 Replace site indices in-place on `tt`.
-Currently deferred for `TensorTrain`.
+Not yet implemented for `TensorTrain`.
 """
 replace_siteinds!(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemented(Symbol("replace_siteinds!"), :tt))
 
@@ -186,7 +189,7 @@ replace_siteinds!(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemen
     replace_siteinds(tt, args...; kwargs...)
 
 Return a copy of `tt` with selected site indices replaced.
-Currently deferred for `TensorTrain`.
+Not yet implemented for `TensorTrain`.
 """
 replace_siteinds(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemented(:replace_siteinds, :tt))
 
@@ -194,7 +197,7 @@ replace_siteinds(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplement
     replace_siteinds_part!(tt, args...; kwargs...)
 
 Replace a subset of site indices in-place on `tt`.
-Currently deferred for `TensorTrain`.
+Not yet implemented for `TensorTrain`.
 """
 replace_siteinds_part!(::TensorTrain, args...; kwargs...) = throw(
     SkeletonNotImplemented(Symbol("replace_siteinds_part!"), :tt),
@@ -204,7 +207,7 @@ replace_siteinds_part!(::TensorTrain, args...; kwargs...) = throw(
     rearrange_siteinds(tt, args...; kwargs...)
 
 Rebuild `tt` with a requested physical-leg layout.
-Currently deferred for `TensorTrain`.
+Not yet implemented for `TensorTrain`.
 """
 rearrange_siteinds(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemented(:rearrange_siteinds, :tt))
 
@@ -212,7 +215,7 @@ rearrange_siteinds(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImpleme
     makesitediagonal(tt, args...; kwargs...)
 
 Construct a site-diagonalized chain from `tt`.
-Currently deferred for `TensorTrain`.
+Not yet implemented for `TensorTrain`.
 """
 makesitediagonal(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemented(:makesitediagonal, :tt))
 
@@ -220,7 +223,7 @@ makesitediagonal(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplement
     extractdiagonal(tt, args...; kwargs...)
 
 Extract a site-diagonal chain from `tt`.
-Currently deferred for `TensorTrain`.
+Not yet implemented for `TensorTrain`.
 """
 extractdiagonal(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemented(:extractdiagonal, :tt))
 
@@ -228,7 +231,7 @@ extractdiagonal(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemente
     matchsiteinds(tt, args...; kwargs...)
 
 Rebuild `tt` so its site-index layout matches a target description.
-Currently deferred for `TensorTrain`.
+Not yet implemented for `TensorTrain`.
 """
 matchsiteinds(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemented(:matchsiteinds, :tt))
 
@@ -236,7 +239,7 @@ matchsiteinds(::TensorTrain, args...; kwargs...) = throw(SkeletonNotImplemented(
     apply(op, tt; kwargs...)
 
 Apply `op` to a tensor train `tt`.
-Currently deferred while operator materialization stays metadata-only.
+Operator execution is not yet implemented for `TensorTrain`.
 """
 apply(::LinearOperator, ::TensorTrain; kwargs...) = throw(SkeletonNotImplemented(:apply, :tt))
 

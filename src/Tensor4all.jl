@@ -1,12 +1,10 @@
 """
     Tensor4all
 
-`Tensor4all.jl` is in an API-skeleton review phase.
+`Tensor4all.jl` is an implementation-phase Julia frontend over `tensor4all-rs`.
 
-The previous implementation has been intentionally removed so the package can be
-rebuilt against the design documents in `docs/design/` without stale public
-surface area leaking into the rework. Importing the package is expected to work,
-but the real backend-facing types and operations are deferred to a later phase.
+Backend-backed core types are available today, while some higher-level tensor
+network operations are still being filled in.
 """
 module Tensor4all
 
