@@ -1,8 +1,8 @@
 """
     SkeletonPhaseError(message)
 
-Raised when code expects functionality that is intentionally deferred during the
-review-first skeleton phase.
+Legacy compatibility error type for code paths that are present in the public
+API but not yet implemented during the frontend restoration.
 
 # Examples
 ```jldoctest
@@ -23,8 +23,8 @@ Base.showerror(io::IO, err::SkeletonPhaseError) = print(io, err.message)
 """
     SkeletonNotImplemented(api, layer)
 
-Raised by reviewable public APIs that are intentionally present before their
-backend behavior is implemented.
+Legacy compatibility error type raised by public APIs that are available for
+integration but not yet implemented.
 
 # Examples
 ```jldoctest
@@ -33,7 +33,7 @@ julia> using Tensor4all
 julia> err = SkeletonNotImplemented(:contract, :core);
 
 julia> sprint(showerror, err)
-"Tensor4all skeleton phase: `contract` is planned in the `core` layer but not implemented yet."
+"Tensor4all transitional API marker: `contract` in the `core` layer is not yet implemented."
 ```
 """
 struct SkeletonNotImplemented <: Exception
@@ -43,11 +43,11 @@ end
 
 Base.showerror(io::IO, err::SkeletonNotImplemented) = print(
     io,
-    "Tensor4all skeleton phase: `",
+    "Tensor4all transitional API marker: `",
     err.api,
-    "` is planned in the `",
+    "` in the `",
     err.layer,
-    "` layer but not implemented yet.",
+    "` layer is not yet implemented.",
 )
 
 """

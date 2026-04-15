@@ -12,7 +12,16 @@ using Libdl
 import QuanticsGrids as UpstreamQuanticsGrids
 import QuanticsTCI as UpstreamQuanticsTCI
 
-const SKELETON_PHASE = true
+"""
+    SKELETON_PHASE
+
+Legacy compatibility flag retained for downstream code that still checks for an
+earlier frontend-restoration milestone.
+
+`false` means the package should not be described as being in a skeleton phase,
+even though some APIs remain not yet implemented.
+"""
+const SKELETON_PHASE = false
 
 include("Core/Errors.jl")
 include("Core/Backend.jl")

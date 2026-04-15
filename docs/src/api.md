@@ -193,10 +193,6 @@ Tensor4all.QuanticsTransform.affine_pullback_operator
 Tensor4all.QuanticsTransform.binaryop_operator
 ```
 
-Implemented constructors should be documented with their current semantics.
-Any unsupported transforms or boundary cases should be called out explicitly in
-the relevant docstring.
-
 ## Adopted Modules
 
 - `Tensor4all.QuanticsGrids` re-exports the public `QuanticsGrids.jl` surface

@@ -2,7 +2,7 @@ using Test
 using Tensor4all
 
 @testset "bootstrap errors and lazy backend helpers" begin
-    @test Tensor4all.SKELETON_PHASE === true
+    @test Tensor4all.SKELETON_PHASE === false
     @test isdefined(Tensor4all, :SkeletonPhaseError)
     @test isdefined(Tensor4all, :SkeletonNotImplemented)
     @test isdefined(Tensor4all, :BackendUnavailableError)
@@ -11,7 +11,7 @@ using Tensor4all
 
     placeholder = Tensor4all.SkeletonNotImplemented(:contract, :core)
     @test sprint(showerror, placeholder) ==
-        "Tensor4all skeleton phase: `contract` is planned in the `core` layer but not implemented yet."
+        "Tensor4all transitional API marker: `contract` in the `core` layer is not yet implemented."
 
     missing = Tensor4all.BackendUnavailableError("backend missing")
     @test sprint(showerror, missing) == "backend missing"
