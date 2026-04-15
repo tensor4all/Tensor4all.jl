@@ -50,9 +50,9 @@ Other chain-facing names in this layer include:
 `TensorNetworks.TensorTrain` is the container that HDF5 compatibility works
 against.
 
-Most of these names are still deliberate skeleton entry points in the current
-phase. Their presence is part of the API contract even where backend behavior is
-not implemented yet.
+Most of these names are implemented. The remaining gaps are limited to the
+helper surfaces that are still stubbed or behaviorally incomplete, and the docs
+should say which ones are which.
 
 ## SimpleTT
 
@@ -85,7 +85,7 @@ raw numerical TT layer happens through `Tensor4all.SimpleTT.TensorTrain(tci)`.
 
 ## QuanticsTransform
 
-`Tensor4all.QuanticsTransform` provides transform-constructor skeletons such as:
+`Tensor4all.QuanticsTransform` provides transform constructors such as:
 
 - `shift_operator`
 - `flip_operator`
@@ -97,6 +97,10 @@ raw numerical TT layer happens through `Tensor4all.SimpleTT.TensorTrain(tci)`.
 
 These constructors return `TensorNetworks.LinearOperator` values. The generic
 operator type itself does not live in `QuanticsTransform`.
+
+Implemented constructors should be documented with their current semantics.
+Any unsupported transforms or boundary cases should be called out explicitly in
+the relevant docstring.
 
 ## Adopted Modules
 

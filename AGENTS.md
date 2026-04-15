@@ -121,10 +121,10 @@ Julia arrays passed to the C API must be contiguous in memory.
 
 ### Docstrings
 
-- Every exported type and function should have a docstring.
-- Prefer `jldoctest` examples when possible.
-- Module-level docstrings should show the intended layer boundary, not just a
-  type listing.
+- Every exported type and function should have a concise docstring.
+- Prefer `jldoctest` examples when they add real value.
+- Docstrings should describe the implemented behavior and current layer
+  boundary.
 
 ### Documenter.jl site
 
@@ -142,15 +142,15 @@ Julia arrays passed to the C API must be contiguous in memory.
 
 The docs should clearly describe:
 
-- the old module split restored in this branch
+- the restored old module split now used by the implementation
 - `TensorNetworks.TensorTrain = Vector{Tensor} + llim/rlim`
 - `SimpleTT.TensorTrain{T,N}`
 - `TensorCI.crossinterpolate2 -> TensorCI2`
 - `SimpleTT.TensorTrain(tci)` conversion
 - wrapper re-exports for `QuanticsGrids` and `QuanticsTCI`
 - `TensorNetworks.LinearOperator` plus `QuanticsTransform` constructors
-- the remaining `TensorNetworks` helper names as skeleton APIs even before real
-  backend behavior is wired
+- the remaining `TensorNetworks` helper names, with implemented behavior and
+  missing behavior called out explicitly
 - pure Julia `save_as_mps` / `load_tt`
 - minimized Julia-facing C API assumptions
 
