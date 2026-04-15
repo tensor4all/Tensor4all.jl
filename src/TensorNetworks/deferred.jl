@@ -1,13 +1,4 @@
 """
-    apply(op, tt; kwargs...)
-
-Apply a `LinearOperator` to a `TensorTrain`.
-
-This call remains deferred until the TensorNetworks operator backend is wired.
-"""
-apply(::LinearOperator, ::TensorTrain; kwargs...) = throw(SkeletonNotImplemented(:apply, :tt))
-
-"""
     save_as_mps(args...; kwargs...)
 
 Persist a `TensorTrain` through the HDF5-backed MPS compatibility layer.

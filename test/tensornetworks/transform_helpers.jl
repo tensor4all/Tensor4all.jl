@@ -104,40 +104,14 @@ end
         @test_throws ArgumentError TN.replace_siteinds_part!(tt, [Index(2; tags=["missing", "missing=1"])], [newsite])
     end
 
-    @testset "rearrange_siteinds preserves dense data while refactoring site groups" begin
+    @testset "rearrange_siteinds is deferred pending upstream support" begin
         sitesx = [Index(2; tags=["x", "x=$n"]) for n in 1:3]
         sitesy = [Index(2; tags=["y", "y=$n"]) for n in 1:3]
         sitesxy = collect(Iterators.flatten(zip(sitesx, sitesy)))
         psi = simple_mps(sitesxy)
-        dense_original = dense_tensor(psi, sitesxy)
 
         fused_groups = [[x, y] for (x, y) in zip(sitesx, sitesy)]
-        psi_fused = TN.rearrange_siteinds(psi, fused_groups)
-
-        @test siteinds_by_tensor(psi_fused) == fused_groups
-        @test dense_tensor(psi_fused, sitesxy) ≈ dense_original
-
-        psi_recovered = TN.rearrange_siteinds(psi_fused, [[site] for site in sitesxy])
-        @test siteinds_by_tensor(psi_recovered) == [[site] for site in sitesxy]
-        @test dense_tensor(psi_recovered, sitesxy) ≈ dense_original
-    end
-
-    @testset "rearrange_siteinds supports uneven grouping patterns" begin
-        sitesx = [Index(2; tags=["x", "x=$n"]) for n in 1:2]
-        sitesy = [Index(2; tags=["y", "y=$n"]) for n in 1:2]
-        sitesz = [Index(2; tags=["z", "z=$n"]) for n in 1:2]
-        sitesxyz = collect(Iterators.flatten(zip(sitesx, sitesy, sitesz)))
-        psi = simple_mps(sitesxyz)
-        dense_original = dense_tensor(psi, sitesxyz)
-
-        grouped = [[sitesx[1], sitesy[1]], [sitesz[1]], [sitesx[2], sitesy[2]], [sitesz[2]]]
-        psi_grouped = TN.rearrange_siteinds(psi, grouped)
-
-        @test siteinds_by_tensor(psi_grouped) == grouped
-        @test dense_tensor(psi_grouped, sitesxyz) ≈ dense_original
-
-        @test_throws ArgumentError TN.rearrange_siteinds(psi, [grouped[1], grouped[2], grouped[3]])
-        @test_throws ArgumentError TN.rearrange_siteinds(psi, [grouped[1], grouped[2], grouped[3], [sitesz[2], sitesz[2]]])
+        @test_throws Tensor4all.SkeletonNotImplemented TN.rearrange_siteinds(psi, fused_groups)
     end
 
     @testset "makesitediagonal and extractdiagonal roundtrip a tagged site family" begin

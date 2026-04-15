@@ -31,8 +31,8 @@ than the removed TreeTN-first layout.
 ## Still Missing
 
 The current branch is intentionally chain-oriented. Broader non-chain work,
-real operator execution through `TensorNetworks.apply`, deeper backend
-integration, and some `QuanticsTransform` kernels are still not implemented.
+deeper backend integration, and some `QuanticsTransform` kernels are still not
+implemented.
 
 ## Entry Points
 

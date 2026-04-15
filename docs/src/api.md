@@ -63,12 +63,12 @@ against.
 
 The current Julia implementation includes the full helper surface above.
 `set_input_space!`, `set_output_space!`, and `set_iospaces!` accept explicit
-`Vector{Index}` arguments only. `apply` remains the main deferred execution
-boundary in this layer.
+`Vector{Index}` arguments only. `apply` is implemented for the current
+chain-oriented backend path.
 
 ```@autodocs
 Modules = [Tensor4all.TensorNetworks]
-Pages = ["TensorNetworks/types.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/transforms.jl", "TensorNetworks/deferred.jl"]
+Pages = ["TensorNetworks/types.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/transforms.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/deferred.jl"]
 Private = false
 Order = [:type, :function]
 ```

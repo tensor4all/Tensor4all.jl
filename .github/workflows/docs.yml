@@ -31,7 +31,14 @@ jobs:
 
       - uses: julia-actions/cache@v2
 
+      - name: Checkout tensor4all-rs backend
+        run: |
+          git clone https://github.com/tensor4all/tensor4all-rs.git ../tensor4all-rs
+          git -C ../tensor4all-rs checkout d01d0ffe0d16428cae39b09a4c3c4526ba7dbd40
+
       - name: Install package and build documentation
+        env:
+          TENSOR4ALL_RS_PATH: ${{ github.workspace }}/../tensor4all-rs
         run: |
           julia --project=docs -e '
             using Pkg

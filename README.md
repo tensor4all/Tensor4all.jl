@@ -31,8 +31,6 @@ primary public story.
 
 ## Still Missing
 
-- `TensorNetworks.apply` for real operator execution beyond metadata-only
-  constructors
 - deeper `QuanticsTransform` kernels and validation coverage
 - broader `TreeTensorNetwork` / non-chain functionality
 - finalized Julia-facing reduced `tensor4all-rs` ABI documentation

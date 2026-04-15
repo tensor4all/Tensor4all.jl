@@ -48,7 +48,6 @@ wrapper modules, but they are not owned by `Tensor4all.jl`.
 
 ## Still Deferred
 
-- real operator execution through `TensorNetworks.apply`
 - deeper `QuanticsTransform` kernel coverage and edge-case validation
 - broader non-chain behavior
 - any remaining reduced `tensor4all-rs` ABI documentation gaps
