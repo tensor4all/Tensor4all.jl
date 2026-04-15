@@ -1,9 +1,9 @@
 # Tensor4all.jl
 
-> Current phase: restored old Julia frontend POC.
+> Current phase: implementation of the restored Julia frontend.
 
-`Tensor4all.jl` is currently organized around the older Julia-facing module
-split rather than the removed TreeTN-first skeleton.
+`Tensor4all.jl` is organized around the older Julia-facing module split rather
+than the removed TreeTN-first layout.
 
 ## Primary Public Modules
 
@@ -28,10 +28,11 @@ split rather than the removed TreeTN-first skeleton.
 - HDF5 interoperability is provided in pure Julia through `save_as_mps` and
   `load_tt`.
 
-## Secondary / Deferred Surface
+## Still Missing
 
-The current branch is intentionally chain-oriented. Broader non-chain work and
-deeper backend integration remain deferred.
+The current branch is intentionally chain-oriented. Broader non-chain work,
+deeper backend integration, and some `QuanticsTransform` kernels are still not
+implemented.
 
 ## Entry Points
 

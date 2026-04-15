@@ -51,7 +51,9 @@ end
 
 - In Phase 1, `metadata` carries the skeleton-level operator description.
 - `mpo = nothing` is allowed until backend materialization is wired.
-- `set_input_space!`, `set_output_space!`, and `set_iospaces!` belong here.
+- `set_input_space!`, `set_output_space!`, and `set_iospaces!` accept explicit
+  `Vector{Index}` bindings only.
+- TensorTrain-driven automatic binding is intentionally out of scope.
 - `apply` also belongs here because it is generic over operator source.
 
 ## Boundary to SimpleTT
@@ -77,7 +79,7 @@ The approved skeleton surface in this layer also includes:
 - `matchsiteinds`
 
 In the current branch these names are part of the contract even where they still
-throw `SkeletonNotImplemented`.
+are implemented in pure Julia.
 
 ## HDF5 Boundary
 
@@ -92,5 +94,5 @@ layer.
 ## Open Questions
 
 - How much chain-specific convenience should live in Julia versus Rust?
-- Which operator-space binding helpers should move from skeleton to real
-  implementation next?
+- What is the smallest Julia-facing `apply` boundary once real operator kernels
+  are wired?

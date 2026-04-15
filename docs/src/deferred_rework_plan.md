@@ -2,9 +2,9 @@
 
 The broader rework is intentionally split.
 
-The repository has now moved beyond the pure reset step and exposes a reviewed
-skeleton surface, but backend numerics and downstream migration work are still
-deferred.
+The repository is now in the implementation phase of the restored Julia
+frontend. Backend numerics and downstream migration work are still incomplete,
+but the public architecture is no longer described as an early-stage surface.
 
 The active execution plan remains tracked in:
 
@@ -14,9 +14,9 @@ The active execution plan remains tracked in:
 
 - backend-backed tensor contraction, factorization, and dense materialization
 - transform materialization and QTCI execution
-- C API expansion where the Julia skeleton reveals genuinely missing
+- C API expansion where the Julia implementation still reveals missing
   multi-language primitives
-- downstream `BubbleTeaCI` migration onto the new skeleton surface
+- downstream `BubbleTeaCI` migration onto the new public surface
 - beginner-facing tutorials beyond the current review-first documentation
 
 This split remains deliberate: the next implementation wave should focus on

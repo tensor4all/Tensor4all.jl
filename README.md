@@ -4,7 +4,7 @@ Julia frontend for [tensor4all-rs](https://github.com/tensor4all/tensor4all-rs).
 
 ## Current Direction
 
-This branch restores the older Julia-facing architecture:
+This repository now follows the implementation-phase Julia-facing architecture:
 
 - `TensorNetworks.TensorTrain` is the indexed chain type
 - `SimpleTT.TensorTrain{T,N}` is the raw-array tensor-train layer
@@ -12,32 +12,35 @@ This branch restores the older Julia-facing architecture:
 - `QuanticsTransform` is a Julia-owned operator layer
 - HDF5 roundtrip is handled in pure Julia through `save_as_mps` / `load_tt`
 
-`TreeTensorNetwork` still exists in the repository, but it is not the primary
-public story of this branch.
+`TreeTensorNetwork` still exists in the repository, but it is no longer the
+primary public story.
 
-## What Works In This POC
+## Implemented
 
 - pure Julia `Index` and `Tensor` metadata types
-- `TensorNetworks.TensorTrain` skeleton with `data`, `llim`, and `rlim`
+- `TensorNetworks.TensorTrain` with `data`, `llim`, and `rlim`
+- pure Julia `TensorNetworks` helper surface for site queries, site replacement,
+  site regrouping, diagonal helpers, and sparse-site matching
+- explicit `Vector{Index}` operator-space setters on
+  `TensorNetworks.LinearOperator`
 - `SimpleTT` compression with `:LU`, `:CI`, and `:SVD`
 - pure Julia MPO-MPO contraction for `SimpleTT` with `:naive` and `:zipup`
 - `TensorCI.crossinterpolate2` returning `SimpleTT.TensorTrain`
 - pure Julia HDF5 MPS-schema roundtrip through the HDF5 extension
 - adopted quantics grid re-exports from `QuanticsGrids.jl`
 
-## What Is Still Deferred
+## Still Missing
 
-- full docs cleanup beyond the restored architecture story
-- finalized Julia-facing reduced `tensor4all-rs` ABI documentation
-- deeper `QuanticsTransform` kernels and wrappers
+- deeper `QuanticsTransform` kernels and validation coverage
 - broader `TreeTensorNetwork` / non-chain functionality
+- finalized Julia-facing reduced `tensor4all-rs` ABI documentation
 
 ## Development Notes
 
 - `tensor4all-rs` remains the backend for low-level kernels.
 - `Tensor4all.jl` owns the pure Julia public object model.
 - `TensorCrossInterpolation.jl` is used as an implementation dependency for the
-  current `SimpleTT` / `TensorCI` POC.
+  current `SimpleTT` / `TensorCI` implementation.
 
 ## Build Script
 

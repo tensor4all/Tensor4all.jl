@@ -1,12 +1,11 @@
 """
     Tensor4all
 
-`Tensor4all.jl` is in an API-skeleton review phase.
+`Tensor4all.jl` is in the implementation phase of the restored Julia frontend.
 
-The previous implementation has been intentionally removed so the package can be
-rebuilt against the design documents in `docs/design/` without stale public
-surface area leaking into the rework. Importing the package is expected to work,
-but the real backend-facing types and operations are deferred to a later phase.
+The public object model is Julia-owned and centered on the restored module
+split documented under `docs/design/`. Some backend-backed execution paths are
+still deferred, but the main chain-facing surface is implemented and testable.
 """
 module Tensor4all
 

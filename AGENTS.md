@@ -85,6 +85,9 @@ end
 
 - `QuanticsTransform` provides quantics-specific operator constructors only.
 - `TensorNetworks` owns the generic `LinearOperator` type and `apply`.
+- `set_input_space!`, `set_output_space!`, and `set_iospaces!` should accept
+  explicit `Vector{Index}` arguments only.
+- Do not add `TensorTrain`-based automatic binding for operator I/O spaces.
 - Julia owns semantic validation and index mapping.
 - Rust is expected to provide only the operator kernels that Julia should not
   reimplement.
@@ -121,15 +124,26 @@ Julia arrays passed to the C API must be contiguous in memory.
 
 ### Docstrings
 
-- Every exported type and function should have a docstring.
-- Prefer `jldoctest` examples when possible.
-- Module-level docstrings should show the intended layer boundary, not just a
-  type listing.
+- Every exported type and function should have a concise docstring.
+- Prefer `jldoctest` examples when they add real value.
+- Docstrings should describe the implemented behavior and current layer
+  boundary.
+
+### Source file size
+
+- Keep each submodule source file focused on one responsibility.
+- Use about 250-300 lines as a soft limit for a single source file.
+- If a submodule grows beyond that or starts mixing distinct responsibilities,
+  split it into a dedicated `src/<Submodule>/` directory and separate files.
 
 ### Documenter.jl site
 
 - Documentation is built with Documenter under `docs/`.
 - `docs/make.jl` must build cleanly for PR-ready work.
+- In manual pages, prefer `@autodocs` over long hand-written `@docs` lists when
+  a page is primarily mirroring docstrings from source files.
+- Use `Pages = [...]` and `Modules = [...]` filters so `@autodocs` stays scoped
+  to the intended local source files.
 
 ### Documentation structure
 
@@ -142,15 +156,15 @@ Julia arrays passed to the C API must be contiguous in memory.
 
 The docs should clearly describe:
 
-- the old module split restored in this branch
+- the restored old module split now used by the implementation
 - `TensorNetworks.TensorTrain = Vector{Tensor} + llim/rlim`
 - `SimpleTT.TensorTrain{T,N}`
 - `TensorCI.crossinterpolate2 -> TensorCI2`
 - `SimpleTT.TensorTrain(tci)` conversion
 - wrapper re-exports for `QuanticsGrids` and `QuanticsTCI`
 - `TensorNetworks.LinearOperator` plus `QuanticsTransform` constructors
-- the remaining `TensorNetworks` helper names as skeleton APIs even before real
-  backend behavior is wired
+- the remaining `TensorNetworks` helper names, with implemented behavior and
+  missing behavior called out explicitly
 - pure Julia `save_as_mps` / `load_tt`
 - minimized Julia-facing C API assumptions
 

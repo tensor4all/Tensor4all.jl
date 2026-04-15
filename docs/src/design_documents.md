@@ -15,5 +15,5 @@ The active Julia frontend design set lives in `docs/design/`.
 ## Reading Order
 
 Start with the overview, then read `Core`, `TensorNetworks`, `SimpleTT`, and
-`TensorCI` in that order. `QuanticsTransform` describes the deferred operator
-story that sits on top of those layers.
+`TensorCI` in that order. `QuanticsTransform` describes the operator story that
+sits on top of those layers and the remaining kernel gaps.

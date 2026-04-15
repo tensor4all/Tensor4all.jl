@@ -2,6 +2,12 @@ module TensorCI
 
 using TensorCrossInterpolation
 
+"""
+    TensorCI2
+
+Public alias for the multi-site tensor-cross-interpolation result type from
+`TensorCrossInterpolation.jl`.
+"""
 const TensorCI2 = TensorCrossInterpolation.TensorCI2
 
 function _reexportable_symbols()
@@ -20,6 +26,11 @@ end
 
 export TensorCI2, crossinterpolate2
 
+"""
+    crossinterpolate2(T, f, localdims; kwargs...)
+
+Run tensor cross interpolation and return the public `TensorCI2` result.
+"""
 function crossinterpolate2(::Type{T}, f, localdims; kwargs...) where {T}
     length(localdims) >= 2 || throw(
         ArgumentError(

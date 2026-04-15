@@ -41,8 +41,9 @@ That keeps `QuanticsTransform` aligned with the reduced Julia frontend story.
 
 ## Current Phase 1 Shape
 
-The current skeleton constructors return `TensorNetworks.LinearOperator` values
-whose `metadata` field records the requested transform.
+The current constructors return `TensorNetworks.LinearOperator` values whose
+`metadata` field records the requested transform. They do not yet materialize a
+backend-executable MPO or implement `TensorNetworks.apply`.
 
 Available constructor names are:
 

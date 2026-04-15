@@ -14,6 +14,17 @@
 - `Tensor4all.inds`, `Tensor4all.rank`, `Tensor4all.dims`,
   `Tensor4all.swapinds`, `Tensor4all.contract`
 
+```@docs
+Tensor4all
+```
+
+```@autodocs
+Modules = [Tensor4all]
+Pages = ["Tensor4all.jl", "Core/Errors.jl", "Core/Backend.jl", "Core/Index.jl", "Core/Tensor.jl"]
+Private = false
+Order = [:type, :function]
+```
+
 ## TensorNetworks
 
 The public chain wrapper is `Tensor4all.TensorNetworks.TensorTrain`.
@@ -50,9 +61,17 @@ Other chain-facing names in this layer include:
 `TensorNetworks.TensorTrain` is the container that HDF5 compatibility works
 against.
 
-Most of these names are still deliberate skeleton entry points in the current
-phase. Their presence is part of the API contract even where backend behavior is
-not implemented yet.
+The current Julia implementation includes the full helper surface above.
+`set_input_space!`, `set_output_space!`, and `set_iospaces!` accept explicit
+`Vector{Index}` arguments only. `apply` is implemented for the current
+chain-oriented backend path.
+
+```@autodocs
+Modules = [Tensor4all.TensorNetworks]
+Pages = ["TensorNetworks/types.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/transforms.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/deferred.jl"]
+Private = false
+Order = [:type, :function]
+```
 
 ## SimpleTT
 
@@ -76,6 +95,17 @@ The important conventions are:
 - `compress!` supports `:LU`, `:CI`, and `:SVD`
 - `contract` supports `algorithm = :naive` and `algorithm = :zipup`
 
+```@autodocs
+Modules = [Tensor4all.SimpleTT]
+Pages = ["SimpleTT.jl"]
+Private = false
+Order = [:type, :function]
+```
+
+```@docs
+Tensor4all.SimpleTT.contract
+```
+
 ## TensorCI
 
 `Tensor4all.TensorCI.crossinterpolate2` is the interpolation boundary.
@@ -83,9 +113,16 @@ The important conventions are:
 It returns `TensorCI2` for the supported multi-site path. Conversion into the
 raw numerical TT layer happens through `Tensor4all.SimpleTT.TensorTrain(tci)`.
 
+```@autodocs
+Modules = [Tensor4all.TensorCI]
+Pages = ["TensorCI.jl"]
+Private = false
+Order = [:type, :function]
+```
+
 ## QuanticsTransform
 
-`Tensor4all.QuanticsTransform` provides transform-constructor skeletons such as:
+`Tensor4all.QuanticsTransform` provides transform constructors such as:
 
 - `shift_operator`
 - `flip_operator`
@@ -97,6 +134,17 @@ raw numerical TT layer happens through `Tensor4all.SimpleTT.TensorTrain(tci)`.
 
 These constructors return `TensorNetworks.LinearOperator` values. The generic
 operator type itself does not live in `QuanticsTransform`.
+
+In the current branch these constructors are metadata-only descriptions of the
+requested quantics operator. Real operator execution remains owned by
+`TensorNetworks.apply`.
+
+```@autodocs
+Modules = [Tensor4all.QuanticsTransform]
+Pages = ["QuanticsTransform.jl"]
+Private = false
+Order = [:function]
+```
 
 ## Adopted Modules
 
