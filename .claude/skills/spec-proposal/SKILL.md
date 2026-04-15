@@ -49,3 +49,6 @@ Write the spec with these sections:
 - If the change touches the C API boundary, note that explicitly.
 - Validate that the proposed approach is consistent with `AGENTS.md` design
   principles (e.g. Julia-owned semantics, minimized C API).
+- If the feature requires new C API functions in tensor4all-rs, state this
+  explicitly and suggest opening a linked issue on the tensor4all-rs repository.
+  See the "Cross-Repository Changes" section of `CONTRIBUTING.md`.

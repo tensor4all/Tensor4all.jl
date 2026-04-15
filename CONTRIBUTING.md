@@ -79,6 +79,21 @@ etc.) to assist with each phase:
 Skills are located in `.claude/skills/` and are compatible with both Claude Code
 and OpenCode.
 
+## Cross-Repository Changes (C API)
+
+Some features require new C API functions in
+[tensor4all-rs](https://github.com/tensor4all/tensor4all-rs). When this is the
+case:
+
+1. Open an issue on **tensor4all-rs** using its issue template. Link it to the
+   Tensor4all.jl issue in the "Related Tensor4all.jl issue" field.
+2. The tensor4all-rs PR must be merged first.
+3. Update the pin in `deps/build.jl` to the merged commit.
+4. Then open the Tensor4all.jl implementation PR.
+
+If you are unsure whether C API changes are needed, note it in your spec. The
+maintainer will advise during review.
+
 ## Code Guidelines
 
 - Read `AGENTS.md` before working on the codebase.
