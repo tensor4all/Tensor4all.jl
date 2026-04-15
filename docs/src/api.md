@@ -79,9 +79,20 @@ Other chain-facing names in this layer include:
 `TensorNetworks.TensorTrain` is the container that HDF5 compatibility works
 against.
 
-Most of these names are still deliberate skeleton entry points in the current
-phase. Their presence is part of the API contract even where backend behavior is
-not implemented yet.
+Implemented today:
+
+- `TensorTrain` and `LinearOperator` are usable data containers
+- `set_input_space!`, `set_output_space!`, and `set_iospaces!` work on explicit
+  `Vector{Index}` inputs
+- `save_as_mps` and `load_tt` perform HDF5 roundtrip for the chain container
+
+Still missing:
+
+- tensor-train-based `set_input_space!` / `set_output_space!` / `set_iospaces!`
+- the site-query and site-rewrite helpers listed above
+- executable `apply`
+
+The missing entry points currently throw `Tensor4all.SkeletonNotImplemented`.
 
 ```@docs
 Tensor4all.TensorNetworks
@@ -148,7 +159,7 @@ Tensor4all.TensorCI.crossinterpolate2
 
 ## QuanticsTransform
 
-`Tensor4all.QuanticsTransform` provides transform-constructor skeletons such as:
+`Tensor4all.QuanticsTransform` provides transform constructors such as:
 
 - `shift_operator`
 - `flip_operator`
@@ -158,8 +169,18 @@ Tensor4all.TensorCI.crossinterpolate2
 - `affine_operator`
 - `binaryop_operator`
 
-These constructors return `TensorNetworks.LinearOperator` values. The generic
-operator type itself does not live in `QuanticsTransform`.
+Implemented today:
+
+- each constructor returns a `TensorNetworks.LinearOperator`
+- the returned operator records its constructor arguments in `metadata`
+
+Still missing:
+
+- Rust-aligned argument validation and normalization
+- executable MPO or kernel-backed operator construction
+- numeric `TensorNetworks.apply` integration
+
+The generic operator type itself does not live in `QuanticsTransform`.
 
 ```@docs
 Tensor4all.QuanticsTransform
