@@ -3,6 +3,20 @@ using Tensor4all
 
 const TN = Tensor4all.TensorNetworks
 
+function assert_throws_with_message(f::Function, exception_type, needle::AbstractString)
+    err = try
+        f()
+        nothing
+    catch caught
+        caught
+    end
+    @test err isa exception_type
+    if err !== nothing
+        @test occursin(needle, sprint(showerror, err))
+    end
+    return nothing
+end
+
 function mps_like_fixture()
     s1 = Index(2; tags=["x", "x=1"])
     s2 = Index(2; tags=["x", "x=2"])
@@ -116,12 +130,14 @@ end
 
         @test TN.findsite(fixture.tt, fixture.sites[2]) == 2
         @test TN.findsite(fixture.tt, [fixture.sites[2], fixture.sites[3]]) == 2
+        @test TN.findsite(fixture.tt, [fixture.sites[3], fixture.sites[2]]) == 2
         @test TN.findsite(fixture.tt, [missing, fixture.sites[3]]) == 3
         @test TN.findsite(fixture.tt, fixture.links[1]) == 1
         @test TN.findsite(fixture.tt, missing) === nothing
 
         @test TN.findsites(fixture.tt, fixture.sites[2]) == [2]
         @test TN.findsites(fixture.tt, [fixture.sites[1], fixture.sites[3]]) == [1, 3]
+        @test TN.findsites(fixture.tt, [fixture.sites[3], fixture.sites[1]]) == [1, 3]
         @test TN.findsites(fixture.tt, [missing, fixture.sites[3]]) == [3]
         @test TN.findsites(fixture.tt, fixture.links[1]) == [1, 2]
         @test isempty(TN.findsites(fixture.tt, missing))
@@ -133,12 +149,14 @@ end
 
         @test TN.findsite(fixture.tt, fixture.input_sites[2]) == 2
         @test TN.findsite(fixture.tt, [fixture.output_sites[2], fixture.input_sites[3]]) == 2
+        @test TN.findsite(fixture.tt, [fixture.input_sites[3], fixture.output_sites[2]]) == 2
         @test TN.findsite(fixture.tt, [missing, fixture.output_sites[3]]) == 3
         @test TN.findsite(fixture.tt, fixture.links[1]) == 1
         @test TN.findsite(fixture.tt, missing) === nothing
 
         @test TN.findsites(fixture.tt, fixture.output_sites[2]) == [2]
         @test TN.findsites(fixture.tt, [fixture.output_sites[1], fixture.input_sites[3]]) == [1, 3]
+        @test TN.findsites(fixture.tt, [fixture.input_sites[3], fixture.output_sites[1]]) == [1, 3]
         @test TN.findsites(fixture.tt, [missing, fixture.output_sites[3]]) == [3]
         @test TN.findsites(fixture.tt, fixture.links[1]) == [1, 2]
         @test isempty(TN.findsites(fixture.tt, missing))
@@ -170,10 +188,18 @@ end
         @test gap.trailing_numbered ∉ TN.findallsiteinds_by_tag(gap.tt; tag="gap")
         @test gap.bare_only ∉ TN.findallsiteinds_by_tag(gap.tt; tag="gap")
 
-        @test_throws "Invalid tag" TN.findallsites_by_tag(mps.tt; tag="x=1")
-        @test_throws "Invalid tag" TN.findallsiteinds_by_tag(mps.tt; tag="x=1")
-        @test_throws "dup=1" TN.findallsites_by_tag(dup.tt; tag="dup")
-        @test_throws "dup=1" TN.findallsiteinds_by_tag(dup.tt; tag="dup")
+        assert_throws_with_message(ArgumentError, "Invalid tag") do
+            TN.findallsites_by_tag(mps.tt; tag="x=1")
+        end
+        assert_throws_with_message(ArgumentError, "Invalid tag") do
+            TN.findallsiteinds_by_tag(mps.tt; tag="x=1")
+        end
+        assert_throws_with_message(ArgumentError, "dup=1") do
+            TN.findallsites_by_tag(dup.tt; tag="dup")
+        end
+        assert_throws_with_message(ArgumentError, "dup=1") do
+            TN.findallsiteinds_by_tag(dup.tt; tag="dup")
+        end
     end
 
     @testset "replace_siteinds is non-mutating" begin
@@ -310,7 +336,11 @@ end
         ]
         missing = Index(2; tags=["y", "y=9"])
 
-        @test_throws "Length mismatch" TN.replace_siteinds(fixture.tt, fixture.sites, new_sites[1:2])
-        @test_throws "Not found" TN.replace_siteinds!(fixture.tt, [missing], [new_sites[1]])
+        assert_throws_with_message(DimensionMismatch, "Length mismatch") do
+            TN.replace_siteinds(fixture.tt, fixture.sites, new_sites[1:2])
+        end
+        assert_throws_with_message(ArgumentError, "Not found") do
+            TN.replace_siteinds!(fixture.tt, [missing], [new_sites[1]])
+        end
     end
 end

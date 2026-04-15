@@ -33,12 +33,6 @@ using Tensor4all
         3,
     )
 
-    @test_throws Tensor4all.SkeletonNotImplemented TN.findsite(tt, i1)
-    @test_throws Tensor4all.SkeletonNotImplemented TN.findsites(tt, i1)
-    @test_throws Tensor4all.SkeletonNotImplemented TN.findallsiteinds_by_tag(tt; tag="x")
-    @test_throws Tensor4all.SkeletonNotImplemented TN.findallsites_by_tag(tt; tag="x")
-    @test_throws Tensor4all.SkeletonNotImplemented TN.replace_siteinds!(tt, [i1], [sim(i1)])
-    @test_throws Tensor4all.SkeletonNotImplemented TN.replace_siteinds(tt, [i1], [sim(i1)])
     @test_throws Tensor4all.SkeletonNotImplemented TN.replace_siteinds_part!(tt, [i1], [sim(i1)])
     @test_throws Tensor4all.SkeletonNotImplemented TN.rearrange_siteinds(tt, [[i1], [i2]])
     @test_throws Tensor4all.SkeletonNotImplemented TN.makesitediagonal(tt, "x")
