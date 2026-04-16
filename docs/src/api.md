@@ -12,7 +12,9 @@
 - `Tensor4all.replaceind`, `Tensor4all.replaceinds`
 - `Tensor4all.commoninds`, `Tensor4all.uniqueinds`
 - `Tensor4all.inds`, `Tensor4all.rank`, `Tensor4all.dims`,
-  `Tensor4all.swapinds`, `Tensor4all.contract`
+  `Tensor4all.swapinds`
+- `Tensor4all.contract` — **not yet implemented**; calling this will raise
+  `SkeletonNotImplemented`
 
 ```@docs
 Tensor4all
@@ -51,7 +53,7 @@ Other chain-facing names in this layer include:
 - `Tensor4all.TensorNetworks.replace_siteinds!`
 - `Tensor4all.TensorNetworks.replace_siteinds`
 - `Tensor4all.TensorNetworks.replace_siteinds_part!`
-- `Tensor4all.TensorNetworks.rearrange_siteinds`
+- `Tensor4all.TensorNetworks.rearrange_siteinds` — **not yet implemented**
 - `Tensor4all.TensorNetworks.makesitediagonal`
 - `Tensor4all.TensorNetworks.extractdiagonal`
 - `Tensor4all.TensorNetworks.matchsiteinds`

@@ -35,6 +35,41 @@ primary public story.
 - broader `TreeTensorNetwork` / non-chain functionality
 - finalized Julia-facing reduced `tensor4all-rs` ABI documentation
 
+## Installation
+
+### Prerequisites
+
+- Julia 1.9 or later
+- A Rust toolchain (cargo) — installed automatically via
+  [RustToolChain.jl](https://github.com/nicholaskl97/RustToolChain.jl) during
+  the build step
+- Git (for the GitHub clone fallback if no local `tensor4all-rs` source is
+  available)
+
+### Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/tensor4all/Tensor4all.jl.git
+cd Tensor4all.jl
+
+# Install Julia dependencies
+julia --startup-file=no --project=. -e 'using Pkg; Pkg.instantiate()'
+
+# Build the Rust backend library
+julia --startup-file=no --project=. deps/build.jl
+
+# Verify the installation
+julia --startup-file=no --project=. -e 'using Tensor4all; println("Tensor4all loaded successfully")'
+```
+
+If you have a local `tensor4all-rs` checkout, point to it before building:
+
+```bash
+export TENSOR4ALL_RS_PATH=/path/to/tensor4all-rs
+julia --startup-file=no --project=. deps/build.jl
+```
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution flow (issue →

@@ -7,6 +7,7 @@ makedocs(
     repo=Documenter.Remotes.GitHub("tensor4all", "Tensor4all.jl"),
     pages=[
         "Home" => "index.md",
+        "Getting Started" => "getting_started.md",
         "Architecture Status" => "modules.md",
         "API Reference" => "api.md",
         "Design Documents" => "design_documents.md",

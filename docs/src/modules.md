@@ -46,6 +46,21 @@ wrapper modules, but they are not owned by `Tensor4all.jl`.
   TensorTrain-driven auto-binding.
 - The Julia-facing C API target is reduced and chain-oriented.
 
+## Two TensorTrain Types
+
+The codebase has two separate tensor-train types:
+
+- **`TensorNetworks.TensorTrain`** stores `Vector{Tensor}` with index metadata.
+  Use this for index-aware operations: site queries, index replacement, HDF5
+  save/load, and operator application.
+- **`SimpleTT.TensorTrain{T,N}`** stores `Vector{Array{T,N}}` as raw arrays.
+  Use this for numerical algorithms: compression, MPO-MPO contraction, and as
+  the output of `TensorCI.crossinterpolate2`.
+
+There is currently no automatic conversion between the two types. They serve
+different purposes in the module hierarchy: `SimpleTT` handles numerics,
+`TensorNetworks` handles indexed semantics.
+
 ## Still Deferred
 
 - deeper `QuanticsTransform` kernel coverage and edge-case validation
