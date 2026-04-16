@@ -76,8 +76,14 @@ etc.) to assist with each phase:
 | `plan-proposal` | Write an implementation plan | Contributors |
 | `implement-plan` | Implement from an approved plan | Maintainers |
 
-Skills are located in `.claude/skills/` and are compatible with both Claude Code
-and OpenCode.
+### How to use skills
+
+**Claude Code:** Type `/spec-proposal` or `/plan-proposal` as a slash command.
+
+**OpenCode:** Skills are auto-discovered from `.claude/skills/`. Invoke by name.
+
+**Other AI tools:** Ask your AI assistant to read the skill file (e.g.
+`.claude/skills/spec-proposal/SKILL.md`) and follow its instructions.
 
 ## Cross-Repository Changes (C API)
 
