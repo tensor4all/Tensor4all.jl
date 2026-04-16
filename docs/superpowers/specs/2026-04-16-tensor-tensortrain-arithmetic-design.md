@@ -56,7 +56,10 @@ StatusCode t4a_treetn_canonical_region(
 );
 
 // Add two tree tensor networks (direct sum of bond dimensions)
-// Optional truncation: set rtol > 0 or maxdim > 0 to truncate after addition.
+// Optional truncation: any nonzero truncation param enables truncation.
+// cutoff is converted to rtol = sqrt(cutoff) following TruncationParams
+// semantics. If both rtol and cutoff are set, rtol takes precedence.
+// maxdim caps the bond dimension independently.
 StatusCode t4a_treetn_add(
     const struct t4a_treetn *a,
     const struct t4a_treetn *b,
@@ -96,6 +99,9 @@ sorted ascending because the Rust backend stores the region as a `HashSet`.
 4. **Audit existing code**: Review all Julia code that constructs `TensorTrain`
    with hand-written limits (e.g., `matchsiteinds` at
    `src/TensorNetworks/matchsiteinds.jl:228,259`) for correctness.
+   Rule: `matchsiteinds` and similar embedding operations that change the chain
+   structure must reset to `llim = 0`, `rlim = length + 1` since the
+   original canonical form does not survive structural changes.
 
 ### Testing rule
 
@@ -182,8 +188,9 @@ Before calling any C API function for TT operations, validate in Julia:
 
 - All operations returning `TensorTrain` go through `_treetn_from_handle`,
   which automatically syncs `llim`/`rlim` from the backend (Phase 0).
-- `isapprox` follows ITensorMPS.jl signature:
+- `isapprox` follows ITensorMPS.jl signature and semantics:
   `isapprox(a, b; atol=0, rtol=Base.rtoldefault(...))`.
+  Uses `norm(a - b)` (exact subtraction, matching ITensorMPS.jl).
   Includes the `isfinite(d)` check and error on nonfinite distance.
 - `dist` uses the efficient 3-inner-product formula (same as ITensorMPS.jl's
   `dist`), avoiding bond dimension growth.
