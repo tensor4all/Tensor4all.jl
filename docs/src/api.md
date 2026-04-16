@@ -13,8 +13,12 @@
 - `Tensor4all.commoninds`, `Tensor4all.uniqueinds`
 - `Tensor4all.inds`, `Tensor4all.rank`, `Tensor4all.dims`,
   `Tensor4all.swapinds`
-- `Tensor4all.contract` — **not yet implemented**; calling this will raise
-  `SkeletonNotImplemented`
+- `Tensor4all.dag` — pure Julia tensor conjugation
+- `Array(t, inds...)` — dense tensor extraction in the requested index order
+- `Tensor4all.contract` — backend tensor contraction via the
+  `t4a_tensor_contract` C API
+- `Tensor4all.svd`, `Tensor4all.qr` — backend tensor factorizations via the
+  C API
 
 ```@docs
 Tensor4all
@@ -59,6 +63,15 @@ Other chain-facing names in this layer include:
 - `Tensor4all.TensorNetworks.matchsiteinds`
 - `Tensor4all.TensorNetworks.save_as_mps`
 - `Tensor4all.TensorNetworks.load_tt`
+- `Tensor4all.TensorNetworks.dag`
+- `Tensor4all.TensorNetworks.linkinds`
+- `Tensor4all.TensorNetworks.linkdims`
+- `Tensor4all.TensorNetworks.siteinds`
+- `Tensor4all.TensorNetworks.orthogonalize`
+- `Tensor4all.TensorNetworks.truncate`
+- `Tensor4all.TensorNetworks.add`
+- `Tensor4all.TensorNetworks.dot`, `Tensor4all.TensorNetworks.inner`
+- `Tensor4all.TensorNetworks.dist`
 
 `TensorNetworks.TensorTrain` is the container that HDF5 compatibility works
 against.
@@ -66,7 +79,9 @@ against.
 The current Julia implementation includes the full helper surface above.
 `set_input_space!`, `set_output_space!`, and `set_iospaces!` accept explicit
 `Vector{Index}` arguments only. `apply` is implemented for the current
-chain-oriented backend path.
+chain-oriented backend path. `TensorTrain` also supports scalar arithmetic and
+comparison on the current backend path through `+`, `-`, scalar `*`, scalar
+`/`, `norm`, `dot`/`inner`, `isapprox`, `dist`, and `add`.
 
 ```@autodocs
 Modules = [Tensor4all.TensorNetworks]
@@ -137,13 +152,19 @@ Order = [:type, :function]
 These constructors return `TensorNetworks.LinearOperator` values. The generic
 operator type itself does not live in `QuanticsTransform`.
 
-In the current branch these constructors are metadata-only descriptions of the
-requested quantics operator. Real operator execution remains owned by
-`TensorNetworks.apply`.
+In the current branch, `shift_operator`, `shift_operator_multivar`,
+`flip_operator`, `flip_operator_multivar`, `phase_rotation_operator`,
+`phase_rotation_operator_multivar`, `cumsum_operator`, `fourier_operator`, and
+`affine_operator` materialize real MPO-backed operators through the C API.
+`TensorNetworks.apply` owns execution of those materialized operators once the
+I/O spaces are bound.
+
+`affine_pullback_operator` and `binaryop_operator` remain deferred
+metadata-only placeholders in this phase.
 
 ```@autodocs
 Modules = [Tensor4all.QuanticsTransform]
-Pages = ["QuanticsTransform.jl"]
+Pages = ["QuanticsTransform/QuanticsTransform.jl", "QuanticsTransform/operators.jl"]
 Private = false
 Order = [:function]
 ```
