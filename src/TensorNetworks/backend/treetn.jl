@@ -88,6 +88,32 @@ function _derive_llim_rlim(canonical_region::Vector{Int}, ntensors::Int)
     return 0, ntensors + 1
 end
 
+function _treetn_scale(tt::TensorTrain, re::Float64, im::Float64)
+    isempty(tt.data) && throw(ArgumentError("TensorTrain must not be empty for scalar multiply"))
+
+    scalar_kind = im == 0.0 ? _promoted_scalar_kind(tt) : :c64
+    tt_handle = _new_treetn_handle(tt, scalar_kind)
+    result_handle = C_NULL
+    try
+        out = Ref{Ptr{Cvoid}}(C_NULL)
+        status = ccall(
+            _t4a(:t4a_treetn_scale),
+            Cint,
+            (Ptr{Cvoid}, Cdouble, Cdouble, Ref{Ptr{Cvoid}}),
+            tt_handle,
+            re,
+            im,
+            out,
+        )
+        _check_backend_status(status, "scaling TensorTrain")
+        result_handle = out[]
+        return _treetn_from_handle(result_handle)
+    finally
+        _release_treetn_handle(result_handle)
+        _release_treetn_handle(tt_handle)
+    end
+end
+
 function _treetn_from_handle(ptr::Ptr{Cvoid})
     ntensors = _treetn_num_vertices(ptr)
     tensors = Tensor[]
@@ -104,3 +130,8 @@ function _treetn_from_handle(ptr::Ptr{Cvoid})
     llim, rlim = _derive_llim_rlim(canonical_region, ntensors)
     return TensorTrain(tensors, llim, rlim)
 end
+
+Base.:*(α::Number, tt::TensorTrain) = _treetn_scale(tt, Float64(real(α)), Float64(imag(α)))
+Base.:*(tt::TensorTrain, α::Number) = α * tt
+Base.:/(tt::TensorTrain, α::Number) = tt * inv(α)
+Base.:-(tt::TensorTrain) = _treetn_scale(tt, -1.0, 0.0)
