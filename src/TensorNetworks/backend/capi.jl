@@ -6,7 +6,52 @@ const _T4A_CONTRACT_METHOD_ZIPUP = Cint(0)
 const _T4A_CONTRACT_METHOD_FIT = Cint(1)
 const _T4A_CONTRACT_METHOD_NAIVE = Cint(2)
 
+const _T4A_QTT_LAYOUT_INTERLEAVED = Cint(1)
+const _T4A_QTT_LAYOUT_FUSED = Cint(2)
+
+const _T4A_BC_PERIODIC = Cint(0)
+const _T4A_BC_OPEN = Cint(1)
+
 _t4a(symbol::Symbol) = Libdl.dlsym(require_backend(), symbol)
+
+function _bc_code(bc::Symbol)
+    bc === :periodic && return _T4A_BC_PERIODIC
+    bc === :open && return _T4A_BC_OPEN
+    throw(ArgumentError("unknown boundary condition $bc. Expected :periodic or :open"))
+end
+
+function _new_qtt_layout_handle(nvars::Integer, resolutions::Vector{<:Integer})
+    nvars > 0 || throw(ArgumentError("nvars must be positive, got $nvars"))
+    length(resolutions) == nvars || throw(
+        DimensionMismatch("expected $nvars variable resolutions, got $(length(resolutions))"),
+    )
+    all(>(0), resolutions) || throw(
+        ArgumentError("variable resolutions must all be positive, got $resolutions"),
+    )
+    length(unique(resolutions)) == 1 || throw(
+        ArgumentError("fused QTT layouts require all variable resolutions to match, got $resolutions"),
+    )
+
+    out = Ref{Ptr{Cvoid}}(C_NULL)
+    res_c = Csize_t[Csize_t(r) for r in resolutions]
+    status = ccall(
+        _t4a(:t4a_qtt_layout_new),
+        Cint,
+        (Cint, Csize_t, Ptr{Csize_t}, Ref{Ptr{Cvoid}}),
+        _T4A_QTT_LAYOUT_FUSED,
+        Csize_t(nvars),
+        res_c,
+        out,
+    )
+    _check_backend_status(status, "creating QTT layout")
+    return out[]
+end
+
+function _release_qtt_layout_handle(ptr::Ptr{Cvoid})
+    ptr == C_NULL && return nothing
+    ccall(_t4a(:t4a_qtt_layout_release), Cvoid, (Ptr{Cvoid},), ptr)
+    return nothing
+end
 
 function _c_string_from_buffer(buf::Vector{UInt8})
     nul = findfirst(==(0x00), buf)
