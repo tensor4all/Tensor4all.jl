@@ -3,13 +3,16 @@ module TensorNetworks
 using Libdl
 import LinearAlgebra
 import LinearAlgebra: norm
-using ..Tensor4all: BackendUnavailableError, Index, Tensor, SkeletonNotImplemented, dim, hastag, id, inds, plev, prime, rank, require_backend, tags
+import ..Tensor4all: dag
+using ..Tensor4all: BackendUnavailableError, Index, Tensor, SkeletonNotImplemented, commoninds, dim, hastag, id, inds, plev, prime, rank, require_backend, tags
 
 const _LINK_TAG = "Link"
 
 export TensorTrain, LinearOperator
-export add, dot, inner, dist
+export add, dag, dot, inner, dist
+export linkinds, linkdims, siteinds
 export norm
+export orthogonalize, truncate
 export set_input_space!, set_output_space!, set_iospaces!, apply
 export findsite, findsites, findallsiteinds_by_tag, findallsites_by_tag
 export replace_siteinds!, replace_siteinds, replace_siteinds_part!
@@ -24,6 +27,7 @@ include("TensorNetworks/transforms.jl")
 include("TensorNetworks/backend/capi.jl")
 include("TensorNetworks/backend/tensors.jl")
 include("TensorNetworks/backend/treetn.jl")
+include("TensorNetworks/backend/treetn_queries.jl")
 include("TensorNetworks/backend/apply.jl")
 include("TensorNetworks/deferred.jl")
 

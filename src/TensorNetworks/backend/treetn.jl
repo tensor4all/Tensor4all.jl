@@ -88,6 +88,15 @@ function _derive_llim_rlim(canonical_region::Vector{Int}, ntensors::Int)
     return 0, ntensors + 1
 end
 
+const _T4A_CANONICAL_FORM_UNITARY = Cint(0)
+const _T4A_CANONICAL_FORM_LU = Cint(1)
+
+function _canonical_form_code(form::Symbol)
+    form === :unitary && return _T4A_CANONICAL_FORM_UNITARY
+    form === :lu && return _T4A_CANONICAL_FORM_LU
+    throw(ArgumentError("unknown canonical form $form. Expected :unitary or :lu"))
+end
+
 function _treetn_scale(tt::TensorTrain, re::Float64, im::Float64)
     isempty(tt.data) && throw(ArgumentError("TensorTrain must not be empty for scalar multiply"))
 
@@ -149,6 +158,67 @@ function _treetn_from_handle(ptr::Ptr{Cvoid})
     canonical_region = _treetn_canonical_region(ptr)
     llim, rlim = _derive_llim_rlim(canonical_region, ntensors)
     return TensorTrain(tensors, llim, rlim)
+end
+
+"""
+    orthogonalize(tt, site; form=:unitary)
+
+Orthogonalize `tt` to the requested one-based `site` using the backend chain
+canonicalization routine.
+"""
+function orthogonalize(tt::TensorTrain, site::Integer; form::Symbol=:unitary)
+    isempty(tt.data) && throw(ArgumentError("TensorTrain must not be empty"))
+    1 <= site <= length(tt) || throw(ArgumentError("site must be in 1:$(length(tt)), got $site"))
+
+    scalar_kind = _promoted_scalar_kind(tt)
+    tt_handle = _new_treetn_handle(tt, scalar_kind)
+    try
+        status = ccall(
+            _t4a(:t4a_treetn_orthogonalize),
+            Cint,
+            (Ptr{Cvoid}, Csize_t, Cint),
+            tt_handle,
+            Csize_t(site - 1),
+            _canonical_form_code(form),
+        )
+        _check_backend_status(status, "orthogonalizing TensorTrain to site $site")
+        return _treetn_from_handle(tt_handle)
+    finally
+        _release_treetn_handle(tt_handle)
+    end
+end
+
+"""
+    truncate(tt; rtol=0.0, cutoff=0.0, maxdim=0)
+
+Truncate TensorTrain bond dimensions with backend truncation controls.
+"""
+function truncate(tt::TensorTrain; rtol::Real=0.0, cutoff::Real=0.0, maxdim::Integer=0)
+    isempty(tt.data) && throw(ArgumentError("TensorTrain must not be empty"))
+    rtol >= 0 || throw(ArgumentError("rtol must be nonnegative, got $rtol"))
+    cutoff >= 0 || throw(ArgumentError("cutoff must be nonnegative, got $cutoff"))
+    maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
+    (rtol == 0.0 && cutoff == 0.0 && maxdim == 0) && throw(
+        ArgumentError("At least one of rtol, cutoff, or maxdim must be specified"),
+    )
+
+    scalar_kind = _promoted_scalar_kind(tt)
+    tt_handle = _new_treetn_handle(tt, scalar_kind)
+    try
+        status = ccall(
+            _t4a(:t4a_treetn_truncate),
+            Cint,
+            (Ptr{Cvoid}, Cdouble, Cdouble, Csize_t),
+            tt_handle,
+            float(rtol),
+            float(cutoff),
+            Csize_t(maxdim),
+        )
+        _check_backend_status(status, "truncating TensorTrain")
+        return _treetn_from_handle(tt_handle)
+    finally
+        _release_treetn_handle(tt_handle)
+    end
 end
 
 """

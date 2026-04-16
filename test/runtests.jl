@@ -3,13 +3,16 @@ using Tensor4all
 
 include("api/skeleton_alignment.jl")
 include("core/tensor_arithmetic.jl")
+include("core/tensor_factorize.jl")
 include("core/tensor_contract.jl")
 include("tensornetworks/tensortrain.jl")
 include("tensornetworks/llim_rlim.jl")
 include("tensornetworks/index_queries.jl")
+include("tensornetworks/queries.jl")
 include("tensornetworks/matchsiteinds.jl")
 include("tensornetworks/apply.jl")
 include("tensornetworks/arithmetic.jl")
+include("tensornetworks/orthogonalize_truncate.jl")
 include("tensornetworks/transform_helpers.jl")
 include("tensornetworks/skeleton_surface.jl")
 include("simplett/surface.jl")
@@ -23,3 +26,4 @@ if get(ENV, "T4A_SKIP_HDF5_TESTS", "0") != "1" && Base.find_package("HDF5") !== 
     include("extensions/hdf5_roundtrip.jl")
 end
 include("quanticstransform/surface.jl")
+include("quanticstransform/materialize.jl")
