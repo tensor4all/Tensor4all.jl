@@ -10,6 +10,7 @@ still deferred, but the main chain-facing surface is implemented and testable.
 module Tensor4all
 
 using Libdl
+using LinearAlgebra: norm
 import QuanticsGrids as UpstreamQuanticsGrids
 import QuanticsTCI as UpstreamQuanticsTCI
 
@@ -33,6 +34,7 @@ export backend_library_path, require_backend
 export Index, dim, id, tags, plev, hastag
 export sim, prime, noprime, setprime
 export replaceind, replaceinds, commoninds, uniqueinds
+export norm
 export Tensor, inds, rank, dims, swapinds, contract
 export TensorNetworks, SimpleTT, TensorCI, QuanticsGrids, QuanticsTCI, QuanticsTransform
 
