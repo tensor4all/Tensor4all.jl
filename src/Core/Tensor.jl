@@ -1,5 +1,5 @@
 import Base: +, -, *, /
-import LinearAlgebra: norm
+import LinearAlgebra: norm, qr, svd
 
 """
     Tensor(data, inds; backend_handle=nothing)
@@ -81,6 +81,13 @@ function prime(t::Tensor, n::Integer=1)
 end
 
 """
+    dag(t)
+
+Return the elementwise complex-conjugated tensor with the same index metadata.
+"""
+dag(t::Tensor) = Tensor(conj(t.data), inds(t); backend_handle=nothing)
+
+"""
     swapinds(t, a, b)
 
 Swap index metadata `a` and `b` on `t`.
@@ -151,6 +158,11 @@ function Base.isapprox(
     return isapprox(a.data, b_data; atol=atol, rtol=rtol)
 end
 
+function Base.Array(t::Tensor, requested_inds::Index...)
+    perm = _match_index_permutation(inds(t), collect(requested_inds))
+    return perm == Tuple(1:rank(t)) ? copy(t.data) : permutedims(t.data, perm)
+end
+
 function _tensor_scalar_kind(tensors::Tensor...)
     any_complex = false
     for tensor in tensors
@@ -167,6 +179,29 @@ function _tensor_scalar_kind(tensors::Tensor...)
 end
 
 _tensor_networks_module() = getfield(@__MODULE__, :TensorNetworks)
+
+function _validate_tensor_left_inds(t::Tensor, left_inds::Vector{Index})
+    isempty(left_inds) && throw(ArgumentError("left_inds must not be empty"))
+    length(unique(left_inds)) == length(left_inds) || throw(
+        ArgumentError("left_inds must not contain duplicates, got $left_inds"),
+    )
+
+    tensor_inds = inds(t)
+    for idx in left_inds
+        idx in tensor_inds || throw(
+            ArgumentError("Index $idx not found in tensor indices $tensor_inds"),
+        )
+    end
+    length(left_inds) == rank(t) && throw(ArgumentError("left_inds must not contain all indices"))
+    return tensor_inds
+end
+
+function _validate_truncation_controls(; rtol::Real=0.0, cutoff::Real=0.0, maxdim::Integer=0)
+    rtol >= 0 || throw(ArgumentError("rtol must be nonnegative, got $rtol"))
+    cutoff >= 0 || throw(ArgumentError("cutoff must be nonnegative, got $cutoff"))
+    maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
+    return nothing
+end
 
 """
     contract(a, b)
@@ -205,3 +240,139 @@ function contract(a::Tensor, b::Tensor)
         tn._release_tensor_handle(a_handle)
     end
 end
+
+"""
+    svd(t, left_inds; rtol=0.0, cutoff=0.0, maxdim=0)
+
+Compute a backend SVD of `t`, grouping `left_inds` as the left partition.
+"""
+function svd(
+    t::Tensor,
+    left_inds::Vector{Index};
+    rtol::Real=0.0,
+    cutoff::Real=0.0,
+    maxdim::Integer=0,
+)
+    _validate_tensor_left_inds(t, left_inds)
+    _validate_truncation_controls(; rtol, cutoff, maxdim)
+
+    scalar_kind = _tensor_scalar_kind(t)
+    tn = _tensor_networks_module()
+    t_handle = C_NULL
+    left_handles = Ptr{Cvoid}[]
+    u_handle = C_NULL
+    s_handle = C_NULL
+    v_handle = C_NULL
+
+    try
+        t_handle = tn._new_tensor_handle(t, scalar_kind)
+        for idx in left_inds
+            push!(left_handles, tn._new_index_handle(idx))
+        end
+
+        out_u = Ref{Ptr{Cvoid}}(C_NULL)
+        out_s = Ref{Ptr{Cvoid}}(C_NULL)
+        out_v = Ref{Ptr{Cvoid}}(C_NULL)
+        status = ccall(
+            tn._t4a(:t4a_tensor_svd),
+            Cint,
+            (
+                Ptr{Cvoid},
+                Ptr{Ptr{Cvoid}},
+                Csize_t,
+                Cdouble,
+                Cdouble,
+                Csize_t,
+                Ref{Ptr{Cvoid}},
+                Ref{Ptr{Cvoid}},
+                Ref{Ptr{Cvoid}},
+            ),
+            t_handle,
+            left_handles,
+            Csize_t(length(left_handles)),
+            float(rtol),
+            float(cutoff),
+            Csize_t(maxdim),
+            out_u,
+            out_s,
+            out_v,
+        )
+        tn._check_backend_status(status, "computing tensor SVD")
+        u_handle = out_u[]
+        s_handle = out_s[]
+        v_handle = out_v[]
+        u = tn._tensor_from_handle(u_handle)
+        s = tn._tensor_from_handle(s_handle)
+        v = tn._tensor_from_handle(v_handle)
+
+        # Align V's surviving bond index with S so U * S * dag(V) reconstructs.
+        v_inds = inds(v)
+        s_inds = inds(s)
+        v = Tensor(
+            copy(v.data),
+            replaceind(v_inds, last(v_inds), last(s_inds));
+            backend_handle=v.backend_handle,
+        )
+        return (u, s, v)
+    finally
+        tn._release_tensor_handle(v_handle)
+        tn._release_tensor_handle(s_handle)
+        tn._release_tensor_handle(u_handle)
+        for handle in reverse(left_handles)
+            tn._release_index_handle(handle)
+        end
+        tn._release_tensor_handle(t_handle)
+    end
+end
+
+svd(t::Tensor, left_inds::Index...; kwargs...) = svd(t, collect(left_inds); kwargs...)
+
+"""
+    qr(t, left_inds)
+
+Compute a backend QR decomposition of `t`, grouping `left_inds` as the left
+partition.
+"""
+function qr(t::Tensor, left_inds::Vector{Index})
+    _validate_tensor_left_inds(t, left_inds)
+
+    scalar_kind = _tensor_scalar_kind(t)
+    tn = _tensor_networks_module()
+    t_handle = C_NULL
+    left_handles = Ptr{Cvoid}[]
+    q_handle = C_NULL
+    r_handle = C_NULL
+
+    try
+        t_handle = tn._new_tensor_handle(t, scalar_kind)
+        for idx in left_inds
+            push!(left_handles, tn._new_index_handle(idx))
+        end
+
+        out_q = Ref{Ptr{Cvoid}}(C_NULL)
+        out_r = Ref{Ptr{Cvoid}}(C_NULL)
+        status = ccall(
+            tn._t4a(:t4a_tensor_qr),
+            Cint,
+            (Ptr{Cvoid}, Ptr{Ptr{Cvoid}}, Csize_t, Ref{Ptr{Cvoid}}, Ref{Ptr{Cvoid}}),
+            t_handle,
+            left_handles,
+            Csize_t(length(left_handles)),
+            out_q,
+            out_r,
+        )
+        tn._check_backend_status(status, "computing tensor QR")
+        q_handle = out_q[]
+        r_handle = out_r[]
+        return (tn._tensor_from_handle(q_handle), tn._tensor_from_handle(r_handle))
+    finally
+        tn._release_tensor_handle(r_handle)
+        tn._release_tensor_handle(q_handle)
+        for handle in reverse(left_handles)
+            tn._release_index_handle(handle)
+        end
+        tn._release_tensor_handle(t_handle)
+    end
+end
+
+qr(t::Tensor, left_inds::Index...) = qr(t, collect(left_inds))

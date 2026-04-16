@@ -37,9 +37,11 @@ export Index, dim, id, tags, plev, hastag
 export sim, prime, noprime, setprime
 export replaceind, replaceinds, commoninds, uniqueinds
 export add
+export dag
 export dot, inner, dist
 export norm
 export Tensor, inds, rank, dims, swapinds, contract
+export svd, qr
 export TensorNetworks, SimpleTT, TensorCI, QuanticsGrids, QuanticsTCI, QuanticsTransform
 
 end
