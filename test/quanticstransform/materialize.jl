@@ -92,7 +92,7 @@ const QT = Tensor4all.QuanticsTransform
         end
     end
 
-    @testset "operator binding and apply" begin
+    @testset "shift_operator maps 00 to 01 on output indices" begin
         op = QT.shift_operator(2, 1; bc=:periodic)
         TN.set_iospaces!(op, op.input_indices, op.output_indices)
 
@@ -101,9 +101,14 @@ const QT = Tensor4all.QuanticsTransform
         t1 = Tensor(reshape([1.0, 0.0], 2, 1), [s_in[1], link])
         t2 = Tensor(reshape([1.0, 0.0], 1, 2), [link, s_in[2]])
         state = TN.TensorTrain([t1, t2])
+        @test map(only, TN.siteinds(state)) == op.input_indices
 
         result = TN.apply(op, state)
-        @test TN.norm(result) > 0
+        @test map(only, TN.siteinds(result)) == op.output_indices
+        @test Array(contract(result[1], result[2]), op.output_indices...) ≈ ComplexF64[
+            0.0 1.0
+            0.0 0.0
+        ]
     end
 
     @testset "deferred operators remain placeholder" begin
