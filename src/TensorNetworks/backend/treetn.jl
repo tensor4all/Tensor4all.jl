@@ -50,7 +50,45 @@ function _treetn_tensor_handle(ptr::Ptr{Cvoid}, vertex::Integer)
     return out[]
 end
 
-function _treetn_from_handle(ptr::Ptr{Cvoid}; llim::Int=0, rlim::Union{Int, Nothing}=nothing)
+function _treetn_canonical_region(ptr::Ptr{Cvoid})
+    out_len = Ref{Csize_t}(0)
+    status = ccall(
+        _t4a(:t4a_treetn_canonical_region),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t, Ref{Csize_t}),
+        ptr,
+        C_NULL,
+        Csize_t(0),
+        out_len,
+    )
+    _check_backend_status(status, "querying backend canonical region length")
+
+    nvertices = Int(out_len[])
+    nvertices == 0 && return Int[]
+
+    vertices = Vector{Csize_t}(undef, nvertices)
+    status = ccall(
+        _t4a(:t4a_treetn_canonical_region),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t, Ref{Csize_t}),
+        ptr,
+        vertices,
+        Csize_t(nvertices),
+        out_len,
+    )
+    _check_backend_status(status, "copying backend canonical region")
+    return Int.(vertices)
+end
+
+function _derive_llim_rlim(canonical_region::Vector{Int}, ntensors::Int)
+    if length(canonical_region) == 1
+        center = only(canonical_region)
+        return center, center + 2
+    end
+    return 0, ntensors + 1
+end
+
+function _treetn_from_handle(ptr::Ptr{Cvoid})
     ntensors = _treetn_num_vertices(ptr)
     tensors = Tensor[]
     for vertex in 0:(ntensors - 1)
@@ -62,6 +100,7 @@ function _treetn_from_handle(ptr::Ptr{Cvoid}; llim::Int=0, rlim::Union{Int, Noth
         end
     end
 
-    final_rlim = isnothing(rlim) ? ntensors + 1 : rlim
-    return TensorTrain(tensors, llim, final_rlim)
+    canonical_region = _treetn_canonical_region(ptr)
+    llim, rlim = _derive_llim_rlim(canonical_region, ntensors)
+    return TensorTrain(tensors, llim, rlim)
 end

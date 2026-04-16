@@ -84,4 +84,43 @@ const TN = Tensor4all.TensorNetworks
         @test embedded.rlim == 5
     end
 
+    @testset "apply() syncs llim/rlim from backend" begin
+        input_sites = [Index(2; tags=["x", "x=$n"]) for n in 1:2]
+        state_link = Index(2; tags=["Link", "state-l=1"])
+        state = TN.TensorTrain(
+            Tensor[
+                Tensor(reshape([1.0, 2.0, 3.0, 4.0], 2, 2), [input_sites[1], state_link]),
+                Tensor(reshape([1.0, -1.0, 0.5, 2.0], 2, 2), [state_link, input_sites[2]]),
+            ],
+            1,
+            2,
+        )
+
+        output_internal = [Index(2; tags=["tmpout", "tmpout=$n"]) for n in 1:2]
+        output_true = [Index(2; tags=["y", "y=$n"]) for n in 1:2]
+        op_link = Index(1; tags=["Link", "op-l=1"])
+        mpo = TN.TensorTrain(
+            Tensor[
+                Tensor(
+                    reshape([1.0, 0.0, 0.0, 1.0], 2, 2, 1),
+                    [output_internal[1], input_sites[1], op_link],
+                ),
+                Tensor(
+                    reshape([1.0, 0.0, 0.0, 1.0], 1, 2, 2),
+                    [op_link, output_internal[2], input_sites[2]],
+                ),
+            ],
+            0,
+            3,
+        )
+        op = TN.LinearOperator(; mpo, input_indices=copy(input_sites), output_indices=copy(output_internal))
+        TN.set_iospaces!(op, input_sites, output_true)
+
+        result = TN.apply(op, state)
+
+        @test (state.llim, state.rlim) == (1, 2)
+        @test (result.llim, result.rlim) == (0, 2)
+        @test result.llim != state.llim
+        @test TN.findallsiteinds_by_tag(result; tag="y") == output_true
+    end
 end
