@@ -12,6 +12,7 @@ export TensorTrain, LinearOperator
 export add, dag, dot, inner, dist
 export linkinds, linkdims, siteinds
 export norm
+export orthogonalize, truncate
 export set_input_space!, set_output_space!, set_iospaces!, apply
 export findsite, findsites, findallsiteinds_by_tag, findallsites_by_tag
 export replace_siteinds!, replace_siteinds, replace_siteinds_part!

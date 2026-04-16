@@ -28,7 +28,7 @@ include("QuanticsGrids.jl")
 include("QuanticsTCI.jl")
 include("QuanticsTransform.jl")
 
-using .TensorNetworks: add, dot, inner, dist, linkdims, linkinds, siteinds
+using .TensorNetworks: add, dot, inner, dist, linkdims, linkinds, siteinds, orthogonalize, truncate
 
 export SKELETON_PHASE
 export SkeletonPhaseError, SkeletonNotImplemented, BackendUnavailableError
@@ -41,6 +41,7 @@ export dag
 export dot, inner, dist
 export linkinds, linkdims, siteinds
 export norm
+export orthogonalize, truncate
 export Tensor, inds, rank, dims, swapinds, contract
 export svd, qr
 export TensorNetworks, SimpleTT, TensorCI, QuanticsGrids, QuanticsTCI, QuanticsTransform
