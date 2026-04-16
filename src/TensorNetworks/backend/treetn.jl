@@ -186,6 +186,88 @@ function add(a::TensorTrain, b::TensorTrain; rtol::Real=0.0, cutoff::Real=0.0, m
     end
 end
 
+"""
+    dot(a, b)
+
+Return the backend inner product of two TensorTrain chains.
+"""
+function dot(a::TensorTrain, b::TensorTrain)
+    _validate_tt_binary(a, b, "dot")
+
+    scalar_kind = _promoted_scalar_kind(a, b)
+    a_handle = _new_treetn_handle(a, scalar_kind)
+    b_handle = _new_treetn_handle(b, scalar_kind)
+    try
+        out_re = Ref{Cdouble}(0.0)
+        out_im = Ref{Cdouble}(0.0)
+        status = ccall(
+            _t4a(:t4a_treetn_inner),
+            Cint,
+            (Ptr{Cvoid}, Ptr{Cvoid}, Ref{Cdouble}, Ref{Cdouble}),
+            a_handle,
+            b_handle,
+            out_re,
+            out_im,
+        )
+        _check_backend_status(status, "computing TensorTrain inner product")
+        return ComplexF64(out_re[], out_im[])
+    finally
+        _release_treetn_handle(b_handle)
+        _release_treetn_handle(a_handle)
+    end
+end
+
+"""
+    inner(a, b)
+
+Alias for [`dot`](@ref) on TensorTrain chains.
+"""
+inner(a::TensorTrain, b::TensorTrain) = dot(a, b)
+
+function LinearAlgebra.norm(tt::TensorTrain)
+    isempty(tt.data) && throw(ArgumentError("TensorTrain must not be empty for norm"))
+
+    tt_handle = _new_treetn_handle(tt, _promoted_scalar_kind(tt))
+    try
+        out_norm = Ref{Cdouble}(0.0)
+        status = ccall(
+            _t4a(:t4a_treetn_norm),
+            Cint,
+            (Ptr{Cvoid}, Ref{Cdouble}),
+            tt_handle,
+            out_norm,
+        )
+        _check_backend_status(status, "computing TensorTrain norm")
+        return out_norm[]
+    finally
+        _release_treetn_handle(tt_handle)
+    end
+end
+
+function Base.isapprox(
+    a::TensorTrain,
+    b::TensorTrain;
+    atol::Real=0,
+    rtol::Real=Base.rtoldefault(Float64, Float64, atol),
+)
+    d = LinearAlgebra.norm(a - b)
+    isfinite(d) || error("In `isapprox(a::TensorTrain, b::TensorTrain)`, `norm(a - b)` is not finite")
+    return d <= max(atol, rtol * max(LinearAlgebra.norm(a), LinearAlgebra.norm(b)))
+end
+
+"""
+    dist(a, b)
+
+Return the Euclidean distance between two TensorTrain chains.
+"""
+function dist(a::TensorTrain, b::TensorTrain)
+    _validate_tt_binary(a, b, "dist")
+    aa = dot(a, a)
+    bb = dot(b, b)
+    ab = dot(a, b)
+    return sqrt(abs(aa + bb - 2 * real(ab)))
+end
+
 Base.:*(α::Number, tt::TensorTrain) = _treetn_scale(tt, Float64(real(α)), Float64(imag(α)))
 Base.:*(tt::TensorTrain, α::Number) = α * tt
 Base.:/(tt::TensorTrain, α::Number) = tt * inv(α)

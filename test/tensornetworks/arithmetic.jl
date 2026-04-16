@@ -121,3 +121,54 @@ end
     result = TensorNetworks.add(tt1, tt2; rtol=1e-10)
     @test length(result) == 3
 end
+
+@testset "TensorTrain inner/dot" begin
+    sites, links = make_chain_indices()
+    tt1 = make_test_mps(; sites, links, variant=:a)
+    tt2 = make_test_mps(; sites, links, variant=:b)
+
+    d = TensorNetworks.dot(tt1, tt2)
+    @test d isa Number
+
+    self_dot = TensorNetworks.dot(tt1, tt1)
+    @test real(self_dot) >= 0
+    @test abs(imag(self_dot)) < 1e-10
+
+    @test TensorNetworks.inner(tt1, tt2) ≈ d
+end
+
+@testset "TensorTrain norm" begin
+    sites, links = make_chain_indices()
+    tt = make_test_mps(; sites, links, variant=:a)
+    n = TensorNetworks.norm(tt)
+    @test n >= 0
+    @test n ≈ sqrt(real(TensorNetworks.dot(tt, tt)))
+end
+
+@testset "TensorTrain isapprox" begin
+    sites, links = make_chain_indices()
+    tt1 = make_test_mps(; sites, links, variant=:a)
+    tt2 = make_test_mps(; sites, links, variant=:b)
+
+    @test isapprox(tt1, tt1)
+    @test !isapprox(tt1, tt2; atol=1e-10)
+end
+
+@testset "TensorTrain dist" begin
+    sites, links = make_chain_indices()
+    tt1 = make_test_mps(; sites, links, variant=:a)
+    tt2 = make_test_mps(; sites, links, variant=:b)
+
+    d = TensorNetworks.dist(tt1, tt2)
+    @test d >= 0
+    @test TensorNetworks.dist(tt1, tt1) < 1e-10
+end
+
+@testset "norm/inner empty train errors" begin
+    empty_tt = TN.TensorTrain(Tensor[])
+    sites, links = make_chain_indices()
+    tt = make_test_mps(; sites, links, variant=:a)
+
+    @test_throws ArgumentError TensorNetworks.norm(empty_tt)
+    @test_throws ArgumentError TensorNetworks.dot(empty_tt, tt)
+end
