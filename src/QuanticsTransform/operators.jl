@@ -1,13 +1,3 @@
-module QuanticsTransform
-
-import ..TensorNetworks
-
-export shift_operator, shift_operator_multivar
-export flip_operator, flip_operator_multivar
-export phase_rotation_operator, phase_rotation_operator_multivar
-export cumsum_operator, fourier_operator
-export affine_operator, affine_pullback_operator, binaryop_operator
-
 _placeholder_operator(kind::Symbol; kwargs...) = TensorNetworks.LinearOperator(metadata=(; kind, kwargs...))
 
 function _require_positive_integer(name::AbstractString, value::Integer)
@@ -38,184 +28,6 @@ function _require_nonzero_integer(name::AbstractString, value)
     return value
 end
 
-function _materialized_linear_operator(treetn_handle::Ptr{Cvoid})
-    try
-        tt = TensorNetworks._treetn_from_handle(treetn_handle)
-        input_indices, output_indices = TensorNetworks._extract_mpo_io_indices(tt)
-        return TensorNetworks.LinearOperator(;
-            mpo=tt,
-            input_indices=input_indices,
-            output_indices=output_indices,
-        )
-    finally
-        TensorNetworks._release_treetn_handle(treetn_handle)
-    end
-end
-
-function _new_univariate_layout(r::Integer)
-    _require_positive_integer("r", r)
-    return TensorNetworks._new_qtt_layout_handle(1, [r])
-end
-
-function _new_multivar_layout(r::Integer, nvars::Integer)
-    _require_positive_integer("r", r)
-    _require_positive_integer("nvars", nvars)
-    return TensorNetworks._new_qtt_layout_handle(nvars, fill(r, nvars))
-end
-
-function _materialize_shift(
-    layout_handle::Ptr{Cvoid},
-    target_var::Integer,
-    offset::Integer,
-    bc::Symbol,
-    context::AbstractString,
-)
-    out = Ref{Ptr{Cvoid}}(C_NULL)
-    status = ccall(
-        TensorNetworks._t4a(:t4a_qtransform_shift_materialize),
-        Cint,
-        (Ptr{Cvoid}, Csize_t, Int64, Cint, Ref{Ptr{Cvoid}}),
-        layout_handle,
-        Csize_t(target_var),
-        Int64(offset),
-        TensorNetworks._bc_code(bc),
-        out,
-    )
-    TensorNetworks._check_backend_status(status, context)
-    return _materialized_linear_operator(out[])
-end
-
-function _materialize_flip(
-    layout_handle::Ptr{Cvoid},
-    target_var::Integer,
-    bc::Symbol,
-    context::AbstractString,
-)
-    out = Ref{Ptr{Cvoid}}(C_NULL)
-    status = ccall(
-        TensorNetworks._t4a(:t4a_qtransform_flip_materialize),
-        Cint,
-        (Ptr{Cvoid}, Csize_t, Cint, Ref{Ptr{Cvoid}}),
-        layout_handle,
-        Csize_t(target_var),
-        TensorNetworks._bc_code(bc),
-        out,
-    )
-    TensorNetworks._check_backend_status(status, context)
-    return _materialized_linear_operator(out[])
-end
-
-function _materialize_phase_rotation(
-    layout_handle::Ptr{Cvoid},
-    target_var::Integer,
-    theta,
-    context::AbstractString,
-)
-    out = Ref{Ptr{Cvoid}}(C_NULL)
-    status = ccall(
-        TensorNetworks._t4a(:t4a_qtransform_phase_rotation_materialize),
-        Cint,
-        (Ptr{Cvoid}, Csize_t, Cdouble, Ref{Ptr{Cvoid}}),
-        layout_handle,
-        Csize_t(target_var),
-        Float64(theta),
-        out,
-    )
-    TensorNetworks._check_backend_status(status, context)
-    return _materialized_linear_operator(out[])
-end
-
-function _materialize_cumsum(
-    layout_handle::Ptr{Cvoid},
-    target_var::Integer,
-    context::AbstractString,
-)
-    out = Ref{Ptr{Cvoid}}(C_NULL)
-    status = ccall(
-        TensorNetworks._t4a(:t4a_qtransform_cumsum_materialize),
-        Cint,
-        (Ptr{Cvoid}, Csize_t, Ref{Ptr{Cvoid}}),
-        layout_handle,
-        Csize_t(target_var),
-        out,
-    )
-    TensorNetworks._check_backend_status(status, context)
-    return _materialized_linear_operator(out[])
-end
-
-function _materialize_fourier(
-    layout_handle::Ptr{Cvoid},
-    target_var::Integer,
-    forward::Bool,
-    maxbonddim::Integer,
-    tolerance::Real,
-    context::AbstractString,
-)
-    _require_nonnegative_integer("maxbonddim", maxbonddim)
-    _require_nonnegative_real("tolerance", tolerance)
-
-    out = Ref{Ptr{Cvoid}}(C_NULL)
-    status = ccall(
-        TensorNetworks._t4a(:t4a_qtransform_fourier_materialize),
-        Cint,
-        (Ptr{Cvoid}, Csize_t, Int32, Csize_t, Cdouble, Ref{Ptr{Cvoid}}),
-        layout_handle,
-        Csize_t(target_var),
-        Int32(forward),
-        Csize_t(maxbonddim),
-        Float64(tolerance),
-        out,
-    )
-    TensorNetworks._check_backend_status(status, context)
-    return _materialized_linear_operator(out[])
-end
-
-function _materialize_affine(
-    layout_handle::Ptr{Cvoid},
-    a_num,
-    a_den,
-    b_num,
-    b_den,
-    bc::Symbol,
-    context::AbstractString,
-)
-    _require_nonzero_integer("a_den", a_den)
-    _require_nonzero_integer("b_den", b_den)
-
-    a_num_c = Int64[Int64(a_num)]
-    a_den_c = Int64[Int64(a_den)]
-    b_num_c = Int64[Int64(b_num)]
-    b_den_c = Int64[Int64(b_den)]
-    bc_c = Cint[TensorNetworks._bc_code(bc)]
-    out = Ref{Ptr{Cvoid}}(C_NULL)
-    status = ccall(
-        TensorNetworks._t4a(:t4a_qtransform_affine_materialize),
-        Cint,
-        (
-            Ptr{Cvoid},
-            Ptr{Int64},
-            Ptr{Int64},
-            Ptr{Int64},
-            Ptr{Int64},
-            Csize_t,
-            Csize_t,
-            Ptr{Cint},
-            Ref{Ptr{Cvoid}},
-        ),
-        layout_handle,
-        a_num_c,
-        a_den_c,
-        b_num_c,
-        b_den_c,
-        Csize_t(1),
-        Csize_t(1),
-        bc_c,
-        out,
-    )
-    TensorNetworks._check_backend_status(status, context)
-    return _materialized_linear_operator(out[])
-end
-
 """
     shift_operator(r, offset; bc=:periodic)
 
@@ -226,7 +38,7 @@ function shift_operator(r::Integer, offset::Integer; bc=:periodic)
     try
         return _materialize_shift(layout_handle, 0, offset, bc, "materializing shift operator")
     finally
-        TensorNetworks._release_qtt_layout_handle(layout_handle)
+        _release_qtt_layout_handle(layout_handle)
     end
 end
 
@@ -253,7 +65,7 @@ function shift_operator_multivar(
             "materializing multivar shift operator",
         )
     finally
-        TensorNetworks._release_qtt_layout_handle(layout_handle)
+        _release_qtt_layout_handle(layout_handle)
     end
 end
 
@@ -267,7 +79,7 @@ function flip_operator(r::Integer; bc=:periodic)
     try
         return _materialize_flip(layout_handle, 0, bc, "materializing flip operator")
     finally
-        TensorNetworks._release_qtt_layout_handle(layout_handle)
+        _release_qtt_layout_handle(layout_handle)
     end
 end
 
@@ -287,7 +99,7 @@ function flip_operator_multivar(r::Integer, nvars::Integer, target::Integer; bc=
             "materializing multivar flip operator",
         )
     finally
-        TensorNetworks._release_qtt_layout_handle(layout_handle)
+        _release_qtt_layout_handle(layout_handle)
     end
 end
 
@@ -306,7 +118,7 @@ function phase_rotation_operator(r::Integer, theta)
             "materializing phase rotation operator",
         )
     finally
-        TensorNetworks._release_qtt_layout_handle(layout_handle)
+        _release_qtt_layout_handle(layout_handle)
     end
 end
 
@@ -326,7 +138,7 @@ function phase_rotation_operator_multivar(r::Integer, theta, nvars::Integer, tar
             "materializing multivar phase rotation operator",
         )
     finally
-        TensorNetworks._release_qtt_layout_handle(layout_handle)
+        _release_qtt_layout_handle(layout_handle)
     end
 end
 
@@ -340,7 +152,7 @@ function cumsum_operator(r::Integer)
     try
         return _materialize_cumsum(layout_handle, 0, "materializing cumsum operator")
     finally
-        TensorNetworks._release_qtt_layout_handle(layout_handle)
+        _release_qtt_layout_handle(layout_handle)
     end
 end
 
@@ -366,7 +178,7 @@ function fourier_operator(
             "materializing Fourier operator",
         )
     finally
-        TensorNetworks._release_qtt_layout_handle(layout_handle)
+        _release_qtt_layout_handle(layout_handle)
     end
 end
 
@@ -388,7 +200,7 @@ function affine_operator(r::Integer, a_num, a_den, b_num, b_den; bc=:periodic)
             "materializing affine operator",
         )
     finally
-        TensorNetworks._release_qtt_layout_handle(layout_handle)
+        _release_qtt_layout_handle(layout_handle)
     end
 end
 
@@ -409,5 +221,3 @@ Construct a metadata-only quantics binary-operator placeholder.
 # Deferred for the Phase 1 materialization pass.
 binaryop_operator(r::Integer, a1, b1, a2, b2; bc1=:periodic, bc2=:periodic) =
     _placeholder_operator(:binaryop; r, a1, b1, a2, b2, bc1, bc2)
-
-end

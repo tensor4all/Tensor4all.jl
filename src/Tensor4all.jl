@@ -26,7 +26,7 @@ include("TensorNetworks.jl")
 include("TensorCI.jl")
 include("QuanticsGrids.jl")
 include("QuanticsTCI.jl")
-include("QuanticsTransform.jl")
+include("QuanticsTransform/QuanticsTransform.jl")
 
 using .TensorNetworks: add, dot, inner, dist, linkdims, linkinds, siteinds, orthogonalize, truncate
 
