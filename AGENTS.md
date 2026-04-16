@@ -232,6 +232,19 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contribution flow.
 - Wait for maintainer feedback before writing code.
 - AI tool skills for each phase are in `.claude/skills/`.
 
+### Git branching rule
+
+Never commit directly to `main`. Always create a feature branch before any
+commit, including spec/plan documents:
+
+```bash
+git fetch origin main
+git checkout -b <branch-name> origin/main
+```
+
+This prevents local `main` from diverging from `origin/main` when other PRs
+are merged in parallel.
+
 ### Proactive guidance for AI agents
 
 When the user expresses that a feature is missing, a new capability is needed,
