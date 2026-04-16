@@ -151,9 +151,57 @@ function Base.isapprox(
     return isapprox(a.data, b_data; atol=atol, rtol=rtol)
 end
 
+function _tensor_scalar_kind(tensors::Tensor...)
+    any_complex = false
+    for tensor in tensors
+        T = eltype(tensor.data)
+        if T <: Real
+            continue
+        elseif T <: Complex
+            any_complex = true
+        else
+            throw(ArgumentError("backend tensor operations support only real or complex tensors, got eltype $T"))
+        end
+    end
+    return any_complex ? :c64 : :f64
+end
+
+_tensor_networks_module() = getfield(@__MODULE__, :TensorNetworks)
+
 """
     contract(a, b)
 
-Placeholder for tensor contraction.
+Contract two tensors over shared indices using the Rust backend.
+
+Shared indices (matching by identity) are summed over. The result tensor
+has the remaining (uncontracted) indices.
 """
-contract(::Tensor, ::Tensor) = throw(SkeletonNotImplemented(:contract, :core))
+function contract(a::Tensor, b::Tensor)
+    scalar_kind = _tensor_scalar_kind(a, b)
+    tn = _tensor_networks_module()
+    a_handle = C_NULL
+    b_handle = C_NULL
+    result_handle = C_NULL
+
+    try
+        a_handle = tn._new_tensor_handle(a, scalar_kind)
+        b_handle = tn._new_tensor_handle(b, scalar_kind)
+
+        out = Ref{Ptr{Cvoid}}(C_NULL)
+        status = ccall(
+            tn._t4a(:t4a_tensor_contract),
+            Cint,
+            (Ptr{Cvoid}, Ptr{Cvoid}, Ref{Ptr{Cvoid}}),
+            a_handle,
+            b_handle,
+            out,
+        )
+        tn._check_backend_status(status, "contracting tensors")
+        result_handle = out[]
+        return tn._tensor_from_handle(result_handle)
+    finally
+        tn._release_tensor_handle(result_handle)
+        tn._release_tensor_handle(b_handle)
+        tn._release_tensor_handle(a_handle)
+    end
+end
