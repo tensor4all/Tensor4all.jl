@@ -13,9 +13,15 @@ end
 Base.length(tt::TensorTrain) = length(tt.data)
 Base.iterate(tt::TensorTrain, state...) = iterate(tt.data, state...)
 Base.getindex(tt::TensorTrain, i::Int) = tt.data[i]
-Base.setindex!(tt::TensorTrain, value::Tensor, i::Int) = (tt.data[i] = value)
 
-TensorTrain(data::Vector{Tensor}) = TensorTrain(data, 0, length(data) + 1)
+function Base.setindex!(tt::TensorTrain, value::Tensor, i::Int)
+    tt.data[i] = value
+    tt.llim = min(tt.llim, i - 1)
+    tt.rlim = max(tt.rlim, i + 1)
+    return value
+end
+
+TensorTrain(data::AbstractVector{<:Tensor}) = TensorTrain(Tensor[tensor for tensor in data], 0, length(data) + 1)
 
 """
     LinearOperator(; mpo=nothing, input_indices=Index[], output_indices=Index[], ...)

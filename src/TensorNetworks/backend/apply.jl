@@ -221,7 +221,7 @@ function apply(
         )
         _check_backend_status(status, "applying LinearOperator")
         result_handle = result_ref[]
-        return _treetn_from_handle(result_handle; llim=state.llim, rlim=state.rlim)
+        return _treetn_from_handle(result_handle)
     finally
         _release_treetn_handle(result_handle)
         for handle in true_output_handles

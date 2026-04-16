@@ -1,11 +1,15 @@
 module TensorNetworks
 
 using Libdl
+import LinearAlgebra
+import LinearAlgebra: norm
 using ..Tensor4all: BackendUnavailableError, Index, Tensor, SkeletonNotImplemented, dim, hastag, id, inds, plev, prime, rank, require_backend, tags
 
 const _LINK_TAG = "Link"
 
 export TensorTrain, LinearOperator
+export add, dot, inner, dist
+export norm
 export set_input_space!, set_output_space!, set_iospaces!, apply
 export findsite, findsites, findallsiteinds_by_tag, findallsites_by_tag
 export replace_siteinds!, replace_siteinds, replace_siteinds_part!

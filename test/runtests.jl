@@ -2,10 +2,14 @@ using Test
 using Tensor4all
 
 include("api/skeleton_alignment.jl")
+include("core/tensor_arithmetic.jl")
+include("core/tensor_contract.jl")
 include("tensornetworks/tensortrain.jl")
+include("tensornetworks/llim_rlim.jl")
 include("tensornetworks/index_queries.jl")
 include("tensornetworks/matchsiteinds.jl")
 include("tensornetworks/apply.jl")
+include("tensornetworks/arithmetic.jl")
 include("tensornetworks/transform_helpers.jl")
 include("tensornetworks/skeleton_surface.jl")
 include("simplett/surface.jl")
