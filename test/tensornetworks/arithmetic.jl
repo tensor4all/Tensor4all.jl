@@ -68,3 +68,56 @@ end
         @test_throws ArgumentError 2.0 * empty_tt
     end
 end
+
+@testset "TensorTrain addition" begin
+    @testset "exact addition" begin
+        sites, links = make_chain_indices()
+        tt1 = make_test_mps(; sites, links, variant=:a)
+        tt2 = make_test_mps(; sites, links, variant=:b)
+        result = tt1 + tt2
+
+        @test length(result) == 3
+        @test 0 <= result.llim <= length(result)
+        @test 1 <= result.rlim <= length(result) + 1
+    end
+
+    @testset "subtraction" begin
+        sites, links = make_chain_indices()
+        tt1 = make_test_mps(; sites, links, variant=:a)
+        tt2 = make_test_mps(; sites, links, variant=:b)
+        result = tt1 - tt2
+        @test length(result) == 3
+    end
+
+    @testset "length mismatch" begin
+        sites = [Index(2; tags=["s", "s=$n"]) for n in 1:2]
+        link = Index(2; tags=["Link", "l=1"])
+        tt1 = TN.TensorTrain([
+            Tensor(reshape([1.0, 0.0, 0.0, 1.0], 2, 2), [sites[1], link]),
+            Tensor(reshape([1.0, 0.0, 0.0, 1.0], 2, 2), [link, sites[2]]),
+        ])
+        tt2 = TN.TensorTrain([Tensor([1.0, -1.0], [sites[1]])])
+        @test_throws DimensionMismatch tt1 + tt2
+    end
+
+    @testset "site mismatch" begin
+        tt1 = make_test_mps()
+        tt2 = make_test_mps()
+        @test_throws ArgumentError tt1 + tt2
+    end
+
+    @testset "empty train errors" begin
+        empty_tt = TN.TensorTrain(Tensor[])
+        sites, links = make_chain_indices()
+        tt = make_test_mps(; sites, links)
+        @test_throws ArgumentError empty_tt + tt
+    end
+end
+
+@testset "TensorTrain truncated add" begin
+    sites, links = make_chain_indices()
+    tt1 = make_test_mps(; sites, links, variant=:a)
+    tt2 = make_test_mps(; sites, links, variant=:b)
+    result = TensorNetworks.add(tt1, tt2; rtol=1e-10)
+    @test length(result) == 3
+end

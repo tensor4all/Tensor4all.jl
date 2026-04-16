@@ -34,6 +34,7 @@ export backend_library_path, require_backend
 export Index, dim, id, tags, plev, hastag
 export sim, prime, noprime, setprime
 export replaceind, replaceinds, commoninds, uniqueinds
+export add
 export norm
 export Tensor, inds, rank, dims, swapinds, contract
 export TensorNetworks, SimpleTT, TensorCI, QuanticsGrids, QuanticsTCI, QuanticsTransform

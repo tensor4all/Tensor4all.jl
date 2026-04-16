@@ -114,6 +114,26 @@ function _treetn_scale(tt::TensorTrain, re::Float64, im::Float64)
     end
 end
 
+function _validate_tt_binary(a::TensorTrain, b::TensorTrain, op::AbstractString)
+    isempty(a.data) && throw(ArgumentError("TensorTrain must not be empty for $op"))
+    isempty(b.data) && throw(ArgumentError("TensorTrain must not be empty for $op"))
+    length(a) == length(b) || throw(
+        DimensionMismatch("$op requires equal length TensorTrains, got $(length(a)) and $(length(b))"),
+    )
+
+    a_siteinds = _siteinds_by_tensor(a)
+    b_siteinds = _siteinds_by_tensor(b)
+    for position in eachindex(a_siteinds)
+        a_siteinds[position] == b_siteinds[position] && continue
+        throw(
+            ArgumentError(
+                "$op requires matching site indices at tensor $position, got $(a_siteinds[position]) and $(b_siteinds[position])",
+            ),
+        )
+    end
+    return nothing
+end
+
 function _treetn_from_handle(ptr::Ptr{Cvoid})
     ntensors = _treetn_num_vertices(ptr)
     tensors = Tensor[]
@@ -131,7 +151,48 @@ function _treetn_from_handle(ptr::Ptr{Cvoid})
     return TensorTrain(tensors, llim, rlim)
 end
 
+"""
+    add(a, b; rtol=0.0, cutoff=0.0, maxdim=0)
+
+Add two TensorTrain chains, optionally applying backend truncation controls.
+"""
+function add(a::TensorTrain, b::TensorTrain; rtol::Real=0.0, cutoff::Real=0.0, maxdim::Integer=0)
+    _validate_tt_binary(a, b, "add")
+
+    scalar_kind = _promoted_scalar_kind(a, b)
+    a_handle = _new_treetn_handle(a, scalar_kind)
+    b_handle = _new_treetn_handle(b, scalar_kind)
+    result_handle = C_NULL
+    try
+        out = Ref{Ptr{Cvoid}}(C_NULL)
+        status = ccall(
+            _t4a(:t4a_treetn_add),
+            Cint,
+            (Ptr{Cvoid}, Ptr{Cvoid}, Cdouble, Cdouble, Csize_t, Ref{Ptr{Cvoid}}),
+            a_handle,
+            b_handle,
+            float(rtol),
+            float(cutoff),
+            Csize_t(maxdim),
+            out,
+        )
+        _check_backend_status(status, "adding TensorTrains")
+        result_handle = out[]
+        return _treetn_from_handle(result_handle)
+    finally
+        _release_treetn_handle(result_handle)
+        _release_treetn_handle(b_handle)
+        _release_treetn_handle(a_handle)
+    end
+end
+
 Base.:*(α::Number, tt::TensorTrain) = _treetn_scale(tt, Float64(real(α)), Float64(imag(α)))
 Base.:*(tt::TensorTrain, α::Number) = α * tt
 Base.:/(tt::TensorTrain, α::Number) = tt * inv(α)
 Base.:-(tt::TensorTrain) = _treetn_scale(tt, -1.0, 0.0)
+Base.:+(a::TensorTrain, b::TensorTrain) = add(a, b)
+
+function Base.:-(a::TensorTrain, b::TensorTrain)
+    _validate_tt_binary(a, b, "subtract")
+    return add(a, _treetn_scale(b, -1.0, 0.0))
+end
