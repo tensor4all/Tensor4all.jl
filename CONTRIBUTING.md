@@ -11,7 +11,7 @@
    │  Label changes to `spec_approved` when the approach is agreed.
    │
 3. (Optional) Post detailed plan
-   │  If you are using AI tools, post an implementation plan
+   │  For non-trivial changes, post an implementation plan
    │  as a comment on the approved issue.
    │  Label changes to `plan_approved` when the plan is accepted.
    │
@@ -53,7 +53,7 @@ not required.
 ## Writing a Plan (Issue Comment)
 
 After `spec_approved`, you may post a detailed implementation plan as a comment.
-This is especially useful when working with AI tools.
+This is recommended for non-trivial changes regardless of your tooling.
 
 A good plan includes:
 
@@ -62,28 +62,8 @@ A good plan includes:
 - **Test strategy** — what to test and how
 - **Dependencies** — ordering constraints between tasks
 
-You do not need exact code blocks or line numbers. The implementer (human or AI)
-will fill in the details.
-
-## AI Tool Skills
-
-This repository provides skills for AI coding tools (Claude Code, OpenCode,
-etc.) to assist with each phase:
-
-| Skill | Phase | User |
-|-------|-------|------|
-| `spec-proposal` | Write a spec for an issue | Contributors |
-| `plan-proposal` | Write an implementation plan | Contributors |
-| `implement-plan` | Implement from an approved plan | Maintainers |
-
-### How to use skills
-
-**Claude Code:** Type `/spec-proposal` or `/plan-proposal` as a slash command.
-
-**OpenCode:** Skills are auto-discovered from `.claude/skills/`. Invoke by name.
-
-**Other AI tools:** Ask your AI assistant to read the skill file (e.g.
-`.claude/skills/spec-proposal/SKILL.md`) and follow its instructions.
+You do not need exact code blocks or line numbers. The implementer will fill in
+the details.
 
 ## Cross-Repository Changes (C API)
 
@@ -102,7 +82,36 @@ maintainer will advise during review.
 
 ## Code Guidelines
 
-- Read `AGENTS.md` before working on the codebase.
-- Follow the conventions described there (error handling, docstrings, etc.).
+- Read `AGENTS.md` for codebase conventions (error handling, module layout,
+  docstrings, etc.).
 - Run `Pkg.test()` before submitting a PR.
 - Run `julia --project=docs docs/make.jl` if docs are affected.
+
+## PR Checklist
+
+- Reference the related issue (e.g. "Closes #40").
+- Review `README.md` if the public shape or expected workflow changed.
+- Run `Pkg.test()` and confirm all tests pass.
+- Run `julia --project=docs docs/make.jl` if any exported symbols changed.
+- Keep docs aligned with the Julia frontend architecture described in
+  `AGENTS.md`.
+
+## AI Tool Skills
+
+This repository provides optional skills for AI coding tools (Claude Code,
+OpenCode, etc.) to assist with each phase of the contribution flow:
+
+| Skill | Phase | User |
+|-------|-------|------|
+| `spec-proposal` | Write a spec for an issue | Contributors |
+| `plan-proposal` | Write an implementation plan | Contributors |
+| `implement-plan` | Implement from an approved plan | Maintainers |
+
+### How to use skills
+
+**Claude Code:** Type `/spec-proposal` or `/plan-proposal` as a slash command.
+
+**OpenCode:** Skills are auto-discovered from `.claude/skills/`. Invoke by name.
+
+**Other AI tools:** Ask your AI assistant to read the skill file (e.g.
+`.claude/skills/spec-proposal/SKILL.md`) and follow its instructions.
