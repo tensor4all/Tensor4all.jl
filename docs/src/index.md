@@ -36,6 +36,7 @@ implemented.
 
 ## Entry Points
 
+- [Getting Started](getting_started.md) — tutorial with code examples
 - [Module Overview](modules.md)
 - [API Notes](api.md)
 - [Design Documents](design_documents.md)
