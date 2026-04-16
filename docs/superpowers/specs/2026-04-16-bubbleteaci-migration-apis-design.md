@@ -171,11 +171,22 @@ Currently, operator functions return metadata-only `LinearOperator` with
 - `binaryop_operator` and `affine_pullback_operator` are deferred from this
   phase if their layout constraints require additional design work.
 
+**MPO site index convention:**
+
+The Rust C API materializes MPO tensors with index order
+`[link_left?, output, input, link_right?]`. The output and input site indices
+are both created with `plev=0`, no tags, and distinct IDs only.
+
+Julia identifies them by **position within the tensor**: after excluding bond
+indices (identified via `commoninds` with neighbor tensors), the first
+remaining index is output and the second is input.
+
 **Operator space binding contract:**
 
 Constructors return `LinearOperator` with:
 - `mpo` set to the materialized `TensorTrain`
 - `input_indices` and `output_indices` set to the MPO's internal site indices
+  (extracted by position as described above)
 - `true_input` and `true_output` left as `nothing` (unbound)
 
 Callers must call `set_iospaces!(op, input_space, output_space)` to bind
@@ -188,7 +199,9 @@ Each function:
 1. Creates a `t4a_qtt_layout` handle describing the quantics layout
 2. Calls the appropriate `t4a_qtransform_*_materialize` to get a `t4a_treetn`
 3. Converts to `TensorTrain` via `_treetn_from_handle`
-4. Extracts input/output `Index` metadata from the MPO site indices
+4. For each site tensor, identifies bond indices via `commoninds` with
+   neighbors, then assigns remaining indices by position: 1st = output,
+   2nd = input
 5. Returns `LinearOperator(; mpo=tt, input_indices=..., output_indices=...)`
 6. Caller is responsible for `set_iospaces!` binding
 
