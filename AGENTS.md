@@ -144,6 +144,12 @@ Julia arrays passed to the C API must be contiguous in memory.
   a page is primarily mirroring docstrings from source files.
 - Use `Pages = [...]` and `Modules = [...]` filters so `@autodocs` stays scoped
   to the intended local source files.
+- **When you add a new source file under `src/` that defines public (exported
+  or documented) symbols, or move public symbols to a different file, append
+  that path to the corresponding `@autodocs` `Pages = [...]` list in
+  `docs/src/api.md`.** Documenter does not warn on missing pages —
+  `docs/make.jl` succeeds silently even when docstrings are unreachable. The
+  `scripts/check_autodocs_coverage.jl` lint runs in CI to enforce this.
 
 ### Documentation structure
 
