@@ -10,7 +10,8 @@ using Tensor4all
 
     op = Tensor4all.QuanticsTransform.shift_operator(4, 1)
     @test op isa Tensor4all.TensorNetworks.LinearOperator
-    @test op.metadata.kind == :shift
-    @test op.metadata.r == 4
-    @test op.metadata.offset == 1
+    @test op.mpo !== nothing
+    @test length(op.mpo) == 4
+    @test length(op.input_indices) == 4
+    @test length(op.output_indices) == 4
 end
