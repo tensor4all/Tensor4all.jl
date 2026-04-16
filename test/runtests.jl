@@ -2,6 +2,7 @@ using Test
 using Tensor4all
 
 include("api/skeleton_alignment.jl")
+include("core/tensor_arithmetic.jl")
 include("tensornetworks/tensortrain.jl")
 include("tensornetworks/index_queries.jl")
 include("tensornetworks/matchsiteinds.jl")
