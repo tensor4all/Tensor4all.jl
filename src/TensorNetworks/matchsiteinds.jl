@@ -225,7 +225,7 @@ function matchsiteinds(tt::TensorTrain, sites::AbstractVector{<:Index})
         end
     end
 
-    return TensorTrain(tensors, tt.llim, tt.llim + length(tensors) + 1)
+    return TensorTrain(tensors, 0, length(tensors) + 1)
 end
 
 function matchsiteinds(
@@ -256,5 +256,5 @@ function matchsiteinds(
         end
     end
 
-    return TensorTrain(tensors, tt.llim, tt.llim + length(tensors) + 1)
+    return TensorTrain(tensors, 0, length(tensors) + 1)
 end

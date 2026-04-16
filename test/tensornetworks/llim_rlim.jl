@@ -45,4 +45,43 @@ const TN = Tensor4all.TensorNetworks
         @test tt.rlim == 2
     end
 
+    @testset "matchsiteinds resets llim/rlim for MPS-like embedding" begin
+        sites = [Index(2; tags=["x", "x=$n"]) for n in 1:3]
+        link = Index(2; tags=["Link", "l=1"])
+
+        tt = TN.TensorTrain(
+            Tensor[
+                Tensor(randn(2, 2), [sites[1], link]),
+                Tensor(randn(2, 2), [link, sites[3]]),
+            ],
+            1,
+            3,
+        )
+
+        embedded = TN.matchsiteinds(tt, sites)
+        @test length(embedded) == 3
+        @test embedded.llim == 0
+        @test embedded.rlim == 4
+    end
+
+    @testset "matchsiteinds resets llim/rlim for MPO-like embedding" begin
+        input_sites = [Index(2; tags=["xin", "xin=$n"]) for n in 1:4]
+        output_sites = [Index(2; tags=["xout", "xout=$n"]) for n in 1:4]
+        link = Index(2; tags=["Link", "l=1"])
+
+        tt = TN.TensorTrain(
+            Tensor[
+                Tensor(randn(2, 2, 2), [input_sites[1], output_sites[1], link]),
+                Tensor(randn(2, 2, 2), [link, input_sites[4], output_sites[4]]),
+            ],
+            1,
+            3,
+        )
+
+        embedded = TN.matchsiteinds(tt, input_sites, output_sites)
+        @test length(embedded) == 4
+        @test embedded.llim == 0
+        @test embedded.rlim == 5
+    end
+
 end
