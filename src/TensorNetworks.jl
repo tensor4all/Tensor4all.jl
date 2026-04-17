@@ -18,6 +18,7 @@ export set_input_space!, set_output_space!, set_iospaces!, apply
 export findsite, findsites, findallsiteinds_by_tag, findallsites_by_tag
 export replace_siteinds!, replace_siteinds, replace_siteinds_part!
 export rearrange_siteinds, makesitediagonal, extractdiagonal, matchsiteinds
+export fuse_to, split_to, swap_site_indices, restructure_to
 export save_as_mps, load_tt
 
 include("TensorNetworks/types.jl")
@@ -32,6 +33,11 @@ include("TensorNetworks/backend/treetn_queries.jl")
 include("TensorNetworks/backend/treetn_dense.jl")
 include("TensorNetworks/backend/apply.jl")
 include("TensorNetworks/backend/treetn_contract.jl")
+include("TensorNetworks/backend/restructure/helpers.jl")
+include("TensorNetworks/backend/restructure/fuse_to.jl")
+include("TensorNetworks/backend/restructure/split_to.jl")
+include("TensorNetworks/backend/restructure/swap_site_indices.jl")
+include("TensorNetworks/backend/restructure/restructure_to.jl")
 include("TensorNetworks/deferred.jl")
 
 end
