@@ -3,7 +3,7 @@ module TensorNetworks
 using Libdl
 import LinearAlgebra
 import LinearAlgebra: norm
-import ..Tensor4all: dag
+import ..Tensor4all: dag, contract
 using ..Tensor4all: BackendUnavailableError, Index, Tensor, SkeletonNotImplemented, commoninds, dim, hastag, id, inds, plev, prime, rank, require_backend, tags
 
 const _LINK_TAG = "Link"
@@ -31,6 +31,7 @@ include("TensorNetworks/backend/treetn.jl")
 include("TensorNetworks/backend/treetn_queries.jl")
 include("TensorNetworks/backend/treetn_dense.jl")
 include("TensorNetworks/backend/apply.jl")
+include("TensorNetworks/backend/treetn_contract.jl")
 include("TensorNetworks/deferred.jl")
 
 end
