@@ -3,6 +3,8 @@ module TensorNetworks
 using Libdl
 import LinearAlgebra
 import LinearAlgebra: norm
+import Random
+import Random: AbstractRNG
 import ..Tensor4all: dag, contract
 using ..Tensor4all: BackendUnavailableError, Index, Tensor, SkeletonNotImplemented, commoninds, dim, hastag, id, inds, plev, prime, rank, require_backend, tags
 
@@ -13,7 +15,7 @@ export add, dag, dot, inner, dist
 export linkinds, linkdims, siteinds
 export norm
 export orthogonalize, truncate
-export to_dense, evaluate
+export to_dense, evaluate, random_tt
 export set_input_space!, set_output_space!, set_iospaces!, apply
 export findsite, findsites, findallsiteinds_by_tag, findallsites_by_tag
 export replace_siteinds!, replace_siteinds, replace_siteinds_part!
@@ -39,6 +41,7 @@ include("TensorNetworks/backend/restructure/fuse_to.jl")
 include("TensorNetworks/backend/restructure/split_to.jl")
 include("TensorNetworks/backend/restructure/swap_site_indices.jl")
 include("TensorNetworks/backend/restructure/restructure_to.jl")
+include("TensorNetworks/random.jl")
 include("TensorNetworks/deferred.jl")
 
 end
