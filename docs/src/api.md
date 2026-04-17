@@ -76,6 +76,15 @@ Other chain-facing names in this layer include:
 - `Tensor4all.TensorNetworks.split_to`
 - `Tensor4all.TensorNetworks.swap_site_indices`
 - `Tensor4all.TensorNetworks.restructure_to`
+- `Tensor4all.TensorNetworks.contract` — `TensorTrain × TensorTrain` chain
+  contraction via the `t4a_treetn_contract` C API
+- `Tensor4all.TensorNetworks.to_dense` — materialize a `TensorTrain` as a
+  single dense `Tensor` over its site indices
+- `Tensor4all.TensorNetworks.evaluate` — pointwise evaluation of a
+  `TensorTrain` at one or more index value tuples
+- `Tensor4all.TensorNetworks.random_tt` — pure-Julia random `TensorTrain`
+  built from Haar-distributed partial isometries (mirrors
+  `ITensorMPS.random_mps`)
 
 `TensorNetworks.TensorTrain` is the container that HDF5 compatibility works
 against.
@@ -85,11 +94,14 @@ The current Julia implementation includes the full helper surface above.
 `Vector{Index}` arguments only. `apply` is implemented for the current
 chain-oriented backend path. `TensorTrain` also supports scalar arithmetic and
 comparison on the current backend path through `+`, `-`, scalar `*`, scalar
-`/`, `norm`, `dot`/`inner`, `isapprox`, `dist`, and `add`.
+`/`, `norm`, `dot`/`inner`, `isapprox`, `dist`, and `add`. `restructure_to`
+is implemented in pure Julia and dispatches to `fuse_to` / `split_to` /
+`swap_site_indices` based on the diff between the current and target site
+groupings; `rearrange_siteinds` is a thin wrapper over `restructure_to`.
 
 ```@autodocs
 Modules = [Tensor4all.TensorNetworks]
-Pages = ["TensorNetworks/types.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/transforms.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/backend/treetn.jl", "TensorNetworks/backend/treetn_queries.jl", "TensorNetworks/backend/treetn_dense.jl", "TensorNetworks/backend/treetn_contract.jl", "TensorNetworks/backend/treetn_evaluate.jl", "TensorNetworks/backend/restructure/fuse_to.jl", "TensorNetworks/backend/restructure/split_to.jl", "TensorNetworks/backend/restructure/swap_site_indices.jl", "TensorNetworks/backend/restructure/restructure_to.jl", "TensorNetworks/random.jl", "TensorNetworks/deferred.jl"]
+Pages = ["TensorNetworks/types.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/transforms.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/backend/treetn.jl", "TensorNetworks/backend/treetn_queries.jl", "TensorNetworks/backend/treetn_dense.jl", "TensorNetworks/backend/treetn_contract.jl", "TensorNetworks/backend/treetn_evaluate.jl", "TensorNetworks/backend/restructure/fuse_to.jl", "TensorNetworks/backend/restructure/split_to.jl", "TensorNetworks/backend/restructure/swap_site_indices.jl", "TensorNetworks/backend/restructure/restructure_to.jl", "TensorNetworks/backend/linsolve.jl", "TensorNetworks/random.jl", "TensorNetworks/deferred.jl"]
 Private = false
 Order = [:type, :function]
 ```
@@ -158,13 +170,14 @@ operator type itself does not live in `QuanticsTransform`.
 
 In the current branch, `shift_operator`, `shift_operator_multivar`,
 `flip_operator`, `flip_operator_multivar`, `phase_rotation_operator`,
-`phase_rotation_operator_multivar`, `cumsum_operator`, `fourier_operator`, and
-`affine_operator` materialize real MPO-backed operators through the C API.
+`phase_rotation_operator_multivar`, `cumsum_operator`, `fourier_operator`,
+`affine_operator`, `binaryop_operator`, and `binaryop_operator_multivar`
+materialize real MPO-backed operators through the C API.
 `TensorNetworks.apply` owns execution of those materialized operators once the
 I/O spaces are bound.
 
-`affine_pullback_operator` and `binaryop_operator` remain deferred
-metadata-only placeholders in this phase.
+`affine_pullback_operator` is the only remaining deferred metadata-only
+placeholder in this phase.
 
 ```@autodocs
 Modules = [Tensor4all.QuanticsTransform]

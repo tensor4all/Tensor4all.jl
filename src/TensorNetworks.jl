@@ -16,7 +16,7 @@ export linkinds, linkdims, siteinds
 export norm
 export orthogonalize, truncate
 export to_dense, evaluate, random_tt
-export set_input_space!, set_output_space!, set_iospaces!, apply
+export set_input_space!, set_output_space!, set_iospaces!, apply, linsolve
 export findsite, findsites, findallsiteinds_by_tag, findallsites_by_tag
 export replace_siteinds!, replace_siteinds, replace_siteinds_part!
 export rearrange_siteinds, makesitediagonal, extractdiagonal, matchsiteinds
@@ -41,6 +41,7 @@ include("TensorNetworks/backend/restructure/fuse_to.jl")
 include("TensorNetworks/backend/restructure/split_to.jl")
 include("TensorNetworks/backend/restructure/swap_site_indices.jl")
 include("TensorNetworks/backend/restructure/restructure_to.jl")
+include("TensorNetworks/backend/linsolve.jl")
 include("TensorNetworks/random.jl")
 include("TensorNetworks/deferred.jl")
 
