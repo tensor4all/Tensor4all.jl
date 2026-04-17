@@ -13,6 +13,7 @@ export add, dag, dot, inner, dist
 export linkinds, linkdims, siteinds
 export norm
 export orthogonalize, truncate
+export to_dense
 export set_input_space!, set_output_space!, set_iospaces!, apply
 export findsite, findsites, findallsiteinds_by_tag, findallsites_by_tag
 export replace_siteinds!, replace_siteinds, replace_siteinds_part!
@@ -28,6 +29,7 @@ include("TensorNetworks/backend/capi.jl")
 include("TensorNetworks/backend/tensors.jl")
 include("TensorNetworks/backend/treetn.jl")
 include("TensorNetworks/backend/treetn_queries.jl")
+include("TensorNetworks/backend/treetn_dense.jl")
 include("TensorNetworks/backend/apply.jl")
 include("TensorNetworks/deferred.jl")
 
