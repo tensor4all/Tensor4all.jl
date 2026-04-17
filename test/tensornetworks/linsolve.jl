@@ -1,7 +1,6 @@
 using Test
 using Tensor4all
-using LinearAlgebra
-using LinearAlgebra: norm
+using LinearAlgebra: I, norm
 using Random: MersenneTwister
 
 const TN_LINSOLVE = Tensor4all.TensorNetworks
@@ -19,7 +18,7 @@ function _scaled_identity_mpo(sites::Vector{Index}, coeff::Real=1.0)
     tensors = Tensor[]
     for i in 1:n
         d = dim(sites[i])
-        identity_block = per_site_scale * Matrix{Float64}(LinearAlgebra.I, d, d)
+        identity_block = per_site_scale * Matrix{Float64}(I, d, d)
         if i == 1 && n == 1
             push!(tensors, Tensor(identity_block, [sites_in[1], sites_out[1]]))
         elseif i == 1
