@@ -6,6 +6,11 @@ const _T4A_CONTRACT_METHOD_ZIPUP = Cint(0)
 const _T4A_CONTRACT_METHOD_FIT = Cint(1)
 const _T4A_CONTRACT_METHOD_NAIVE = Cint(2)
 
+const _T4A_FACTORIZE_ALG_SVD = Cint(0)
+const _T4A_FACTORIZE_ALG_QR = Cint(1)
+const _T4A_FACTORIZE_ALG_LU = Cint(2)
+const _T4A_FACTORIZE_ALG_CI = Cint(3)
+
 const _T4A_QTT_LAYOUT_INTERLEAVED = Cint(1)
 const _T4A_QTT_LAYOUT_FUSED = Cint(2)
 
