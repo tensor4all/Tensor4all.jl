@@ -85,7 +85,7 @@ comparison on the current backend path through `+`, `-`, scalar `*`, scalar
 
 ```@autodocs
 Modules = [Tensor4all.TensorNetworks]
-Pages = ["TensorNetworks/types.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/transforms.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/backend/treetn.jl", "TensorNetworks/backend/treetn_queries.jl", "TensorNetworks/backend/treetn_dense.jl", "TensorNetworks/backend/treetn_contract.jl", "TensorNetworks/deferred.jl"]
+Pages = ["TensorNetworks/types.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/transforms.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/backend/treetn.jl", "TensorNetworks/backend/treetn_queries.jl", "TensorNetworks/backend/treetn_dense.jl", "TensorNetworks/backend/treetn_contract.jl", "TensorNetworks/backend/treetn_evaluate.jl", "TensorNetworks/deferred.jl"]
 Private = false
 Order = [:type, :function]
 ```
