@@ -199,18 +199,25 @@ end
 """
     truncate(tt; rtol=0.0, cutoff=0.0, maxdim=0, form=:unitary)
 
-Truncate TensorTrain bond dimensions with backend truncation controls.
+Truncate TensorTrain bond dimensions.
 
 # Keyword arguments
 
-- `rtol`: relative tolerance for the SVD/LU truncation. `0.0` disables.
-- `cutoff`: absolute cutoff fed to the same backend resolver as `rtol`.
-- `maxdim`: maximum bond dimension. `0` (default) means no rank cap.
+- `rtol`: relative tolerance applied to singular values. `0.0` disables.
+- `cutoff`: convenience knob in squared-singular-value space. Internally
+  converted to `rtol = sqrt(cutoff)` and takes precedence over `rtol`
+  when both are nonzero. `0.0` disables.
+- `maxdim`: hard upper bound on the bond dimension after truncation.
+  `0` (default) means no rank cap.
 - `form`: factorization used to truncate. One of `:unitary` (SVD-based,
   default) or `:lu`.
 
 At least one of `rtol`, `cutoff`, or `maxdim` must be set; otherwise an
 `ArgumentError` is thrown.
+
+See also the [Truncation Contract](@ref) page for the precedence rules
+between `rtol` and `cutoff`, the `sqrt` conversion, and the meaning of
+the sentinel values across every truncating entry point.
 """
 function truncate(tt::TensorTrain; rtol::Real=0.0, cutoff::Real=0.0, maxdim::Integer=0, form::Symbol=:unitary)
     isempty(tt.data) && throw(ArgumentError("TensorTrain must not be empty"))
