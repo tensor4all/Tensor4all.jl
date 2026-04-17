@@ -57,7 +57,7 @@ Other chain-facing names in this layer include:
 - `Tensor4all.TensorNetworks.replace_siteinds!`
 - `Tensor4all.TensorNetworks.replace_siteinds`
 - `Tensor4all.TensorNetworks.replace_siteinds_part!`
-- `Tensor4all.TensorNetworks.rearrange_siteinds` — **not yet implemented**
+- `Tensor4all.TensorNetworks.rearrange_siteinds`
 - `Tensor4all.TensorNetworks.makesitediagonal`
 - `Tensor4all.TensorNetworks.extractdiagonal`
 - `Tensor4all.TensorNetworks.matchsiteinds`

@@ -1,5 +1,6 @@
 using Test
 using Tensor4all
+using Random: MersenneTwister
 
 const TN = Tensor4all.TensorNetworks
 
@@ -104,14 +105,27 @@ end
         @test_throws ArgumentError TN.replace_siteinds_part!(tt, [Index(2; tags=["missing", "missing=1"])], [newsite])
     end
 
-    @testset "rearrange_siteinds is deferred pending upstream support" begin
+    @testset "rearrange_siteinds delegates to restructure_to" begin
+        # random_tt avoids the dim-1 boundary links that simple_mps emits;
+        # the backend split_to currently rejects target structures with
+        # those trivial boundary links involved.
         sitesx = [Index(2; tags=["x", "x=$n"]) for n in 1:3]
         sitesy = [Index(2; tags=["y", "y=$n"]) for n in 1:3]
         sitesxy = collect(Iterators.flatten(zip(sitesx, sitesy)))
-        psi = simple_mps(sitesxy)
+        psi = TN.random_tt(MersenneTwister(101), sitesxy; linkdims=4)
 
+        before = TN.to_dense(psi)
+        # Interleaved -> fused (each adjacent pair becomes one node).
         fused_groups = [[x, y] for (x, y) in zip(sitesx, sitesy)]
-        @test_throws Tensor4all.SkeletonNotImplemented TN.rearrange_siteinds(psi, fused_groups)
+        fused = TN.rearrange_siteinds(psi, fused_groups)
+        @test length(fused) == 3
+        @test TN.to_dense(fused) ≈ before
+
+        # Round trip back to interleaved.
+        interleaved_groups = [[s] for s in sitesxy]
+        round_trip = TN.rearrange_siteinds(fused, interleaved_groups)
+        @test length(round_trip) == 6
+        @test TN.to_dense(round_trip) ≈ before
     end
 
     @testset "makesitediagonal and extractdiagonal roundtrip a tagged site family" begin
