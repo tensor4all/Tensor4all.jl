@@ -111,11 +111,20 @@ const QT = Tensor4all.QuanticsTransform
         ]
     end
 
-    @testset "deferred operators remain placeholder" begin
+    @testset "binaryop_operator" begin
         op = QT.binaryop_operator(3, 1, 0, 1, 0)
-        @test op.mpo === nothing
+        @test op.mpo !== nothing
 
-        op2 = QT.affine_pullback_operator(3, (;))
-        @test op2.mpo === nothing
+        op_multi = QT.binaryop_operator_multivar(3, 1, 0, 1, 0, 3, 1, 2)
+        @test op_multi.mpo !== nothing
+
+        @test_throws ArgumentError QT.binaryop_operator_multivar(3, 1, 0, 1, 0, 2, 1, 1)
+        # Coefficient out of Int8 range
+        @test_throws ArgumentError QT.binaryop_operator(3, 200, 0, 1, 0)
+    end
+
+    @testset "remaining deferred operators" begin
+        op = QT.affine_pullback_operator(3, (;))
+        @test op.mpo === nothing
     end
 end

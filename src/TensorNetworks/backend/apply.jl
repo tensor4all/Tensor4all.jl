@@ -137,9 +137,21 @@ function _contract_method_code(method::Symbol)
 end
 
 """
-    apply(op, state; method=:zipup, rtol=0.0, cutoff=0.0, maxdim=0)
+    apply(op, state; method=:zipup, rtol=0.0, cutoff=0.0, maxdim=0,
+          nfullsweeps=0, convergence_tol=0.0)
 
 Apply a chain-compatible `LinearOperator` to a chain `TensorTrain`.
+
+# Keyword arguments
+
+- `method`: contraction algorithm. One of `:zipup` (default), `:fit`, or `:naive`.
+- `rtol`: relative tolerance for SVD truncation. `0.0` disables.
+- `cutoff`: absolute cutoff fed to the same backend resolver as `rtol`.
+- `maxdim`: maximum bond dimension. `0` (default) means no rank cap.
+- `nfullsweeps`: for `method=:fit`, number of variational full sweeps.
+  `0` (default) lets the backend pick (currently 1).
+- `convergence_tol`: for `method=:fit`, early-termination tolerance.
+  `0.0` (default) disables early termination.
 
 The current backend path expects one site index per state tensor and exactly
 one input/output site-index pair per operator tensor. Bind explicit spaces
@@ -153,10 +165,14 @@ function apply(
     rtol::Real=0.0,
     cutoff::Real=0.0,
     maxdim::Integer=0,
+    nfullsweeps::Integer=0,
+    convergence_tol::Real=0.0,
 )
     rtol >= 0 || throw(ArgumentError("rtol must be nonnegative, got $rtol"))
     cutoff >= 0 || throw(ArgumentError("cutoff must be nonnegative, got $cutoff"))
     maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
+    nfullsweeps >= 0 || throw(ArgumentError("nfullsweeps must be nonnegative, got $nfullsweeps"))
+    convergence_tol >= 0 || throw(ArgumentError("convergence_tol must be nonnegative, got $convergence_tol"))
 
     mpo = op.mpo
     mpo === nothing && throw(ArgumentError("LinearOperator.mpo must be set before apply"))
@@ -204,6 +220,8 @@ function apply(
                 Cdouble,
                 Cdouble,
                 Csize_t,
+                Csize_t,
+                Cdouble,
                 Ref{Ptr{Cvoid}},
             ),
             mpo_handle,
@@ -216,7 +234,9 @@ function apply(
             _contract_method_code(method),
             float(rtol),
             float(cutoff),
-            maxdim,
+            Csize_t(maxdim),
+            Csize_t(nfullsweeps),
+            float(convergence_tol),
             result_ref,
         )
         _check_backend_status(status, "applying LinearOperator")

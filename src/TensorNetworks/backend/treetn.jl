@@ -161,12 +161,19 @@ function _treetn_from_handle(ptr::Ptr{Cvoid})
 end
 
 """
-    orthogonalize(tt, site; form=:unitary)
+    orthogonalize(tt, site; form=:unitary, force=true)
 
-Orthogonalize `tt` to the requested one-based `site` using the backend chain
-canonicalization routine.
+Orthogonalize `tt` to the requested one-based `site`.
+
+# Keyword arguments
+
+- `form`: canonical form. One of `:unitary` (SVD-based, default) or `:lu`.
+- `force`: if `true` (default), always re-canonicalize, matching the legacy
+  behavior. If `false`, the call is a no-op when the network is already
+  canonical at `site` with `form`, and returns an error if it is canonical
+  with a different form.
 """
-function orthogonalize(tt::TensorTrain, site::Integer; form::Symbol=:unitary)
+function orthogonalize(tt::TensorTrain, site::Integer; form::Symbol=:unitary, force::Bool=true)
     isempty(tt.data) && throw(ArgumentError("TensorTrain must not be empty"))
     1 <= site <= length(tt) || throw(ArgumentError("site must be in 1:$(length(tt)), got $site"))
 
@@ -176,10 +183,11 @@ function orthogonalize(tt::TensorTrain, site::Integer; form::Symbol=:unitary)
         status = ccall(
             _t4a(:t4a_treetn_orthogonalize),
             Cint,
-            (Ptr{Cvoid}, Csize_t, Cint),
+            (Ptr{Cvoid}, Csize_t, Cint, Cint),
             tt_handle,
             Csize_t(site - 1),
             _canonical_form_code(form),
+            Cint(force ? 1 : 0),
         )
         _check_backend_status(status, "orthogonalizing TensorTrain to site $site")
         return _treetn_from_handle(tt_handle)
@@ -189,11 +197,22 @@ function orthogonalize(tt::TensorTrain, site::Integer; form::Symbol=:unitary)
 end
 
 """
-    truncate(tt; rtol=0.0, cutoff=0.0, maxdim=0)
+    truncate(tt; rtol=0.0, cutoff=0.0, maxdim=0, form=:unitary)
 
 Truncate TensorTrain bond dimensions with backend truncation controls.
+
+# Keyword arguments
+
+- `rtol`: relative tolerance for the SVD/LU truncation. `0.0` disables.
+- `cutoff`: absolute cutoff fed to the same backend resolver as `rtol`.
+- `maxdim`: maximum bond dimension. `0` (default) means no rank cap.
+- `form`: factorization used to truncate. One of `:unitary` (SVD-based,
+  default) or `:lu`.
+
+At least one of `rtol`, `cutoff`, or `maxdim` must be set; otherwise an
+`ArgumentError` is thrown.
 """
-function truncate(tt::TensorTrain; rtol::Real=0.0, cutoff::Real=0.0, maxdim::Integer=0)
+function truncate(tt::TensorTrain; rtol::Real=0.0, cutoff::Real=0.0, maxdim::Integer=0, form::Symbol=:unitary)
     isempty(tt.data) && throw(ArgumentError("TensorTrain must not be empty"))
     rtol >= 0 || throw(ArgumentError("rtol must be nonnegative, got $rtol"))
     cutoff >= 0 || throw(ArgumentError("cutoff must be nonnegative, got $cutoff"))
@@ -208,11 +227,12 @@ function truncate(tt::TensorTrain; rtol::Real=0.0, cutoff::Real=0.0, maxdim::Int
         status = ccall(
             _t4a(:t4a_treetn_truncate),
             Cint,
-            (Ptr{Cvoid}, Cdouble, Cdouble, Csize_t),
+            (Ptr{Cvoid}, Cdouble, Cdouble, Csize_t, Cint),
             tt_handle,
             float(rtol),
             float(cutoff),
             Csize_t(maxdim),
+            _canonical_form_code(form),
         )
         _check_backend_status(status, "truncating TensorTrain")
         return _treetn_from_handle(tt_handle)

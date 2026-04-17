@@ -70,20 +70,22 @@ function _extract_diagonal_tensor(tensor::Tensor, site::Index, diagsite::Index=p
 end
 
 """
-    rearrange_siteinds(tt, site_groups)
+    rearrange_siteinds(tt, site_groups; kwargs...)
 
-Deferred placeholder for regrouping site indices on a `TensorTrain`.
+Regroup the site indices of `tt` so that each new node holds the indices in
+`site_groups[i]`. Equivalent to [`restructure_to`](@ref) with the same
+target groups; this name is kept for compatibility with the
+`Quantics.jl` / `ITensorMPS.jl` API surface.
+
+`kwargs...` are forwarded verbatim to `restructure_to` and let the caller
+control split/swap truncation knobs and an optional final truncation pass.
 """
 function rearrange_siteinds(
-    ::TensorTrain,
-    ::AbstractVector{<:AbstractVector{<:Index}},
+    tt::TensorTrain,
+    site_groups::AbstractVector{<:AbstractVector{<:Index}};
+    kwargs...,
 )
-    # TODO(tensor4all-rs#253): restore `rearrange_siteinds` once upstream
-    # site-rearrangement semantics are settled beyond the current chain-focused
-    # `swap_site_indices` implementation and a corresponding C-API entrypoint
-    # exists. The previous Julia dense-materialization fallback was removed on
-    # purpose because it does not reflect the intended backend-local algorithm.
-    throw(SkeletonNotImplemented(:rearrange_siteinds, :tt))
+    return restructure_to(tt, site_groups; kwargs...)
 end
 
 """

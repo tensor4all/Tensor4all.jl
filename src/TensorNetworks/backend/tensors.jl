@@ -34,7 +34,9 @@ function _new_tensor_handle(tensor::Tensor, scalar_kind::Symbol)
 
         out = Ref{Ptr{Cvoid}}(C_NULL)
         if scalar_kind === :f64
-            dense = Float64.(tensor.data)
+            # convert preserves array shape; broadcasting Float64.(arr) collapses
+            # rank-0 arrays to a scalar, which then breaks the Ptr{Float64} ccall.
+            dense = convert(Array{Float64,ndims(tensor.data)}, tensor.data)
             status = ccall(
                 _t4a(:t4a_tensor_new_dense_f64),
                 Cint,

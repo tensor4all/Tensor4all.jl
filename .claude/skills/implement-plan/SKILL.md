@@ -39,4 +39,9 @@ For each task in the plan:
   needs a separate PR merged first (see cross-repo dependency rules).
 - Run `Pkg.test()` after all tasks are complete.
 - Run `julia --project=docs docs/make.jl` if any exported symbols changed.
+- If a task creates a new `src/**/*.jl` file with public (exported or
+  documented) symbols, or moves public symbols to a different file, append
+  that path to the corresponding `@autodocs` `Pages = [...]` list in
+  `docs/src/api.md`. Verify with `julia --startup-file=no
+  scripts/check_autodocs_coverage.jl` (also runs in CI).
 - Do not relax test tolerances or skip tests to make them pass.

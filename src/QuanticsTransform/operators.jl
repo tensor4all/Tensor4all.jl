@@ -216,8 +216,77 @@ affine_pullback_operator(r::Integer, params; bc=:periodic) =
 """
     binaryop_operator(r, a1, b1, a2, b2; bc1=:periodic, bc2=:periodic)
 
-Construct a metadata-only quantics binary-operator placeholder.
+Construct a quantics binary operator over two variables, materialized as a
+`TensorNetworks.LinearOperator`. The default 2-variable layout uses
+`lhs_var = 1` and `rhs_var = 2`. Coefficients `a1`, `b1`, `a2`, `b2` must fit
+in `Int8` (the C API uses signed-byte coefficients).
 """
-# Deferred for the Phase 1 materialization pass.
-binaryop_operator(r::Integer, a1, b1, a2, b2; bc1=:periodic, bc2=:periodic) =
-    _placeholder_operator(:binaryop; r, a1, b1, a2, b2, bc1, bc2)
+function binaryop_operator(
+    r::Integer,
+    a1::Integer,
+    b1::Integer,
+    a2::Integer,
+    b2::Integer;
+    bc1::Symbol=:periodic,
+    bc2::Symbol=:periodic,
+)
+    layout_handle = _new_multivar_layout(r, 2)
+    try
+        return _materialize_binaryop(
+            layout_handle,
+            0,
+            1,
+            a1,
+            b1,
+            a2,
+            b2,
+            bc1,
+            bc2,
+            "materializing binaryop operator",
+        )
+    finally
+        _release_qtt_layout_handle(layout_handle)
+    end
+end
+
+"""
+    binaryop_operator_multivar(r, a1, b1, a2, b2, nvars, lhs_var, rhs_var;
+                               bc1=:periodic, bc2=:periodic)
+
+Multi-variable variant of [`binaryop_operator`](@ref). `lhs_var` and `rhs_var`
+are 1-based indices into a layout with `nvars` variables; they must be
+distinct.
+"""
+function binaryop_operator_multivar(
+    r::Integer,
+    a1::Integer,
+    b1::Integer,
+    a2::Integer,
+    b2::Integer,
+    nvars::Integer,
+    lhs_var::Integer,
+    rhs_var::Integer;
+    bc1::Symbol=:periodic,
+    bc2::Symbol=:periodic,
+)
+    _require_multivar_target(nvars, lhs_var)
+    _require_multivar_target(nvars, rhs_var)
+    lhs_var == rhs_var && throw(ArgumentError("lhs_var and rhs_var must be distinct, got $lhs_var"))
+    layout_handle = _new_multivar_layout(r, nvars)
+    try
+        return _materialize_binaryop(
+            layout_handle,
+            lhs_var - 1,
+            rhs_var - 1,
+            a1,
+            b1,
+            a2,
+            b2,
+            bc1,
+            bc2,
+            "materializing multivar binaryop operator",
+        )
+    finally
+        _release_qtt_layout_handle(layout_handle)
+    end
+end

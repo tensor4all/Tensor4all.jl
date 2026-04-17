@@ -1,5 +1,6 @@
 using Test
 using Tensor4all
+using Random: MersenneTwister
 
 const TN = Tensor4all.TensorNetworks
 
@@ -74,21 +75,35 @@ function siteinds_by_tensor(tt::TN.TensorTrain)
 end
 
 function simple_mps(sites::Vector{Index})
-    links = [
-        Index(n in (1, length(sites) + 1) ? 1 : 2; tags=["Link", "l=$(n - 1)"])
-        for n in 1:(length(sites) + 1)
-    ]
+    # Mirrors the ITensorMPS layout: rank-2 boundary tensors (site + one
+    # internal link) and rank-3 interior tensors (left link, site, right
+    # link). No dim-1 boundary links — those are not part of the
+    # ITensorMPS MPS data structure.
+    n = length(sites)
+    if n == 1
+        return TN.TensorTrain([Tensor(collect(1.0:dim(sites[1])), [sites[1]])], 0, 2)
+    end
+
+    links = [Index(2; tags=["Link", "l=$i"]) for i in 1:(n - 1)]
     cursor = 1.0
     tensors = Tensor[]
-    for n in eachindex(sites)
-        leftdim = dim(links[n])
-        rightdim = dim(links[n + 1])
-        elements = leftdim * dim(sites[n]) * rightdim
-        data = reshape(collect(cursor:(cursor + elements - 1)), leftdim, dim(sites[n]), rightdim)
-        cursor += elements
-        push!(tensors, Tensor(data, [links[n], sites[n], links[n + 1]]))
+    for i in 1:n
+        if i == 1
+            elements = dim(sites[1]) * dim(links[1])
+            data = reshape(collect(cursor:(cursor + elements - 1)), dim(sites[1]), dim(links[1]))
+            push!(tensors, Tensor(data, [sites[1], links[1]]))
+        elseif i == n
+            elements = dim(links[n - 1]) * dim(sites[n])
+            data = reshape(collect(cursor:(cursor + elements - 1)), dim(links[n - 1]), dim(sites[n]))
+            push!(tensors, Tensor(data, [links[n - 1], sites[n]]))
+        else
+            elements = dim(links[i - 1]) * dim(sites[i]) * dim(links[i])
+            data = reshape(collect(cursor:(cursor + elements - 1)), dim(links[i - 1]), dim(sites[i]), dim(links[i]))
+            push!(tensors, Tensor(data, [links[i - 1], sites[i], links[i]]))
+        end
+        cursor += length(tensors[end].data)
     end
-    return TN.TensorTrain(tensors, 0, length(sites) + 1)
+    return TN.TensorTrain(tensors, 0, n + 1)
 end
 
 @testset "TensorNetworks transform helpers" begin
@@ -104,14 +119,24 @@ end
         @test_throws ArgumentError TN.replace_siteinds_part!(tt, [Index(2; tags=["missing", "missing=1"])], [newsite])
     end
 
-    @testset "rearrange_siteinds is deferred pending upstream support" begin
+    @testset "rearrange_siteinds delegates to restructure_to" begin
         sitesx = [Index(2; tags=["x", "x=$n"]) for n in 1:3]
         sitesy = [Index(2; tags=["y", "y=$n"]) for n in 1:3]
         sitesxy = collect(Iterators.flatten(zip(sitesx, sitesy)))
         psi = simple_mps(sitesxy)
 
+        before = TN.to_dense(psi)
+        # Interleaved -> fused (each adjacent pair becomes one node).
         fused_groups = [[x, y] for (x, y) in zip(sitesx, sitesy)]
-        @test_throws Tensor4all.SkeletonNotImplemented TN.rearrange_siteinds(psi, fused_groups)
+        fused = TN.rearrange_siteinds(psi, fused_groups)
+        @test length(fused) == 3
+        @test TN.to_dense(fused) ≈ before
+
+        # Round trip back to interleaved.
+        interleaved_groups = [[s] for s in sitesxy]
+        round_trip = TN.rearrange_siteinds(fused, interleaved_groups)
+        @test length(round_trip) == 6
+        @test TN.to_dense(round_trip) ≈ before
     end
 
     @testset "makesitediagonal and extractdiagonal roundtrip a tagged site family" begin
