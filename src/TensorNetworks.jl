@@ -7,6 +7,7 @@ import Random
 import Random: AbstractRNG
 import ..Tensor4all: dag, contract
 using ..Tensor4all: BackendUnavailableError, Index, Tensor, SkeletonNotImplemented, commoninds, dim, hastag, id, inds, plev, prime, rank, require_backend, tags
+import ..SimpleTT
 
 const _LINK_TAG = "Link"
 
@@ -43,6 +44,7 @@ include("TensorNetworks/backend/restructure/swap_site_indices.jl")
 include("TensorNetworks/backend/restructure/restructure_to.jl")
 include("TensorNetworks/backend/linsolve.jl")
 include("TensorNetworks/random.jl")
+include("TensorNetworks/bridge.jl")
 include("TensorNetworks/deferred.jl")
 
 end
