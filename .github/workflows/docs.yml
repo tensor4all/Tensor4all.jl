@@ -34,7 +34,7 @@ jobs:
       - name: Checkout tensor4all-rs backend
         run: |
           git clone https://github.com/tensor4all/tensor4all-rs.git ../tensor4all-rs
-          git -C ../tensor4all-rs checkout db8c4dbbaf84e76a9067805a503ea241aac24e3d
+          git -C ../tensor4all-rs checkout "$(cat deps/TENSOR4ALL_RS_PIN)"
 
       - name: Lint @autodocs Pages coverage
         run: julia --startup-file=no scripts/check_autodocs_coverage.jl

@@ -205,13 +205,89 @@ function affine_operator(r::Integer, a_num, a_den, b_num, b_den; bc=:periodic)
 end
 
 """
-    affine_pullback_operator(r, params; bc=:periodic)
+    affine_pullback_operator(r, a_num, a_den, b_num, b_den; bc=:periodic)
 
-Construct a metadata-only quantics affine-pullback operator placeholder.
+Construct a single-variable quantics **affine pullback** operator
+materialized as a `TensorNetworks.LinearOperator`.
+
+The pullback maps a source state `g(x)` of one variable to a target
+state `f(y) = g(a * y + b)`, with `a = a_num / a_den` and `b = b_num / b_den`
+expressed as exact rationals. `r` is the number of bits per variable; the
+layout is the same single-variable fused layout used by
+[`affine_operator`](@ref).
 """
-# Deferred for the Phase 1 materialization pass.
-affine_pullback_operator(r::Integer, params; bc=:periodic) =
-    _placeholder_operator(:affine_pullback; r, params, bc)
+function affine_pullback_operator(
+    r::Integer,
+    a_num::Integer,
+    a_den::Integer,
+    b_num::Integer,
+    b_den::Integer;
+    bc::Symbol=:periodic,
+)
+    layout_handle = _new_univariate_layout(r)
+    try
+        return _materialize_affine_pullback(
+            layout_handle,
+            Int64[a_num],
+            Int64[a_den],
+            Int64[b_num],
+            Int64[b_den],
+            1,
+            1,
+            Symbol[bc],
+            "materializing affine pullback operator",
+        )
+    finally
+        _release_qtt_layout_handle(layout_handle)
+    end
+end
+
+"""
+    affine_pullback_operator_multivar(r, a_num, a_den, b_num, b_den, m, n;
+                                      bc=fill(:periodic, m))
+
+Multi-variable affine pullback operator. Maps a source state
+`g(x_1, ..., x_M)` to `f(y_1, ..., y_N) = g(A * y + b)` where:
+
+- `A` is an `M × N` rational matrix supplied in column-major order through
+  the parallel arrays `a_num`, `a_den` (each of length `m * n`).
+- `b` is the `M`-dimensional translation vector through `b_num`, `b_den`
+  (each of length `m`).
+- `bc` is the per-source-dimension boundary condition (`Vector{Symbol}` of
+  length `m`); each entry is one of `:periodic` or `:open`.
+
+The layout uses `max(m, n)` variables of `r` bits each (Fused), matching
+the convention of the C-API tests in tensor4all-rs#427.
+"""
+function affine_pullback_operator_multivar(
+    r::Integer,
+    a_num::AbstractVector{<:Integer},
+    a_den::AbstractVector{<:Integer},
+    b_num::AbstractVector{<:Integer},
+    b_den::AbstractVector{<:Integer},
+    m::Integer,
+    n::Integer;
+    bc::AbstractVector{Symbol}=fill(:periodic, m),
+)
+    _require_positive_integer("m", m)
+    _require_positive_integer("n", n)
+    layout_handle = _new_multivar_layout(r, max(Int(m), Int(n)))
+    try
+        return _materialize_affine_pullback(
+            layout_handle,
+            a_num,
+            a_den,
+            b_num,
+            b_den,
+            m,
+            n,
+            bc,
+            "materializing multivar affine pullback operator",
+        )
+    finally
+        _release_qtt_layout_handle(layout_handle)
+    end
+end
 
 """
     binaryop_operator(r, a1, b1, a2, b2; bc1=:periodic, bc2=:periodic)

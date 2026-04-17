@@ -123,8 +123,30 @@ const QT = Tensor4all.QuanticsTransform
         @test_throws ArgumentError QT.binaryop_operator(3, 200, 0, 1, 0)
     end
 
-    @testset "remaining deferred operators" begin
-        op = QT.affine_pullback_operator(3, (;))
-        @test op.mpo === nothing
+    @testset "affine_pullback_operator" begin
+        # 1D pullback (a = 1, b = 0) — identity-like, layout single-var.
+        op = QT.affine_pullback_operator(3, 1, 1, 0, 1)
+        @test op.mpo !== nothing
+
+        # 2D pullback with swap matrix A = [[0,1],[1,0]], b = 0.
+        op_swap = QT.affine_pullback_operator_multivar(
+            1,
+            [0, 1, 1, 0],
+            [1, 1, 1, 1],
+            [0, 0],
+            [1, 1],
+            2,
+            2;
+            bc=[:periodic, :periodic],
+        )
+        @test op_swap.mpo !== nothing
+
+        # Argument validation
+        @test_throws DimensionMismatch QT.affine_pullback_operator_multivar(
+            1, [0, 1], [1, 1], [0], [1], 2, 2,
+        )  # a wrong length
+        @test_throws ArgumentError QT.affine_pullback_operator_multivar(
+            1, [0], [1], [0], [1], 0, 1,
+        )  # m == 0
     end
 end
