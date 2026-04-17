@@ -11,8 +11,11 @@
 using Libdl
 using RustToolChain: cargo
 
-# Configuration
-const TENSOR4ALL_RS_FALLBACK_COMMIT = "db8c4dbbaf84e76a9067805a503ea241aac24e3d"
+# Configuration. The pinned tensor4all-rs commit lives in `deps/TENSOR4ALL_RS_PIN`
+# so that `deps/build.jl` and the GitHub workflows (.github/workflows/*.yml)
+# share a single source of truth — bump the pin in that one file.
+const TENSOR4ALL_RS_PIN_FILE = joinpath(@__DIR__, "TENSOR4ALL_RS_PIN")
+const TENSOR4ALL_RS_FALLBACK_COMMIT = strip(read(TENSOR4ALL_RS_PIN_FILE, String))
 const TENSOR4ALL_RS_REPO = "https://github.com/tensor4all/tensor4all-rs.git"
 
 # Paths
