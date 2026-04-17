@@ -72,6 +72,10 @@ Other chain-facing names in this layer include:
 - `Tensor4all.TensorNetworks.add`
 - `Tensor4all.TensorNetworks.dot`, `Tensor4all.TensorNetworks.inner`
 - `Tensor4all.TensorNetworks.dist`
+- `Tensor4all.TensorNetworks.fuse_to`
+- `Tensor4all.TensorNetworks.split_to`
+- `Tensor4all.TensorNetworks.swap_site_indices`
+- `Tensor4all.TensorNetworks.restructure_to`
 
 `TensorNetworks.TensorTrain` is the container that HDF5 compatibility works
 against.
@@ -85,7 +89,7 @@ comparison on the current backend path through `+`, `-`, scalar `*`, scalar
 
 ```@autodocs
 Modules = [Tensor4all.TensorNetworks]
-Pages = ["TensorNetworks/types.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/transforms.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/backend/treetn.jl", "TensorNetworks/backend/treetn_queries.jl", "TensorNetworks/backend/treetn_dense.jl", "TensorNetworks/backend/treetn_contract.jl", "TensorNetworks/backend/treetn_evaluate.jl", "TensorNetworks/deferred.jl"]
+Pages = ["TensorNetworks/types.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/transforms.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/backend/treetn.jl", "TensorNetworks/backend/treetn_queries.jl", "TensorNetworks/backend/treetn_dense.jl", "TensorNetworks/backend/treetn_contract.jl", "TensorNetworks/backend/treetn_evaluate.jl", "TensorNetworks/backend/restructure/fuse_to.jl", "TensorNetworks/backend/restructure/split_to.jl", "TensorNetworks/backend/restructure/swap_site_indices.jl", "TensorNetworks/backend/restructure/restructure_to.jl", "TensorNetworks/deferred.jl"]
 Private = false
 Order = [:type, :function]
 ```
