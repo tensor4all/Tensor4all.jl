@@ -46,10 +46,13 @@ end
 Other chain-facing names in this layer include:
 
 - `Tensor4all.TensorNetworks.LinearOperator`
-- `Tensor4all.TensorNetworks.SvdTruncationPolicy` — full backend SVD
-  truncation strategy (`threshold`, `scale`, `measure`, `rule`); accepted
-  via the `svd_policy` kwarg on `truncate`, `add`, `contract`, `apply`,
-  `linsolve`, `split_to`, and `Core.svd`
+- `Tensor4all.TensorNetworks.SvdTruncationPolicy` — SVD truncation strategy
+  (`scale`, `measure`, `rule`), paired with a per-call `threshold` kwarg
+  on every truncating function. See the Truncation Policy chapter.
+- `Tensor4all.TensorNetworks.default_svd_policy`,
+  `Tensor4all.TensorNetworks.set_default_svd_policy!`,
+  `Tensor4all.TensorNetworks.with_svd_policy` — process-wide and task-local
+  default-policy registry.
 - `Tensor4all.TensorNetworks.set_input_space!`
 - `Tensor4all.TensorNetworks.set_output_space!`
 - `Tensor4all.TensorNetworks.set_iospaces!`
