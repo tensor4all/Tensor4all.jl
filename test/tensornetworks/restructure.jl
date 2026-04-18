@@ -211,5 +211,31 @@ end
             tt, [[sites[1]], [sites[2]]];
             edges=[(1, 5)],
         )
+
+        # split_to form=:lu rejected
+        @test_throws ArgumentError TN_RESTRUCT.split_to(
+            tt, [[sites[1]], [sites[2]]];
+            maxdim=2, form=:lu,
+        )
+
+        # split_to svd_policy path + ambiguity
+        pol = TN_RESTRUCT.SvdTruncationPolicy(threshold=1e-10)
+        result_pol = TN_RESTRUCT.split_to(
+            tt, [[sites[1]], [sites[2]]];
+            svd_policy=pol, final_sweep=true,
+        )
+        @test length(result_pol) == 2
+        @test_throws ArgumentError TN_RESTRUCT.split_to(
+            tt, [[sites[1]], [sites[2]]];
+            rtol=1e-8, svd_policy=pol,
+        )
+
+        # restructure_to forwards split_svd_policy / final_svd_policy
+        result_rs = TN_RESTRUCT.restructure_to(
+            tt, [[sites[1]], [sites[2]]];
+            split_svd_policy=pol,
+            final_svd_policy=pol,
+        )
+        @test length(result_rs) == 2
     end
 end

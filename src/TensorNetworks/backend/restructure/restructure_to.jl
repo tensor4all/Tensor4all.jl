@@ -48,6 +48,7 @@ function restructure_to(
     split_rtol::Real=0.0,
     split_cutoff::Real=0.0,
     split_maxdim::Integer=0,
+    split_svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
     split_form::Symbol=:unitary,
     split_final_sweep::Bool=false,
     swap_rtol::Real=0.0,
@@ -55,6 +56,7 @@ function restructure_to(
     final_rtol::Real=0.0,
     final_cutoff::Real=0.0,
     final_maxdim::Integer=0,
+    final_svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
     final_form::Symbol=:unitary,
 )
     isempty(tt.data) && throw(ArgumentError("TensorTrain must not be empty for restructure_to"))
@@ -73,18 +75,18 @@ function restructure_to(
     current_id_sets = [Set(id(index) for index in group) for group in current_groups]
 
     if _groups_equal_as_ordered_sets(current_id_sets, target_id_sets)
-        return _final_truncate(tt; final_rtol, final_cutoff, final_maxdim, final_form)
+        return _final_truncate(tt; final_rtol, final_cutoff, final_maxdim, final_svd_policy, final_form)
     end
 
     if _is_swap_only(current_id_sets, target_id_sets)
         assignment = _build_swap_assignment(current_groups, target_groups)
         result = swap_site_indices(tt, assignment; rtol=swap_rtol, maxdim=swap_maxdim)
-        return _final_truncate(result; final_rtol, final_cutoff, final_maxdim, final_form)
+        return _final_truncate(result; final_rtol, final_cutoff, final_maxdim, final_svd_policy, final_form)
     end
 
     if _is_fuse_only(current_id_sets, target_id_sets)
         result = fuse_to(tt, target_groups; edges)
-        return _final_truncate(result; final_rtol, final_cutoff, final_maxdim, final_form)
+        return _final_truncate(result; final_rtol, final_cutoff, final_maxdim, final_svd_policy, final_form)
     end
 
     if _is_split_only(current_id_sets, target_id_sets)
@@ -95,10 +97,11 @@ function restructure_to(
             rtol=split_rtol,
             cutoff=split_cutoff,
             maxdim=split_maxdim,
+            svd_policy=split_svd_policy,
             form=split_form,
             final_sweep=split_final_sweep,
         )
-        return _final_truncate(result; final_rtol, final_cutoff, final_maxdim, final_form)
+        return _final_truncate(result; final_rtol, final_cutoff, final_maxdim, final_svd_policy, final_form)
     end
 
     throw(ArgumentError(
@@ -162,11 +165,20 @@ function _final_truncate(
     final_rtol::Real,
     final_cutoff::Real,
     final_maxdim::Integer,
+    final_svd_policy::Union{Nothing, SvdTruncationPolicy},
     final_form::Symbol,
 )
-    has_final_truncation = final_rtol > 0 || final_cutoff > 0 || final_maxdim > 0
+    has_final_truncation = final_rtol > 0 || final_cutoff > 0 || final_maxdim > 0 ||
+        final_svd_policy !== nothing
     has_final_truncation || return tt
-    return truncate(tt; rtol=final_rtol, cutoff=final_cutoff, maxdim=final_maxdim, form=final_form)
+    return truncate(
+        tt;
+        rtol=final_rtol,
+        cutoff=final_cutoff,
+        maxdim=final_maxdim,
+        svd_policy=final_svd_policy,
+        form=final_form,
+    )
 end
 
 function _validate_target_groups_coverage(
