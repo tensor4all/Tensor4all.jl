@@ -197,7 +197,8 @@ function orthogonalize(tt::TensorTrain, site::Integer; form::Symbol=:unitary, fo
 end
 
 """
-    truncate(tt; rtol=0.0, cutoff=0.0, maxdim=0, form=:unitary)
+    truncate(tt; rtol=0.0, cutoff=0.0, maxdim=0, svd_policy=nothing,
+              form=:unitary)
 
 Truncate TensorTrain bond dimensions.
 
@@ -209,38 +210,54 @@ Truncate TensorTrain bond dimensions.
   when both are nonzero. `0.0` disables.
 - `maxdim`: hard upper bound on the bond dimension after truncation.
   `0` (default) means no rank cap.
-- `form`: factorization used to truncate. One of `:unitary` (SVD-based,
-  default) or `:lu`.
+- `svd_policy`: optional [`SvdTruncationPolicy`](@ref) for access to the
+  full backend strategy (`scale`, `measure`, `rule`). Cannot coexist with
+  nonzero `rtol`/`cutoff`.
+- `form`: factorization used to truncate. Only `:unitary` is supported by
+  the current backend (SVD-based truncation).
 
-At least one of `rtol`, `cutoff`, or `maxdim` must be set; otherwise an
-`ArgumentError` is thrown.
+At least one of `rtol`, `cutoff`, `maxdim`, or `svd_policy` must be set;
+otherwise an `ArgumentError` is thrown.
 
 See also the [Truncation Contract](@ref) page for the precedence rules
 between `rtol` and `cutoff`, the `sqrt` conversion, and the meaning of
 the sentinel values across every truncating entry point.
 """
-function truncate(tt::TensorTrain; rtol::Real=0.0, cutoff::Real=0.0, maxdim::Integer=0, form::Symbol=:unitary)
+function truncate(
+    tt::TensorTrain;
+    rtol::Real=0.0,
+    cutoff::Real=0.0,
+    maxdim::Integer=0,
+    svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
+    form::Symbol=:unitary,
+)
     isempty(tt.data) && throw(ArgumentError("TensorTrain must not be empty"))
     rtol >= 0 || throw(ArgumentError("rtol must be nonnegative, got $rtol"))
     cutoff >= 0 || throw(ArgumentError("cutoff must be nonnegative, got $cutoff"))
     maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
-    (rtol == 0.0 && cutoff == 0.0 && maxdim == 0) && throw(
-        ArgumentError("At least one of rtol, cutoff, or maxdim must be specified"),
+    form === :unitary || throw(ArgumentError(
+        "truncate: form=$(repr(form)) is not supported. The backend uses SVD-only " *
+        "truncation (tensor4all-rs #429). Use form=:unitary.",
+    ))
+    (rtol == 0.0 && cutoff == 0.0 && maxdim == 0 && svd_policy === nothing) && throw(
+        ArgumentError("At least one of rtol, cutoff, maxdim, or svd_policy must be specified"),
     )
+
+    ffi_policy = _resolve_svd_policy(; rtol, cutoff, svd_policy)
 
     scalar_kind = _promoted_scalar_kind(tt)
     tt_handle = _new_treetn_handle(tt, scalar_kind)
     try
-        status = ccall(
-            _t4a(:t4a_treetn_truncate),
-            Cint,
-            (Ptr{Cvoid}, Cdouble, Cdouble, Csize_t, Cint),
-            tt_handle,
-            float(rtol),
-            float(cutoff),
-            Csize_t(maxdim),
-            _canonical_form_code(form),
-        )
+        status = _with_svd_policy_ptr(ffi_policy) do policy_ptr
+            ccall(
+                _t4a(:t4a_treetn_truncate),
+                Cint,
+                (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t),
+                tt_handle,
+                policy_ptr,
+                Csize_t(maxdim),
+            )
+        end
         _check_backend_status(status, "truncating TensorTrain")
         return _treetn_from_handle(tt_handle)
     finally
@@ -249,12 +266,24 @@ function truncate(tt::TensorTrain; rtol::Real=0.0, cutoff::Real=0.0, maxdim::Int
 end
 
 """
-    add(a, b; rtol=0.0, cutoff=0.0, maxdim=0)
+    add(a, b; rtol=0.0, cutoff=0.0, maxdim=0, svd_policy=nothing)
 
 Add two TensorTrain chains, optionally applying backend truncation controls.
+
+Pass `svd_policy::SvdTruncationPolicy` for access to the full backend
+truncation strategy (cannot coexist with nonzero `rtol`/`cutoff`).
 """
-function add(a::TensorTrain, b::TensorTrain; rtol::Real=0.0, cutoff::Real=0.0, maxdim::Integer=0)
+function add(
+    a::TensorTrain,
+    b::TensorTrain;
+    rtol::Real=0.0,
+    cutoff::Real=0.0,
+    maxdim::Integer=0,
+    svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
+)
     _validate_tt_binary(a, b, "add")
+
+    ffi_policy = _resolve_svd_policy(; rtol, cutoff, svd_policy)
 
     scalar_kind = _promoted_scalar_kind(a, b)
     a_handle = _new_treetn_handle(a, scalar_kind)
@@ -262,17 +291,18 @@ function add(a::TensorTrain, b::TensorTrain; rtol::Real=0.0, cutoff::Real=0.0, m
     result_handle = C_NULL
     try
         out = Ref{Ptr{Cvoid}}(C_NULL)
-        status = ccall(
-            _t4a(:t4a_treetn_add),
-            Cint,
-            (Ptr{Cvoid}, Ptr{Cvoid}, Cdouble, Cdouble, Csize_t, Ref{Ptr{Cvoid}}),
-            a_handle,
-            b_handle,
-            float(rtol),
-            float(cutoff),
-            Csize_t(maxdim),
-            out,
-        )
+        status = _with_svd_policy_ptr(ffi_policy) do policy_ptr
+            ccall(
+                _t4a(:t4a_treetn_add),
+                Cint,
+                (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Csize_t, Ref{Ptr{Cvoid}}),
+                a_handle,
+                b_handle,
+                policy_ptr,
+                Csize_t(maxdim),
+                out,
+            )
+        end
         _check_backend_status(status, "adding TensorTrains")
         result_handle = out[]
         return _treetn_from_handle(result_handle)
