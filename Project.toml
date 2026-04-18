@@ -10,6 +10,7 @@ QuanticsGrids = "634c7f73-3e90-4749-a1bd-001b8efc642d"
 QuanticsTCI = "b11687fd-3a1c-4c41-97d0-998ab401d50e"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 RustToolChain = "e9dc52e2-edb8-4742-9783-5e542d30dbb5"
+ScopedValues = "7e506255-f358-4e82-b7e4-beb19740aa63"
 TensorCrossInterpolation = "b261b2ec-6378-4871-b32e-9173bb050604"
 
 [weakdeps]
@@ -23,6 +24,7 @@ HDF5 = "0.17"
 QuanticsGrids = "0.7"
 QuanticsTCI = "0.7.3"
 RustToolChain = "0.1"
+ScopedValues = "1"
 TensorCrossInterpolation = "0.9"
 julia = "1.9"
 

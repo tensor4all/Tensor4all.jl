@@ -5,6 +5,7 @@ import LinearAlgebra
 import LinearAlgebra: norm
 import Random
 import Random: AbstractRNG
+import ScopedValues
 import ..Tensor4all: dag, contract
 using ..Tensor4all: BackendUnavailableError, Index, Tensor, SkeletonNotImplemented, commoninds, dim, hastag, id, inds, plev, prime, rank, require_backend, tags
 import ..SimpleTT
@@ -12,6 +13,7 @@ import ..SimpleTT
 const _LINK_TAG = "Link"
 
 export TensorTrain, LinearOperator, SvdTruncationPolicy
+export default_svd_policy, set_default_svd_policy!, with_svd_policy
 export add, dag, dot, inner, dist
 export linkinds, linkdims, siteinds
 export norm
