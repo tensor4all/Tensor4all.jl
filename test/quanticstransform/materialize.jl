@@ -121,6 +121,31 @@ const QT = Tensor4all.QuanticsTransform
         @test_throws ArgumentError QT.binaryop_operator_multivar(3, 1, 0, 1, 0, 2, 1, 1)
         # Coefficient out of Int8 range
         @test_throws ArgumentError QT.binaryop_operator(3, 200, 0, 1, 0)
+
+        @testset "2-var shape matches affine_pullback_operator_multivar" begin
+            r = 3
+            op_bin = QT.binaryop_operator(r, 0, 1, 1, 0)
+            op_aff = QT.affine_pullback_operator_multivar(
+                r, [0, 1, 1, 0], [1, 1, 1, 1], [0, 0], [1, 1], 2, 2;
+                bc=[:periodic, :periodic],
+            )
+            @test length(op_bin.mpo) == length(op_aff.mpo)
+            @test length(op_bin.input_indices) == length(op_aff.input_indices)
+            @test length(op_bin.output_indices) == length(op_aff.output_indices)
+            bin_dims = [dim(i) for i in op_bin.input_indices]
+            aff_dims = [dim(i) for i in op_aff.input_indices]
+            @test bin_dims == aff_dims
+        end
+
+        @testset "multivar shape" begin
+            r = 2
+            op_bin = QT.binaryop_operator_multivar(r, 0, 1, 1, 0, 3, 1, 3)
+            # 3-variable Fused layout: r sites, each input/output dim 2^3 = 8.
+            @test length(op_bin.mpo) == r
+            @test length(op_bin.input_indices) == r
+            @test all(dim(i) == 8 for i in op_bin.input_indices)
+            @test all(dim(i) == 8 for i in op_bin.output_indices)
+        end
     end
 
     @testset "affine_pullback_operator" begin

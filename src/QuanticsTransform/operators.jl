@@ -293,9 +293,15 @@ end
     binaryop_operator(r, a1, b1, a2, b2; bc1=:periodic, bc2=:periodic)
 
 Construct a quantics binary operator over two variables, materialized as a
-`TensorNetworks.LinearOperator`. The default 2-variable layout uses
-`lhs_var = 1` and `rhs_var = 2`. Coefficients `a1`, `b1`, `a2`, `b2` must fit
-in `Int8` (the C API uses signed-byte coefficients).
+`TensorNetworks.LinearOperator`. Coefficients `a1`, `b1`, `a2`, `b2` must fit
+in `Int8`.
+
+Semantics: maps `g(x, y)` to
+`f(x, y) = g(a1 * x + b1 * y, a2 * x + b2 * y)` (affine pullback with linear
+matrix `A = [[a1, b1]; [a2, b2]]` and zero shift).
+
+Implemented as a thin wrapper over [`affine_pullback_operator_multivar`](@ref)
+with a zero shift vector; the returned operator uses a Fused QTT layout.
 """
 function binaryop_operator(
     r::Integer,
@@ -306,23 +312,13 @@ function binaryop_operator(
     bc1::Symbol=:periodic,
     bc2::Symbol=:periodic,
 )
-    layout_handle = _new_multivar_layout(r, 2)
-    try
-        return _materialize_binaryop(
-            layout_handle,
-            0,
-            1,
-            a1,
-            b1,
-            a2,
-            b2,
-            bc1,
-            bc2,
-            "materializing binaryop operator",
-        )
-    finally
-        _release_qtt_layout_handle(layout_handle)
-    end
+    _require_int8_range("a1", a1)
+    _require_int8_range("b1", b1)
+    _require_int8_range("a2", a2)
+    _require_int8_range("b2", b2)
+    return binaryop_operator_multivar(
+        r, a1, b1, a2, b2, 2, 1, 2; bc1=bc1, bc2=bc2,
+    )
 end
 
 """
@@ -331,7 +327,12 @@ end
 
 Multi-variable variant of [`binaryop_operator`](@ref). `lhs_var` and `rhs_var`
 are 1-based indices into a layout with `nvars` variables; they must be
-distinct.
+distinct. The transformation acts as the 2×2 affine map on variables
+`(lhs_var, rhs_var)` and as the identity on every other variable.
+
+Implemented as a thin wrapper over [`affine_pullback_operator_multivar`](@ref)
+with an `nvars × nvars` linear matrix that embeds the 2×2 coefficient matrix
+at the `(lhs_var, rhs_var)` rows/cols and identity elsewhere.
 """
 function binaryop_operator_multivar(
     r::Integer,
@@ -348,21 +349,42 @@ function binaryop_operator_multivar(
     _require_multivar_target(nvars, lhs_var)
     _require_multivar_target(nvars, rhs_var)
     lhs_var == rhs_var && throw(ArgumentError("lhs_var and rhs_var must be distinct, got $lhs_var"))
-    layout_handle = _new_multivar_layout(r, nvars)
-    try
-        return _materialize_binaryop(
-            layout_handle,
-            lhs_var - 1,
-            rhs_var - 1,
-            a1,
-            b1,
-            a2,
-            b2,
-            bc1,
-            bc2,
-            "materializing multivar binaryop operator",
-        )
-    finally
-        _release_qtt_layout_handle(layout_handle)
+    _require_int8_range("a1", a1)
+    _require_int8_range("b1", b1)
+    _require_int8_range("a2", a2)
+    _require_int8_range("b2", b2)
+
+    # Build an nvars x nvars integer matrix A. Initialize to identity.
+    # Then overwrite rows (lhs_var, rhs_var) x cols (lhs_var, rhs_var)
+    # with [[a1, b1]; [a2, b2]].
+    n = Int(nvars)
+    A_num = zeros(Int, n, n)
+    for i in 1:n
+        A_num[i, i] = 1
     end
+    A_num[lhs_var, lhs_var] = a1
+    A_num[lhs_var, rhs_var] = b1
+    A_num[rhs_var, lhs_var] = a2
+    A_num[rhs_var, rhs_var] = b2
+
+    # Flatten column-major (matches `affine_pullback_operator_multivar`).
+    a_num = vec(A_num)
+    a_den = ones(Int, n * n)
+    b_num = zeros(Int, n)
+    b_den = ones(Int, n)
+
+    # Per-source-dimension boundary conditions: bc1/bc2 at the two acted-on
+    # rows, periodic elsewhere (identity; bc is immaterial for the identity
+    # map but must be a valid symbol).
+    bc = fill(:periodic, n)
+    bc[lhs_var] = bc1
+    bc[rhs_var] = bc2
+
+    return affine_pullback_operator_multivar(
+        r, a_num, a_den, b_num, b_den, n, n; bc=bc,
+    )
+end
+
+function _require_int8_range(name::AbstractString, value::Integer)
+    -128 <= value <= 127 || throw(ArgumentError("$name must fit in Int8, got $value"))
 end
