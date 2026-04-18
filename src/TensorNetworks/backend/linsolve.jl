@@ -50,6 +50,7 @@ function linsolve(
     rtol::Real=0.0,
     cutoff::Real=0.0,
     maxdim::Integer=0,
+    svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
     form::Symbol=:unitary,
     nfullsweeps::Integer=5,
     krylov_tol::Real=1.0e-12,
@@ -61,6 +62,10 @@ function linsolve(
     rtol >= 0 || throw(ArgumentError("rtol must be nonnegative, got $rtol"))
     cutoff >= 0 || throw(ArgumentError("cutoff must be nonnegative, got $cutoff"))
     maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
+    form === :unitary || throw(ArgumentError(
+        "linsolve: form=$(repr(form)) is not supported. The backend uses SVD-only " *
+        "truncation (tensor4all-rs #429). Use form=:unitary.",
+    ))
     nfullsweeps >= 1 || throw(ArgumentError("nfullsweeps must be >= 1, got $nfullsweeps"))
     krylov_tol > 0 || throw(ArgumentError("krylov_tol must be positive, got $krylov_tol"))
     krylov_maxiter >= 1 || throw(ArgumentError("krylov_maxiter must be >= 1, got $krylov_maxiter"))
@@ -85,6 +90,8 @@ function linsolve(
     true_outputs = _bound_operator_indices(op.true_output, "op.true_output")
     _validate_operator_spaces!(op.input_indices, op.output_indices, true_inputs, true_outputs)
     mapped_positions = _mapped_state_positions(true_inputs, rhs_sites)
+
+    ffi_policy = _resolve_svd_policy(; rtol, cutoff, svd_policy)
 
     scalar_kind = _promoted_scalar_kind(rhs, init_tt, mpo)
     operator_handle = _new_treetn_handle(mpo, scalar_kind)
@@ -112,56 +119,54 @@ function linsolve(
 
         result_ref = Ref{Ptr{Cvoid}}(C_NULL)
         mapped_positions_c = Csize_t[(position - 1) for position in mapped_positions]
-        status = ccall(
-            _t4a(:t4a_treetn_linsolve),
-            Cint,
-            (
-                Ptr{Cvoid},
-                Ptr{Cvoid},
-                Ptr{Cvoid},
-                Csize_t,
-                Ptr{Csize_t},
-                Csize_t,
-                Ptr{Ptr{Cvoid}},
-                Ptr{Ptr{Cvoid}},
-                Ptr{Ptr{Cvoid}},
-                Ptr{Ptr{Cvoid}},
-                Cdouble,
-                Cdouble,
-                Csize_t,
+        status = _with_svd_policy_ptr(ffi_policy) do policy_ptr
+            ccall(
+                _t4a(:t4a_treetn_linsolve),
                 Cint,
-                Csize_t,
-                Cdouble,
-                Csize_t,
-                Csize_t,
-                Cdouble,
-                Cdouble,
-                Cdouble,
-                Ref{Ptr{Cvoid}},
-            ),
-            operator_handle,
-            rhs_handle,
-            init_handle,
-            Csize_t(center_vertex - 1),
-            mapped_positions_c,
-            length(mapped_positions_c),
-            true_input_handles,
-            internal_input_handles,
-            true_output_handles,
-            internal_output_handles,
-            float(rtol),
-            float(cutoff),
-            Csize_t(maxdim),
-            _canonical_form_code(form),
-            Csize_t(nfullsweeps),
-            float(krylov_tol),
-            Csize_t(krylov_maxiter),
-            Csize_t(krylov_dim),
-            float(a0),
-            float(a1),
-            float(convergence_tol),
-            result_ref,
-        )
+                (
+                    Ptr{Cvoid},
+                    Ptr{Cvoid},
+                    Ptr{Cvoid},
+                    Csize_t,
+                    Ptr{Csize_t},
+                    Csize_t,
+                    Ptr{Ptr{Cvoid}},
+                    Ptr{Ptr{Cvoid}},
+                    Ptr{Ptr{Cvoid}},
+                    Ptr{Ptr{Cvoid}},
+                    Ptr{Cvoid},
+                    Csize_t,
+                    Csize_t,
+                    Cdouble,
+                    Csize_t,
+                    Csize_t,
+                    Cdouble,
+                    Cdouble,
+                    Cdouble,
+                    Ref{Ptr{Cvoid}},
+                ),
+                operator_handle,
+                rhs_handle,
+                init_handle,
+                Csize_t(center_vertex - 1),
+                mapped_positions_c,
+                length(mapped_positions_c),
+                true_input_handles,
+                internal_input_handles,
+                true_output_handles,
+                internal_output_handles,
+                policy_ptr,
+                Csize_t(maxdim),
+                Csize_t(nfullsweeps),
+                float(krylov_tol),
+                Csize_t(krylov_maxiter),
+                Csize_t(krylov_dim),
+                float(a0),
+                float(a1),
+                float(convergence_tol),
+                result_ref,
+            )
+        end
         _check_backend_status(status, "linear-solving (a0 + a1 * A) x = b on TensorTrain")
         result_handle = result_ref[]
         return _treetn_from_handle(result_handle)
