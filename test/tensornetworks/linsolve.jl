@@ -76,21 +76,13 @@ end
         @test_throws ArgumentError TN_LINSOLVE.linsolve(op, rhs; krylov_tol=0.0)
         @test_throws ArgumentError TN_LINSOLVE.linsolve(op, rhs; krylov_maxiter=0)
         @test_throws ArgumentError TN_LINSOLVE.linsolve(op, rhs; krylov_dim=0)
-        @test_throws ArgumentError TN_LINSOLVE.linsolve(op, rhs; rtol=-1.0)
+        @test_throws ArgumentError TN_LINSOLVE.linsolve(op, rhs; threshold=-1.0)
         @test_throws ArgumentError TN_LINSOLVE.linsolve(op, rhs; convergence_tol=-1.0)
         @test_throws ArgumentError TN_LINSOLVE.linsolve(op, rhs; center_vertex=0)
         @test_throws ArgumentError TN_LINSOLVE.linsolve(op, rhs; center_vertex=99)
 
         bare_op = TN_LINSOLVE.LinearOperator()
         @test_throws ArgumentError TN_LINSOLVE.linsolve(bare_op, rhs)
-
-        # form=:lu rejected
-        @test_throws ArgumentError TN_LINSOLVE.linsolve(op, rhs; form=:lu)
-
-        # Ambiguity rejected
-        pol = TN_LINSOLVE.SvdTruncationPolicy(threshold=1e-10)
-        @test_throws ArgumentError TN_LINSOLVE.linsolve(op, rhs;
-            rtol=1e-8, svd_policy=pol)
     end
 
     @testset "svd_policy path" begin
@@ -98,9 +90,9 @@ end
         op = _scaled_identity_mpo(sites, 1.0)
         rhs = TN_LINSOLVE.random_tt(MersenneTwister(4), sites; linkdims=4)
 
-        pol = TN_LINSOLVE.SvdTruncationPolicy(threshold=1e-12)
+        pol = TN_LINSOLVE.SvdTruncationPolicy()
         x = TN_LINSOLVE.linsolve(op, rhs;
-            nfullsweeps=8, krylov_tol=1e-12, svd_policy=pol)
+            nfullsweeps=8, krylov_tol=1e-12, threshold=1e-12, svd_policy=pol)
         @test TN_LINSOLVE.to_dense(x) ≈ TN_LINSOLVE.to_dense(rhs)
     end
 end

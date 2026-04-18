@@ -1,7 +1,7 @@
 """
     split_to(tt, target_groups;
-             edges=nothing, rtol=0.0, cutoff=0.0, maxdim=0,
-             svd_policy=nothing, form=:unitary, final_sweep=false) -> TensorTrain
+             edges=nothing, threshold=0.0, maxdim=0,
+             svd_policy=nothing, final_sweep=false) -> TensorTrain
 
 Split nodes of `tt` so that the result has the finer topology described by
 `target_groups`. Each entry of `target_groups` is the site indices of one
@@ -14,13 +14,8 @@ post-split truncation sweep runs on the assembled target topology.
 
 # Keyword arguments
 
-- `rtol`: relative tolerance for the SVD truncation sweep. `0.0` disables.
-- `cutoff`: absolute cutoff fed to the same backend resolver as `rtol`.
-- `maxdim`: maximum bond dimension. `0` (default) means no rank cap.
-- `svd_policy`: optional [`SvdTruncationPolicy`](@ref) for the full backend
-  truncation strategy. Cannot coexist with nonzero `rtol`/`cutoff`.
-- `form`: factorization form. Only `:unitary` (SVD-based) is supported by
-  the current backend.
+- `threshold`, `maxdim`, `svd_policy`: truncation contract. See the
+  Truncation Policy chapter of the docs.
 - `final_sweep`: when `true`, run a global truncation sweep after the
   per-edge splits. Defaults to `false` and skips truncation entirely.
 
@@ -32,21 +27,15 @@ function split_to(
     tt::TensorTrain,
     target_groups::AbstractVector{<:AbstractVector{<:Index}};
     edges::Union{Nothing, AbstractVector{<:Tuple{<:Integer, <:Integer}}}=nothing,
-    rtol::Real=0.0,
-    cutoff::Real=0.0,
+    threshold::Real=0.0,
     maxdim::Integer=0,
     svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
-    form::Symbol=:unitary,
     final_sweep::Bool=false,
 )
     isempty(tt.data) && throw(ArgumentError("TensorTrain must not be empty for split_to"))
-    _validate_truncation_kwargs(rtol, cutoff, maxdim)
-    form === :unitary || throw(ArgumentError(
-        "split_to: form=$(repr(form)) is not supported. The backend uses SVD-only " *
-        "truncation (tensor4all-rs #429). Use form=:unitary.",
-    ))
+    _validate_truncation_kwargs(threshold, maxdim)
 
-    ffi_policy = _resolve_svd_policy(; rtol, cutoff, svd_policy)
+    ffi_policy = _resolve_svd_policy(; threshold, svd_policy)
 
     args = _build_target_args(tt, target_groups, edges)
     scalar_kind = _promoted_scalar_kind(tt)

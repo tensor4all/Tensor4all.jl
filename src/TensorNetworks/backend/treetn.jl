@@ -197,53 +197,40 @@ function orthogonalize(tt::TensorTrain, site::Integer; form::Symbol=:unitary, fo
 end
 
 """
-    truncate(tt; rtol=0.0, cutoff=0.0, maxdim=0, svd_policy=nothing,
-              form=:unitary)
+    truncate(tt; threshold=0.0, maxdim=0, svd_policy=nothing)
 
 Truncate TensorTrain bond dimensions.
 
 # Keyword arguments
 
-- `rtol`: relative tolerance applied to singular values. `0.0` disables.
-- `cutoff`: convenience knob in squared-singular-value space. Internally
-  converted to `rtol = sqrt(cutoff)` and takes precedence over `rtol`
-  when both are nonzero. `0.0` disables.
-- `maxdim`: hard upper bound on the bond dimension after truncation.
-  `0` (default) means no rank cap.
-- `svd_policy`: optional [`SvdTruncationPolicy`](@ref) for access to the
-  full backend strategy (`scale`, `measure`, `rule`). Cannot coexist with
-  nonzero `rtol`/`cutoff`.
-- `form`: factorization used to truncate. Only `:unitary` is supported by
-  the current backend (SVD-based truncation).
+- `threshold::Real`: numeric threshold for SVD truncation. Its meaning is
+  set by `svd_policy` (or the current default policy if not passed).
+  `0.0` (default) disables threshold-based truncation.
+- `maxdim::Integer`: hard upper bound on the bond dimension after
+  truncation. `0` (default) means no rank cap.
+- `svd_policy`: optional [`SvdTruncationPolicy`](@ref). Falls back to
+  [`default_svd_policy`](@ref) when `nothing`.
 
-At least one of `rtol`, `cutoff`, `maxdim`, or `svd_policy` must be set;
-otherwise an `ArgumentError` is thrown.
+At least one of `threshold > 0` or `maxdim > 0` must hold; otherwise an
+`ArgumentError` is thrown.
 
-See also the [Truncation Contract](@ref) page for the precedence rules
-between `rtol` and `cutoff`, the `sqrt` conversion, and the meaning of
-the sentinel values across every truncating entry point.
+See also the Truncation Policy chapter of the docs for the eight decision
+rules and common presets (including ITensors.jl compatibility).
 """
 function truncate(
     tt::TensorTrain;
-    rtol::Real=0.0,
-    cutoff::Real=0.0,
+    threshold::Real=0.0,
     maxdim::Integer=0,
     svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
-    form::Symbol=:unitary,
 )
     isempty(tt.data) && throw(ArgumentError("TensorTrain must not be empty"))
-    rtol >= 0 || throw(ArgumentError("rtol must be nonnegative, got $rtol"))
-    cutoff >= 0 || throw(ArgumentError("cutoff must be nonnegative, got $cutoff"))
+    threshold >= 0 || throw(ArgumentError("threshold must be nonnegative, got $threshold"))
     maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
-    form === :unitary || throw(ArgumentError(
-        "truncate: form=$(repr(form)) is not supported. The backend uses SVD-only " *
-        "truncation (tensor4all-rs #429). Use form=:unitary.",
-    ))
-    (rtol == 0.0 && cutoff == 0.0 && maxdim == 0 && svd_policy === nothing) && throw(
-        ArgumentError("At least one of rtol, cutoff, maxdim, or svd_policy must be specified"),
+    (threshold == 0.0 && maxdim == 0) && throw(
+        ArgumentError("At least one of threshold or maxdim must be specified"),
     )
 
-    ffi_policy = _resolve_svd_policy(; rtol, cutoff, svd_policy)
+    ffi_policy = _resolve_svd_policy(; threshold, svd_policy)
 
     scalar_kind = _promoted_scalar_kind(tt)
     tt_handle = _new_treetn_handle(tt, scalar_kind)
@@ -266,24 +253,21 @@ function truncate(
 end
 
 """
-    add(a, b; rtol=0.0, cutoff=0.0, maxdim=0, svd_policy=nothing)
+    add(a, b; threshold=0.0, maxdim=0, svd_policy=nothing)
 
 Add two TensorTrain chains, optionally applying backend truncation controls.
-
-Pass `svd_policy::SvdTruncationPolicy` for access to the full backend
-truncation strategy (cannot coexist with nonzero `rtol`/`cutoff`).
+`threshold` / `maxdim` / `svd_policy` follow the Truncation Policy contract.
 """
 function add(
     a::TensorTrain,
     b::TensorTrain;
-    rtol::Real=0.0,
-    cutoff::Real=0.0,
+    threshold::Real=0.0,
     maxdim::Integer=0,
     svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
 )
     _validate_tt_binary(a, b, "add")
 
-    ffi_policy = _resolve_svd_policy(; rtol, cutoff, svd_policy)
+    ffi_policy = _resolve_svd_policy(; threshold, svd_policy)
 
     scalar_kind = _promoted_scalar_kind(a, b)
     a_handle = _new_treetn_handle(a, scalar_kind)

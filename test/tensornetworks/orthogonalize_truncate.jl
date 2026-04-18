@@ -57,31 +57,21 @@ end
     t3 = Tensor(randn(4, 2), [l2, s3])
     tt = TN.TensorTrain([t1, t2, t3])
 
-    # Convenience rtol and matching svd_policy should give the same bond dims.
-    trunc_rtol = TN.truncate(tt; rtol=0.1, maxdim=4)
-    trunc_pol = TN.truncate(
-        tt;
-        svd_policy=TN.SvdTruncationPolicy(threshold=0.1),
-        maxdim=4,
+    # Default policy applied via explicit kwarg equals the resolved default.
+    trunc_default = TN.truncate(tt; threshold=0.1, maxdim=4)
+    trunc_explicit = TN.truncate(tt;
+        threshold=0.1, maxdim=4,
+        svd_policy=TN.SvdTruncationPolicy(),
     )
-    @test _tt_linkdims(trunc_rtol) == _tt_linkdims(trunc_pol)
+    @test _tt_linkdims(trunc_default) == _tt_linkdims(trunc_explicit)
 
-    # discarded_tail_sum strategy is unreachable from rtol/cutoff.
-    trunc_tail = TN.truncate(
-        tt;
-        svd_policy=TN.SvdTruncationPolicy(
-            threshold=0.05,
-            rule=:discarded_tail_sum,
-        ),
+    # discarded_tail_sum strategy.
+    trunc_tail = TN.truncate(tt;
+        threshold=0.05,
+        svd_policy=TN.SvdTruncationPolicy(rule=:discarded_tail_sum),
     )
     @test !isempty(_tt_linkdims(trunc_tail))
 
-    # form=:lu now rejected.
-    @test_throws ArgumentError TN.truncate(tt; maxdim=2, form=:lu)
-    # Ambiguity rejected.
-    @test_throws ArgumentError TN.truncate(
-        tt;
-        rtol=0.1,
-        svd_policy=TN.SvdTruncationPolicy(threshold=0.1),
-    )
+    # Negative threshold rejected.
+    @test_throws ArgumentError TN.truncate(tt; threshold=-0.1, maxdim=2)
 end

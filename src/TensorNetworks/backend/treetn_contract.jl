@@ -9,8 +9,7 @@ end
 """
     contract(a::TensorTrain, b::TensorTrain;
              method::Symbol = :zipup,
-             rtol::Real = 0.0,
-             cutoff::Real = 0.0,
+             threshold::Real = 0.0,
              maxdim::Integer = 0,
              svd_policy=nothing,
              nfullsweeps::Integer = 0,
@@ -24,12 +23,8 @@ TreeTN contraction kernel (`t4a_treetn_contract`).
 # Keyword arguments
 
 - `method`: contraction algorithm. One of `:zipup` (default), `:fit`, `:naive`.
-- `rtol`: relative tolerance for SVD truncation. `0.0` disables.
-- `cutoff`: absolute cutoff fed to the same backend resolver as `rtol`.
-- `maxdim`: maximum bond dimension after contraction. `0` (default) means no
-  rank cap.
-- `svd_policy`: optional [`SvdTruncationPolicy`](@ref) for the full backend
-  truncation strategy. Cannot coexist with nonzero `rtol`/`cutoff`.
+- `threshold`, `maxdim`, `svd_policy`: truncation contract. See the
+  Truncation Policy chapter of the docs.
 - `nfullsweeps`: for `method=:fit`, number of variational full sweeps.
   `0` (default) lets the backend pick (currently 1).
 - `convergence_tol`: for `method=:fit`, early-termination tolerance.
@@ -45,8 +40,7 @@ function contract(
     a::TensorTrain,
     b::TensorTrain;
     method::Symbol=:zipup,
-    rtol::Real=0.0,
-    cutoff::Real=0.0,
+    threshold::Real=0.0,
     maxdim::Integer=0,
     svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
     nfullsweeps::Integer=0,
@@ -56,8 +50,6 @@ function contract(
 )
     isempty(a.data) && throw(ArgumentError("Left TensorTrain must not be empty for contract"))
     isempty(b.data) && throw(ArgumentError("Right TensorTrain must not be empty for contract"))
-    rtol >= 0 || throw(ArgumentError("rtol must be nonnegative, got $rtol"))
-    cutoff >= 0 || throw(ArgumentError("cutoff must be nonnegative, got $cutoff"))
     maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
     nfullsweeps >= 0 || throw(ArgumentError("nfullsweeps must be nonnegative, got $nfullsweeps"))
     convergence_tol >= 0 || throw(ArgumentError("convergence_tol must be nonnegative, got $convergence_tol"))
@@ -65,7 +57,7 @@ function contract(
 
     method_code = _contract_method_code(method)
     factorize_code = _factorize_alg_code(factorize_alg)
-    ffi_policy = _resolve_svd_policy(; rtol, cutoff, svd_policy)
+    ffi_policy = _resolve_svd_policy(; threshold, svd_policy)
 
     scalar_kind = _promoted_scalar_kind(a, b)
     a_handle = _new_treetn_handle(a, scalar_kind)
