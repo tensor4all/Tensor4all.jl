@@ -1,7 +1,15 @@
 # Truncation Contract
 
-Several `Tensor4all.TensorNetworks` operations expose three keyword
-arguments that control SVD-based truncation of bond dimensions:
+Several `Tensor4all.TensorNetworks` operations expose keyword arguments
+that control SVD-based truncation of bond dimensions. There are two
+entry points:
+
+- **Convenience** — the historical `rtol` / `cutoff` / `maxdim` triple.
+- **Full strategy** — a `svd_policy::SvdTruncationPolicy` value that
+  exposes the full backend strategy (`threshold`, `scale`, `measure`,
+  `rule`) one-to-one with `tensor4all-rs`.
+
+## Convenience kwargs
 
 | Keyword | Meaning |
 |---|---|
@@ -10,6 +18,27 @@ arguments that control SVD-based truncation of bond dimensions:
 | `maxdim::Integer` | Hard upper bound on the bond dimension after truncation. Default `0` means no rank cap. |
 
 `maxdim` is independent of `rtol` / `cutoff` and can be combined with either.
+
+## Full strategy — `svd_policy`
+
+```julia
+using Tensor4all.TensorNetworks: SvdTruncationPolicy
+
+pol = SvdTruncationPolicy(
+    threshold = 1e-8,
+    scale     = :absolute,          # :relative or :absolute
+    measure   = :squared_value,     # :value or :squared_value
+    rule      = :discarded_tail_sum, # :per_value or :discarded_tail_sum
+)
+
+truncate(tt; svd_policy=pol, maxdim=64)
+```
+
+Each field mirrors its counterpart in `tensor4all-rs`. Pass the `svd_policy`
+kwarg on any truncating entry point listed below.
+
+Passing both a non-`nothing` `svd_policy` and a nonzero `rtol` / `cutoff`
+is rejected as ambiguous with an `ArgumentError`.
 
 ## Precedence between `rtol` and `cutoff`
 
@@ -48,23 +77,31 @@ singular values whose squared sum stays above
 
 ## Functions that accept the contract
 
-The same `(rtol, cutoff, maxdim)` keyword set appears on every
-truncating entry point in the public surface:
+Every truncating entry point accepts both the convenience triple and the
+full `svd_policy` kwarg:
 
-- `TensorNetworks.truncate(tt; rtol, cutoff, maxdim, form)`
-- `TensorNetworks.add(a, b; rtol, cutoff, maxdim)`
-- `TensorNetworks.contract(a, b; rtol, cutoff, maxdim, ...)`
-- `TensorNetworks.apply(op, state; rtol, cutoff, maxdim, ...)`
-- `TensorNetworks.linsolve(op, rhs; rtol, cutoff, maxdim, ...)`
-- `TensorNetworks.split_to(...; rtol, cutoff, maxdim, final_sweep)`
+- `TensorNetworks.truncate(tt; rtol, cutoff, maxdim, svd_policy, form)`
+- `TensorNetworks.add(a, b; rtol, cutoff, maxdim, svd_policy)`
+- `TensorNetworks.contract(a, b; rtol, cutoff, maxdim, svd_policy, qr_rtol, ...)`
+- `TensorNetworks.apply(op, state; rtol, cutoff, maxdim, svd_policy, ...)`
+- `TensorNetworks.linsolve(op, rhs; rtol, cutoff, maxdim, svd_policy, ...)`
+- `TensorNetworks.split_to(...; rtol, cutoff, maxdim, svd_policy, final_sweep)`
   (truncation only takes effect when `final_sweep = true`)
 - `TensorNetworks.restructure_to(...; split_rtol, split_cutoff,
-  split_maxdim, ...)` (forwards the same contract; phase-prefixed names
-  separate the split / swap / final passes)
-- `Tensor4all.svd(t, left_inds; rtol, cutoff, maxdim)`
+  split_maxdim, split_svd_policy, final_svd_policy, ...)` (phase-prefixed
+  names separate the split / swap / final passes; both `split_svd_policy`
+  and `final_svd_policy` can be set independently)
+- `Tensor4all.svd(t, left_inds; rtol, cutoff, maxdim, svd_policy)`
 
-The argument validation is uniform across these calls: negative values
-raise `ArgumentError` early in Julia before reaching the C boundary.
+Argument validation is uniform across these calls: negative values raise
+`ArgumentError` early in Julia before reaching the C boundary. The
+ambiguity rule (`svd_policy` together with nonzero `rtol`/`cutoff`)
+applies at every call site.
+
+The SVD-only constraint introduced by `tensor4all-rs #429` means the
+`form` kwarg on `truncate`, `linsolve`, and `split_to` rejects
+`form=:lu` with an `ArgumentError`; only `form=:unitary` (the default)
+reaches the backend.
 
 ## Sentinel meanings
 
@@ -82,14 +119,8 @@ truncation".
 
 ## Future work
 
-The current contract is intentionally minimal: every truncating call
-takes the same three knobs and dispatches them through the same
-`select_tol` / `cutoff_to_rtol` resolver. Planned future enhancements:
+Planned additive enhancements:
 
-- A user-facing `TruncationScheme` type so callers can express richer
-  policies (e.g. "absolute cutoff in singular-value space",
-  "discard-weight-only", or "rtol with a separate per-bond override")
-  in a single value rather than a triple of keyword arguments.
 - Per-bond / per-edge truncation overrides for tree-shaped networks.
 - An explicit accessor that returns the singular values discarded by
   the most recent truncation call, so that downstream packages can

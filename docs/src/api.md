@@ -46,6 +46,10 @@ end
 Other chain-facing names in this layer include:
 
 - `Tensor4all.TensorNetworks.LinearOperator`
+- `Tensor4all.TensorNetworks.SvdTruncationPolicy` — full backend SVD
+  truncation strategy (`threshold`, `scale`, `measure`, `rule`); accepted
+  via the `svd_policy` kwarg on `truncate`, `add`, `contract`, `apply`,
+  `linsolve`, `split_to`, and `Core.svd`
 - `Tensor4all.TensorNetworks.set_input_space!`
 - `Tensor4all.TensorNetworks.set_output_space!`
 - `Tensor4all.TensorNetworks.set_iospaces!`
@@ -101,7 +105,7 @@ groupings; `rearrange_siteinds` is a thin wrapper over `restructure_to`.
 
 ```@autodocs
 Modules = [Tensor4all.TensorNetworks]
-Pages = ["TensorNetworks/types.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/transforms.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/backend/treetn.jl", "TensorNetworks/backend/treetn_queries.jl", "TensorNetworks/backend/treetn_dense.jl", "TensorNetworks/backend/treetn_contract.jl", "TensorNetworks/backend/treetn_evaluate.jl", "TensorNetworks/backend/restructure/fuse_to.jl", "TensorNetworks/backend/restructure/split_to.jl", "TensorNetworks/backend/restructure/swap_site_indices.jl", "TensorNetworks/backend/restructure/restructure_to.jl", "TensorNetworks/backend/linsolve.jl", "TensorNetworks/random.jl", "TensorNetworks/bridge.jl", "TensorNetworks/deferred.jl"]
+Pages = ["TensorNetworks/types.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/transforms.jl", "TensorNetworks/truncation_policy.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/backend/treetn.jl", "TensorNetworks/backend/treetn_queries.jl", "TensorNetworks/backend/treetn_dense.jl", "TensorNetworks/backend/treetn_contract.jl", "TensorNetworks/backend/treetn_evaluate.jl", "TensorNetworks/backend/restructure/fuse_to.jl", "TensorNetworks/backend/restructure/split_to.jl", "TensorNetworks/backend/restructure/swap_site_indices.jl", "TensorNetworks/backend/restructure/restructure_to.jl", "TensorNetworks/backend/linsolve.jl", "TensorNetworks/random.jl", "TensorNetworks/bridge.jl", "TensorNetworks/deferred.jl"]
 Private = false
 Order = [:type, :function]
 ```
