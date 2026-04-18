@@ -11,7 +11,7 @@ import ..SimpleTT
 
 const _LINK_TAG = "Link"
 
-export TensorTrain, LinearOperator
+export TensorTrain, LinearOperator, SvdTruncationPolicy
 export add, dag, dot, inner, dist
 export linkinds, linkdims, siteinds
 export norm
@@ -30,6 +30,7 @@ include("TensorNetworks/site_helpers.jl")
 include("TensorNetworks/matchsiteinds.jl")
 include("TensorNetworks/transforms.jl")
 include("TensorNetworks/backend/capi.jl")
+include("TensorNetworks/truncation_policy.jl")
 include("TensorNetworks/backend/tensors.jl")
 include("TensorNetworks/backend/treetn.jl")
 include("TensorNetworks/backend/treetn_queries.jl")

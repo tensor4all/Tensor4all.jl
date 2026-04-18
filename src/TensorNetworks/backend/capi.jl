@@ -11,13 +11,40 @@ const _T4A_FACTORIZE_ALG_QR = Cint(1)
 const _T4A_FACTORIZE_ALG_LU = Cint(2)
 const _T4A_FACTORIZE_ALG_CI = Cint(3)
 
-const _T4A_QTT_LAYOUT_INTERLEAVED = Cint(1)
-const _T4A_QTT_LAYOUT_FUSED = Cint(2)
+const _T4A_QTT_LAYOUT_INTERLEAVED = Cint(0)
+const _T4A_QTT_LAYOUT_FUSED = Cint(1)
 
 const _T4A_BC_PERIODIC = Cint(0)
 const _T4A_BC_OPEN = Cint(1)
 
+const _T4A_THRESHOLD_SCALE_RELATIVE = Cint(0)
+const _T4A_THRESHOLD_SCALE_ABSOLUTE = Cint(1)
+
+const _T4A_SINGULAR_VALUE_MEASURE_VALUE = Cint(0)
+const _T4A_SINGULAR_VALUE_MEASURE_SQUARED_VALUE = Cint(1)
+
+const _T4A_TRUNCATION_RULE_PER_VALUE = Cint(0)
+const _T4A_TRUNCATION_RULE_DISCARDED_TAIL_SUM = Cint(1)
+
+struct _SvdTruncationPolicyC
+    threshold::Cdouble
+    scale::Cint
+    measure::Cint
+    rule::Cint
+end
+
 _t4a(symbol::Symbol) = Libdl.dlsym(require_backend(), symbol)
+
+function _with_svd_policy_ptr(f::Function, policy::Union{Nothing, _SvdTruncationPolicyC})
+    if policy === nothing
+        return f(C_NULL)
+    end
+    ref = Ref(policy)
+    GC.@preserve ref begin
+        ptr = Base.unsafe_convert(Ptr{_SvdTruncationPolicyC}, ref)
+        return f(ptr)
+    end
+end
 
 function _bc_code(bc::Symbol)
     bc === :periodic && return _T4A_BC_PERIODIC
