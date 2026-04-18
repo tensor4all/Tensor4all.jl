@@ -138,7 +138,7 @@ end
 
 """
     apply(op, state; method=:zipup, rtol=0.0, cutoff=0.0, maxdim=0,
-          nfullsweeps=0, convergence_tol=0.0)
+          svd_policy=nothing, nfullsweeps=0, convergence_tol=0.0)
 
 Apply a chain-compatible `LinearOperator` to a chain `TensorTrain`.
 
@@ -148,6 +148,8 @@ Apply a chain-compatible `LinearOperator` to a chain `TensorTrain`.
 - `rtol`: relative tolerance for SVD truncation. `0.0` disables.
 - `cutoff`: absolute cutoff fed to the same backend resolver as `rtol`.
 - `maxdim`: maximum bond dimension. `0` (default) means no rank cap.
+- `svd_policy`: optional [`SvdTruncationPolicy`](@ref) for the full backend
+  truncation strategy. Cannot coexist with nonzero `rtol`/`cutoff`.
 - `nfullsweeps`: for `method=:fit`, number of variational full sweeps.
   `0` (default) lets the backend pick (currently 1).
 - `convergence_tol`: for `method=:fit`, early-termination tolerance.
@@ -165,6 +167,7 @@ function apply(
     rtol::Real=0.0,
     cutoff::Real=0.0,
     maxdim::Integer=0,
+    svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
     nfullsweeps::Integer=0,
     convergence_tol::Real=0.0,
 )
@@ -183,6 +186,8 @@ function apply(
     true_outputs = _bound_operator_indices(op.true_output, "op.true_output")
     _validate_operator_spaces!(op.input_indices, op.output_indices, true_inputs, true_outputs)
     mapped_positions = _mapped_state_positions(true_inputs, state_sites)
+
+    ffi_policy = _resolve_svd_policy(; rtol, cutoff, svd_policy)
 
     scalar_kind = _promoted_scalar_kind(state, mpo)
     state_handle = _new_treetn_handle(state, scalar_kind)
@@ -205,40 +210,40 @@ function apply(
 
         result_ref = Ref{Ptr{Cvoid}}(C_NULL)
         mapped_positions_c = Csize_t[(position - 1) for position in mapped_positions]
-        status = ccall(
-            _t4a(:t4a_treetn_apply_operator_chain),
-            Cint,
-            (
-                Ptr{Cvoid},
-                Ptr{Cvoid},
-                Ptr{Csize_t},
-                Csize_t,
-                Ptr{Ptr{Cvoid}},
-                Ptr{Ptr{Cvoid}},
-                Ptr{Ptr{Cvoid}},
+        status = _with_svd_policy_ptr(ffi_policy) do policy_ptr
+            ccall(
+                _t4a(:t4a_treetn_apply_operator_chain),
                 Cint,
-                Cdouble,
-                Cdouble,
-                Csize_t,
-                Csize_t,
-                Cdouble,
-                Ref{Ptr{Cvoid}},
-            ),
-            mpo_handle,
-            state_handle,
-            mapped_positions_c,
-            length(mapped_positions_c),
-            input_handles,
-            output_handles,
-            true_output_handles,
-            _contract_method_code(method),
-            float(rtol),
-            float(cutoff),
-            Csize_t(maxdim),
-            Csize_t(nfullsweeps),
-            float(convergence_tol),
-            result_ref,
-        )
+                (
+                    Ptr{Cvoid},
+                    Ptr{Cvoid},
+                    Ptr{Csize_t},
+                    Csize_t,
+                    Ptr{Ptr{Cvoid}},
+                    Ptr{Ptr{Cvoid}},
+                    Ptr{Ptr{Cvoid}},
+                    Cint,
+                    Ptr{Cvoid},
+                    Csize_t,
+                    Csize_t,
+                    Cdouble,
+                    Ref{Ptr{Cvoid}},
+                ),
+                mpo_handle,
+                state_handle,
+                mapped_positions_c,
+                length(mapped_positions_c),
+                input_handles,
+                output_handles,
+                true_output_handles,
+                _contract_method_code(method),
+                policy_ptr,
+                Csize_t(maxdim),
+                Csize_t(nfullsweeps),
+                float(convergence_tol),
+                result_ref,
+            )
+        end
         _check_backend_status(status, "applying LinearOperator")
         result_handle = result_ref[]
         return _treetn_from_handle(result_handle)
