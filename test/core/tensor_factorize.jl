@@ -60,6 +60,36 @@ end
     @test_throws ArgumentError svd(t, [i, j])
 end
 
+@testset "Tensor SVD with svd_policy" begin
+    TN = Tensor4all.TensorNetworks
+    i = Index(3; tags=["i"])
+    j = Index(4; tags=["j"])
+    data = reshape(collect(1.0:12.0), 3, 4)
+    t = Tensor(data, [i, j])
+
+    # convenience rtol path and full-policy path with matching threshold
+    # must produce identical singular values.
+    _, S_rtol, _ = svd(t, [i]; rtol=1e-6)
+    _, S_pol, _ = svd(t, [i]; svd_policy=TN.SvdTruncationPolicy(threshold=1e-6))
+    @test dims(S_rtol) == dims(S_pol)
+    @test isapprox(S_rtol.data, S_pol.data; atol=1e-14)
+
+    # full-policy strategies not reachable from rtol/cutoff: absolute scale
+    # with squared-value measure and discarded-tail-sum rule.
+    pol = TN.SvdTruncationPolicy(
+        threshold=1e-4,
+        scale=:absolute,
+        measure=:squared_value,
+        rule=:discarded_tail_sum,
+    )
+    U, S, V = svd(t, [i]; svd_policy=pol)
+    @test isapprox(t, contract(contract(U, S), dag(V)); atol=5e-2)
+
+    # Ambiguity rejection
+    @test_throws ArgumentError svd(t, [i];
+        rtol=1e-6, svd_policy=TN.SvdTruncationPolicy(threshold=1e-6))
+end
+
 @testset "Tensor QR" begin
     i = Index(3; tags=["i"])
     j = Index(4; tags=["j"])

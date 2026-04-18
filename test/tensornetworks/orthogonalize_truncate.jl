@@ -44,3 +44,44 @@ end
     @test_throws ArgumentError TN.truncate(TN.TensorTrain(Tensor[]); maxdim=2)
     @test_throws ArgumentError TN.truncate(tt)
 end
+
+@testset "TensorTrain truncate with svd_policy" begin
+    s1 = Index(2; tags=["s1"])
+    s2 = Index(2; tags=["s2"])
+    s3 = Index(2; tags=["s3"])
+    l1 = Index(4; tags=["Link", "l1"])
+    l2 = Index(4; tags=["Link", "l2"])
+
+    t1 = Tensor(randn(2, 4), [s1, l1])
+    t2 = Tensor(randn(4, 2, 4), [l1, s2, l2])
+    t3 = Tensor(randn(4, 2), [l2, s3])
+    tt = TN.TensorTrain([t1, t2, t3])
+
+    # Convenience rtol and matching svd_policy should give the same bond dims.
+    trunc_rtol = TN.truncate(tt; rtol=0.1, maxdim=4)
+    trunc_pol = TN.truncate(
+        tt;
+        svd_policy=TN.SvdTruncationPolicy(threshold=0.1),
+        maxdim=4,
+    )
+    @test _tt_linkdims(trunc_rtol) == _tt_linkdims(trunc_pol)
+
+    # discarded_tail_sum strategy is unreachable from rtol/cutoff.
+    trunc_tail = TN.truncate(
+        tt;
+        svd_policy=TN.SvdTruncationPolicy(
+            threshold=0.05,
+            rule=:discarded_tail_sum,
+        ),
+    )
+    @test !isempty(_tt_linkdims(trunc_tail))
+
+    # form=:lu now rejected.
+    @test_throws ArgumentError TN.truncate(tt; maxdim=2, form=:lu)
+    # Ambiguity rejected.
+    @test_throws ArgumentError TN.truncate(
+        tt;
+        rtol=0.1,
+        svd_policy=TN.SvdTruncationPolicy(threshold=0.1),
+    )
+end

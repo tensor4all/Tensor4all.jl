@@ -125,4 +125,10 @@ end
     expected_partial = apply_matrix_on_last_axis(dense_tensor(state, input_sites), local_matrix)
 
     @test dense_tensor(partial_result, [input_sites[1], partial_output]) ≈ expected_partial
+
+    pol = TN.SvdTruncationPolicy(threshold=1e-12)
+    result_pol = TN.apply(op, state; svd_policy=pol)
+    @test dense_tensor(result_pol, output_true) ≈ dense_tensor(state, input_sites)
+
+    @test_throws ArgumentError TN.apply(op, state; rtol=1e-8, svd_policy=pol)
 end

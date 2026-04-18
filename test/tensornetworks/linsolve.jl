@@ -83,5 +83,24 @@ end
 
         bare_op = TN_LINSOLVE.LinearOperator()
         @test_throws ArgumentError TN_LINSOLVE.linsolve(bare_op, rhs)
+
+        # form=:lu rejected
+        @test_throws ArgumentError TN_LINSOLVE.linsolve(op, rhs; form=:lu)
+
+        # Ambiguity rejected
+        pol = TN_LINSOLVE.SvdTruncationPolicy(threshold=1e-10)
+        @test_throws ArgumentError TN_LINSOLVE.linsolve(op, rhs;
+            rtol=1e-8, svd_policy=pol)
+    end
+
+    @testset "svd_policy path" begin
+        sites = [Index(2; tags=["s", "s=$i"]) for i in 1:3]
+        op = _scaled_identity_mpo(sites, 1.0)
+        rhs = TN_LINSOLVE.random_tt(MersenneTwister(4), sites; linkdims=4)
+
+        pol = TN_LINSOLVE.SvdTruncationPolicy(threshold=1e-12)
+        x = TN_LINSOLVE.linsolve(op, rhs;
+            nfullsweeps=8, krylov_tol=1e-12, svd_policy=pol)
+        @test TN_LINSOLVE.to_dense(x) ≈ TN_LINSOLVE.to_dense(rhs)
     end
 end

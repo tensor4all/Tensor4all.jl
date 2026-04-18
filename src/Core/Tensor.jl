@@ -242,9 +242,14 @@ function contract(a::Tensor, b::Tensor)
 end
 
 """
-    svd(t, left_inds; rtol=0.0, cutoff=0.0, maxdim=0)
+    svd(t, left_inds; rtol=0.0, cutoff=0.0, maxdim=0, svd_policy=nothing)
 
 Compute a backend SVD of `t`, grouping `left_inds` as the left partition.
+
+Truncation is controlled by `rtol` / `cutoff` (convenience) or `svd_policy`
+(full backend strategy, typed as `TensorNetworks.SvdTruncationPolicy`).
+Passing both `svd_policy` and a nonzero `rtol`/`cutoff` is rejected as
+ambiguous.
 """
 function svd(
     t::Tensor,
@@ -252,6 +257,7 @@ function svd(
     rtol::Real=0.0,
     cutoff::Real=0.0,
     maxdim::Integer=0,
+    svd_policy=nothing,
 )
     _validate_tensor_left_inds(t, left_inds)
     _validate_truncation_controls(; rtol, cutoff, maxdim)
@@ -264,6 +270,8 @@ function svd(
     s_handle = C_NULL
     v_handle = C_NULL
 
+    ffi_policy = tn._resolve_svd_policy(; rtol, cutoff, svd_policy)
+
     try
         t_handle = tn._new_tensor_handle(t, scalar_kind)
         for idx in left_inds
@@ -273,30 +281,30 @@ function svd(
         out_u = Ref{Ptr{Cvoid}}(C_NULL)
         out_s = Ref{Ptr{Cvoid}}(C_NULL)
         out_v = Ref{Ptr{Cvoid}}(C_NULL)
-        status = ccall(
-            tn._t4a(:t4a_tensor_svd),
-            Cint,
-            (
-                Ptr{Cvoid},
-                Ptr{Ptr{Cvoid}},
-                Csize_t,
-                Cdouble,
-                Cdouble,
-                Csize_t,
-                Ref{Ptr{Cvoid}},
-                Ref{Ptr{Cvoid}},
-                Ref{Ptr{Cvoid}},
-            ),
-            t_handle,
-            left_handles,
-            Csize_t(length(left_handles)),
-            float(rtol),
-            float(cutoff),
-            Csize_t(maxdim),
-            out_u,
-            out_s,
-            out_v,
-        )
+        status = tn._with_svd_policy_ptr(ffi_policy) do policy_ptr
+            ccall(
+                tn._t4a(:t4a_tensor_svd),
+                Cint,
+                (
+                    Ptr{Cvoid},
+                    Ptr{Ptr{Cvoid}},
+                    Csize_t,
+                    Ptr{Cvoid},
+                    Csize_t,
+                    Ref{Ptr{Cvoid}},
+                    Ref{Ptr{Cvoid}},
+                    Ref{Ptr{Cvoid}},
+                ),
+                t_handle,
+                left_handles,
+                Csize_t(length(left_handles)),
+                policy_ptr,
+                Csize_t(maxdim),
+                out_u,
+                out_s,
+                out_v,
+            )
+        end
         tn._check_backend_status(status, "computing tensor SVD")
         u_handle = out_u[]
         s_handle = out_s[]

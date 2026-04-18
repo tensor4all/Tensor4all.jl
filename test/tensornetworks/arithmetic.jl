@@ -186,6 +186,22 @@ end
     tt2 = make_test_mps(; sites, links, variant=:b)
     result = TensorNetworks.add(tt1, tt2; rtol=1e-10)
     @test length(result) == 3
+
+    # svd_policy path: same threshold should produce the same link dims.
+    result_pol = TensorNetworks.add(
+        tt1,
+        tt2;
+        svd_policy=TensorNetworks.SvdTruncationPolicy(threshold=1e-10),
+    )
+    @test length(result_pol) == 3
+
+    # Ambiguity rejected.
+    @test_throws ArgumentError TensorNetworks.add(
+        tt1,
+        tt2;
+        rtol=1e-10,
+        svd_policy=TensorNetworks.SvdTruncationPolicy(threshold=1e-10),
+    )
 end
 
 @testset "TensorTrain inner/dot" begin

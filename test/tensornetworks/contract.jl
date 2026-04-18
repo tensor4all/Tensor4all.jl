@@ -127,4 +127,35 @@ using Random: MersenneTwister
             @test got ≈ ref
         end
     end
+
+    @testset "svd_policy and qr_rtol" begin
+        n = 3
+        s_in = [Index(2; tags=["s_in", "sp=$i"]) for i in 1:n]
+        s_out = [Index(2; tags=["s_out", "sp=$i"]) for i in 1:n]
+        links_psi = [Index(2; tags=["LinkPsi", "sp_l=$i"]) for i in 1:n-1]
+        links_op = [Index(3; tags=["LinkOp", "sp_l=$i"]) for i in 1:n-1]
+        psi = _make_mps(s_in, links_psi; seed=80)
+        op = TN_CONTRACT.TensorTrain([
+            Tensor(randn(MersenneTwister(90), 2, 2, 3), [s_in[1], s_out[1], links_op[1]]),
+            Tensor(randn(MersenneTwister(91), 3, 2, 2, 3), [links_op[1], s_in[2], s_out[2], links_op[2]]),
+            Tensor(randn(MersenneTwister(92), 3, 2, 2), [links_op[2], s_in[3], s_out[3]]),
+        ])
+
+        ref = TN_CONTRACT.to_dense(TN_CONTRACT.contract(op, psi; method=:zipup))
+        pol = TN_CONTRACT.SvdTruncationPolicy(threshold=1e-12)
+        got_pol = TN_CONTRACT.to_dense(
+            TN_CONTRACT.contract(op, psi; method=:zipup, svd_policy=pol),
+        )
+        @test got_pol ≈ ref
+
+        # qr_rtol accepted with factorize_alg=:qr; default 0.0 unchanged.
+        got_qr = TN_CONTRACT.to_dense(
+            TN_CONTRACT.contract(op, psi; method=:zipup, factorize_alg=:qr, qr_rtol=1e-10),
+        )
+        @test got_qr ≈ ref
+
+        # Ambiguity rejection.
+        @test_throws ArgumentError TN_CONTRACT.contract(op, psi;
+            rtol=1e-8, svd_policy=pol)
+    end
 end
