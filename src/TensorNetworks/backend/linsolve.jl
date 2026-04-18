@@ -1,18 +1,11 @@
 """
     linsolve(op::LinearOperator, rhs::TensorTrain;
-             init::Union{TensorTrain, Nothing} = nothing,
-             a0::Real = 0.0,
-             a1::Real = 1.0,
-             center_vertex::Integer = 1,
-             rtol::Real = 0.0,
-             cutoff::Real = 0.0,
-             maxdim::Integer = 0,
-             form::Symbol = :unitary,
-             nfullsweeps::Integer = 5,
-             krylov_tol::Real = 1e-12,
-             krylov_maxiter::Integer = 30,
-             krylov_dim::Integer = 30,
-             convergence_tol::Real = 0.0) -> TensorTrain
+             init = nothing, a0 = 0.0, a1 = 1.0,
+             center_vertex = 1,
+             threshold = 0.0, maxdim = 0, svd_policy = nothing,
+             nfullsweeps = 5, krylov_tol = 1e-12,
+             krylov_maxiter = 30, krylov_dim = 30,
+             convergence_tol = 0.0) -> TensorTrain
 
 Solve the chain-form TT linear system `(a0 * I + a1 * A) x = b` where the
 operator `A` is `op`, the right-hand side `b` is `rhs`, and the returned
@@ -29,8 +22,9 @@ site-index set; mixed input / output spaces are not yet supported.
 - `a0`, `a1`: coefficients in `(a0 * I + a1 * A) x = b`. Default
   `a0 = 0`, `a1 = 1`.
 - `center_vertex`: 1-based starting vertex for the sweep.
-- `rtol`, `cutoff`, `maxdim`, `form`: truncation controls applied to the
-  intermediate solution after each local update. See [`truncate`](@ref).
+- `threshold`, `maxdim`, `svd_policy`: truncation contract applied to the
+  intermediate solution after each local update. See the Truncation Policy
+  chapter of the docs.
 - `nfullsweeps`: number of full sweeps over the chain.
 - `krylov_tol`, `krylov_maxiter`, `krylov_dim`: GMRES-like local-solver
   controls per sweep step.
@@ -47,11 +41,9 @@ function linsolve(
     a0::Real=0.0,
     a1::Real=1.0,
     center_vertex::Integer=1,
-    rtol::Real=0.0,
-    cutoff::Real=0.0,
+    threshold::Real=0.0,
     maxdim::Integer=0,
     svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
-    form::Symbol=:unitary,
     nfullsweeps::Integer=5,
     krylov_tol::Real=1.0e-12,
     krylov_maxiter::Integer=30,
@@ -59,13 +51,7 @@ function linsolve(
     convergence_tol::Real=0.0,
 )
     isempty(rhs.data) && throw(ArgumentError("rhs TensorTrain must not be empty"))
-    rtol >= 0 || throw(ArgumentError("rtol must be nonnegative, got $rtol"))
-    cutoff >= 0 || throw(ArgumentError("cutoff must be nonnegative, got $cutoff"))
     maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
-    form === :unitary || throw(ArgumentError(
-        "linsolve: form=$(repr(form)) is not supported. The backend uses SVD-only " *
-        "truncation (tensor4all-rs #429). Use form=:unitary.",
-    ))
     nfullsweeps >= 1 || throw(ArgumentError("nfullsweeps must be >= 1, got $nfullsweeps"))
     krylov_tol > 0 || throw(ArgumentError("krylov_tol must be positive, got $krylov_tol"))
     krylov_maxiter >= 1 || throw(ArgumentError("krylov_maxiter must be >= 1, got $krylov_maxiter"))
@@ -91,7 +77,7 @@ function linsolve(
     _validate_operator_spaces!(op.input_indices, op.output_indices, true_inputs, true_outputs)
     mapped_positions = _mapped_state_positions(true_inputs, rhs_sites)
 
-    ffi_policy = _resolve_svd_policy(; rtol, cutoff, svd_policy)
+    ffi_policy = _resolve_svd_policy(; threshold, svd_policy)
 
     scalar_kind = _promoted_scalar_kind(rhs, init_tt, mpo)
     operator_handle = _new_treetn_handle(mpo, scalar_kind)

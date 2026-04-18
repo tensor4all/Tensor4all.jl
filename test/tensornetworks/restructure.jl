@@ -192,8 +192,7 @@ end
         @test_throws ArgumentError TN_RESTRUCT.fuse_to(tt, [[sites[1]], [foreign]])
 
         # Negative truncation knobs
-        @test_throws ArgumentError TN_RESTRUCT.split_to(tt, [[sites[1]], [sites[2]]]; rtol=-1.0)
-        @test_throws ArgumentError TN_RESTRUCT.split_to(tt, [[sites[1]], [sites[2]]]; cutoff=-1.0)
+        @test_throws ArgumentError TN_RESTRUCT.split_to(tt, [[sites[1]], [sites[2]]]; threshold=-1.0)
         @test_throws ArgumentError TN_RESTRUCT.split_to(tt, [[sites[1]], [sites[2]]]; maxdim=-1)
         @test_throws ArgumentError TN_RESTRUCT.swap_site_indices(tt, Dict{Index, Int}(sites[1] => 2); rtol=-1.0)
         @test_throws ArgumentError TN_RESTRUCT.swap_site_indices(tt, Dict{Index, Int}(sites[1] => 2); maxdim=-1)
@@ -212,28 +211,20 @@ end
             edges=[(1, 5)],
         )
 
-        # split_to form=:lu rejected
-        @test_throws ArgumentError TN_RESTRUCT.split_to(
-            tt, [[sites[1]], [sites[2]]];
-            maxdim=2, form=:lu,
-        )
-
-        # split_to svd_policy path + ambiguity
-        pol = TN_RESTRUCT.SvdTruncationPolicy(threshold=1e-10)
+        # split_to svd_policy path
+        pol = TN_RESTRUCT.SvdTruncationPolicy()
         result_pol = TN_RESTRUCT.split_to(
             tt, [[sites[1]], [sites[2]]];
-            svd_policy=pol, final_sweep=true,
+            threshold=1e-10, svd_policy=pol, final_sweep=true,
         )
         @test length(result_pol) == 2
-        @test_throws ArgumentError TN_RESTRUCT.split_to(
-            tt, [[sites[1]], [sites[2]]];
-            rtol=1e-8, svd_policy=pol,
-        )
 
         # restructure_to forwards split_svd_policy / final_svd_policy
         result_rs = TN_RESTRUCT.restructure_to(
             tt, [[sites[1]], [sites[2]]];
+            split_threshold=1e-10,
             split_svd_policy=pol,
+            final_threshold=1e-10,
             final_svd_policy=pol,
         )
         @test length(result_rs) == 2

@@ -141,9 +141,8 @@ function _release_target_args(args::NamedTuple)
     return nothing
 end
 
-function _validate_truncation_kwargs(rtol::Real, cutoff::Real, maxdim::Integer)
-    rtol >= 0 || throw(ArgumentError("rtol must be nonnegative, got $rtol"))
-    cutoff >= 0 || throw(ArgumentError("cutoff must be nonnegative, got $cutoff"))
+function _validate_truncation_kwargs(threshold::Real, maxdim::Integer)
+    threshold >= 0 || throw(ArgumentError("threshold must be nonnegative, got $threshold"))
     maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
     return nothing
 end

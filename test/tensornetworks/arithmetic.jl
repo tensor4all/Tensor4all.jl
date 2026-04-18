@@ -184,24 +184,18 @@ end
     sites, links = make_chain_indices()
     tt1 = make_test_mps(; sites, links, variant=:a)
     tt2 = make_test_mps(; sites, links, variant=:b)
-    result = TensorNetworks.add(tt1, tt2; rtol=1e-10)
+    result = TensorNetworks.add(tt1, tt2; threshold=1e-10)
     @test length(result) == 3
 
-    # svd_policy path: same threshold should produce the same link dims.
-    result_pol = TensorNetworks.add(
-        tt1,
-        tt2;
-        svd_policy=TensorNetworks.SvdTruncationPolicy(threshold=1e-10),
+    # Explicit policy path.
+    result_pol = TensorNetworks.add(tt1, tt2;
+        threshold=1e-10,
+        svd_policy=TensorNetworks.SvdTruncationPolicy(rule=:discarded_tail_sum),
     )
     @test length(result_pol) == 3
 
-    # Ambiguity rejected.
-    @test_throws ArgumentError TensorNetworks.add(
-        tt1,
-        tt2;
-        rtol=1e-10,
-        svd_policy=TensorNetworks.SvdTruncationPolicy(threshold=1e-10),
-    )
+    # Negative threshold rejected.
+    @test_throws ArgumentError TensorNetworks.add(tt1, tt2; threshold=-1.0)
 end
 
 @testset "TensorTrain inner/dot" begin

@@ -196,9 +196,8 @@ function _validate_tensor_left_inds(t::Tensor, left_inds::Vector{Index})
     return tensor_inds
 end
 
-function _validate_truncation_controls(; rtol::Real=0.0, cutoff::Real=0.0, maxdim::Integer=0)
-    rtol >= 0 || throw(ArgumentError("rtol must be nonnegative, got $rtol"))
-    cutoff >= 0 || throw(ArgumentError("cutoff must be nonnegative, got $cutoff"))
+function _validate_truncation_controls(; threshold::Real=0.0, maxdim::Integer=0)
+    threshold >= 0 || throw(ArgumentError("threshold must be nonnegative, got $threshold"))
     maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
     return nothing
 end
@@ -242,25 +241,24 @@ function contract(a::Tensor, b::Tensor)
 end
 
 """
-    svd(t, left_inds; rtol=0.0, cutoff=0.0, maxdim=0, svd_policy=nothing)
+    svd(t, left_inds; threshold=0.0, maxdim=0, svd_policy=nothing)
 
 Compute a backend SVD of `t`, grouping `left_inds` as the left partition.
 
-Truncation is controlled by `rtol` / `cutoff` (convenience) or `svd_policy`
-(full backend strategy, typed as `TensorNetworks.SvdTruncationPolicy`).
-Passing both `svd_policy` and a nonzero `rtol`/`cutoff` is rejected as
-ambiguous.
+Truncation: `threshold` is the numeric amount; `svd_policy` chooses the
+strategy (falls back to `TensorNetworks.default_svd_policy()` when `nothing`).
+`threshold == 0` disables SVD-based truncation; `maxdim` caps the retained
+rank independently.
 """
 function svd(
     t::Tensor,
     left_inds::Vector{Index};
-    rtol::Real=0.0,
-    cutoff::Real=0.0,
+    threshold::Real=0.0,
     maxdim::Integer=0,
     svd_policy=nothing,
 )
     _validate_tensor_left_inds(t, left_inds)
-    _validate_truncation_controls(; rtol, cutoff, maxdim)
+    _validate_truncation_controls(; threshold, maxdim)
 
     scalar_kind = _tensor_scalar_kind(t)
     tn = _tensor_networks_module()
@@ -270,7 +268,7 @@ function svd(
     s_handle = C_NULL
     v_handle = C_NULL
 
-    ffi_policy = tn._resolve_svd_policy(; rtol, cutoff, svd_policy)
+    ffi_policy = tn._resolve_svd_policy(; threshold, svd_policy)
 
     try
         t_handle = tn._new_tensor_handle(t, scalar_kind)

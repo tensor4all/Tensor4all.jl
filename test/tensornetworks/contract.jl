@@ -99,8 +99,7 @@ using Random: MersenneTwister
 
         @test_throws ArgumentError TN_CONTRACT.contract(empty_tt, a)
         @test_throws ArgumentError TN_CONTRACT.contract(a, empty_tt)
-        @test_throws ArgumentError TN_CONTRACT.contract(a, a; rtol=-1.0)
-        @test_throws ArgumentError TN_CONTRACT.contract(a, a; cutoff=-1.0)
+        @test_throws ArgumentError TN_CONTRACT.contract(a, a; threshold=-1.0)
         @test_throws ArgumentError TN_CONTRACT.contract(a, a; maxdim=-1)
         @test_throws ArgumentError TN_CONTRACT.contract(a, a; method=:bogus)
     end
@@ -142,20 +141,20 @@ using Random: MersenneTwister
         ])
 
         ref = TN_CONTRACT.to_dense(TN_CONTRACT.contract(op, psi; method=:zipup))
-        pol = TN_CONTRACT.SvdTruncationPolicy(threshold=1e-12)
+        pol = TN_CONTRACT.SvdTruncationPolicy()
         got_pol = TN_CONTRACT.to_dense(
-            TN_CONTRACT.contract(op, psi; method=:zipup, svd_policy=pol),
+            TN_CONTRACT.contract(op, psi;
+                method=:zipup, threshold=1e-12, svd_policy=pol),
         )
         @test got_pol ≈ ref
 
-        # qr_rtol accepted with factorize_alg=:qr; default 0.0 unchanged.
+        # qr_rtol accepted with factorize_alg=:qr.
         got_qr = TN_CONTRACT.to_dense(
             TN_CONTRACT.contract(op, psi; method=:zipup, factorize_alg=:qr, qr_rtol=1e-10),
         )
         @test got_qr ≈ ref
 
-        # Ambiguity rejection.
-        @test_throws ArgumentError TN_CONTRACT.contract(op, psi;
-            rtol=1e-8, svd_policy=pol)
+        # Negative threshold rejected.
+        @test_throws ArgumentError TN_CONTRACT.contract(op, psi; threshold=-1.0)
     end
 end

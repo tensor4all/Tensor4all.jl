@@ -10,7 +10,7 @@ makedocs(
         "Getting Started" => "getting_started.md",
         "Architecture Status" => "modules.md",
         "API Reference" => "api.md",
-        "Truncation Contract" => "truncation.md",
+        "Truncation Policy" => "truncation_policy.md",
         "Design Documents" => "design_documents.md",
         "Deferred Rework Plan" => "deferred_rework_plan.md",
     ],

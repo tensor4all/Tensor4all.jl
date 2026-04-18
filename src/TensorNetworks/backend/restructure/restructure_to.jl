@@ -1,11 +1,11 @@
 """
     restructure_to(tt, target_groups;
                    edges=nothing,
-                   split_rtol=0.0, split_cutoff=0.0, split_maxdim=0,
-                   split_form=:unitary, split_final_sweep=false,
+                   split_threshold=0.0, split_maxdim=0,
+                   split_svd_policy=nothing, split_final_sweep=false,
                    swap_rtol=0.0, swap_maxdim=0,
-                   final_rtol=0.0, final_cutoff=0.0, final_maxdim=0,
-                   final_form=:unitary) -> TensorTrain
+                   final_threshold=0.0, final_maxdim=0,
+                   final_svd_policy=nothing) -> TensorTrain
 
 Restructure `tt` so that its site index grouping matches `target_groups`.
 Each entry of `target_groups` is the site indices of one target node, in
@@ -28,15 +28,13 @@ manually for those cases.
 
 # Phase keyword arguments
 
-- `split_rtol`, `split_cutoff`, `split_maxdim`, `split_form`,
-  `split_final_sweep` are forwarded to [`split_to`](@ref) when the split
-  phase runs.
+- `split_threshold`, `split_maxdim`, `split_svd_policy`, `split_final_sweep`
+  are forwarded to [`split_to`](@ref) when the split phase runs.
 - `swap_rtol`, `swap_maxdim` are forwarded to [`swap_site_indices`](@ref)
   when the swap phase runs.
-- `final_rtol`, `final_cutoff`, `final_maxdim`, `final_form` describe an
+- `final_threshold`, `final_maxdim`, `final_svd_policy` describe an
   optional final [`truncate`](@ref) pass on the assembled target topology.
-  The pass runs only when one of `final_rtol` / `final_cutoff` /
-  `final_maxdim` is nonzero.
+  The pass runs only when any of the three is nonzero / non-nothing.
 
 Throws `ArgumentError` if `tt` is empty, if `target_groups` does not cover
 the current site indices exactly once, or if any keyword is negative.
@@ -45,25 +43,21 @@ function restructure_to(
     tt::TensorTrain,
     target_groups::AbstractVector{<:AbstractVector{<:Index}};
     edges::Union{Nothing, AbstractVector{<:Tuple{<:Integer, <:Integer}}}=nothing,
-    split_rtol::Real=0.0,
-    split_cutoff::Real=0.0,
+    split_threshold::Real=0.0,
     split_maxdim::Integer=0,
     split_svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
-    split_form::Symbol=:unitary,
     split_final_sweep::Bool=false,
     swap_rtol::Real=0.0,
     swap_maxdim::Integer=0,
-    final_rtol::Real=0.0,
-    final_cutoff::Real=0.0,
+    final_threshold::Real=0.0,
     final_maxdim::Integer=0,
     final_svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
-    final_form::Symbol=:unitary,
 )
     isempty(tt.data) && throw(ArgumentError("TensorTrain must not be empty for restructure_to"))
-    _validate_truncation_kwargs(split_rtol, split_cutoff, split_maxdim)
+    _validate_truncation_kwargs(split_threshold, split_maxdim)
     swap_rtol >= 0 || throw(ArgumentError("swap_rtol must be nonnegative, got $swap_rtol"))
     swap_maxdim >= 0 || throw(ArgumentError("swap_maxdim must be nonnegative, got $swap_maxdim"))
-    _validate_truncation_kwargs(final_rtol, final_cutoff, final_maxdim)
+    _validate_truncation_kwargs(final_threshold, final_maxdim)
     _validate_target_groups_coverage(tt, target_groups)
 
     current_groups = _siteinds_by_tensor(tt)
@@ -75,18 +69,18 @@ function restructure_to(
     current_id_sets = [Set(id(index) for index in group) for group in current_groups]
 
     if _groups_equal_as_ordered_sets(current_id_sets, target_id_sets)
-        return _final_truncate(tt; final_rtol, final_cutoff, final_maxdim, final_svd_policy, final_form)
+        return _final_truncate(tt; final_threshold, final_maxdim, final_svd_policy)
     end
 
     if _is_swap_only(current_id_sets, target_id_sets)
         assignment = _build_swap_assignment(current_groups, target_groups)
         result = swap_site_indices(tt, assignment; rtol=swap_rtol, maxdim=swap_maxdim)
-        return _final_truncate(result; final_rtol, final_cutoff, final_maxdim, final_svd_policy, final_form)
+        return _final_truncate(result; final_threshold, final_maxdim, final_svd_policy)
     end
 
     if _is_fuse_only(current_id_sets, target_id_sets)
         result = fuse_to(tt, target_groups; edges)
-        return _final_truncate(result; final_rtol, final_cutoff, final_maxdim, final_svd_policy, final_form)
+        return _final_truncate(result; final_threshold, final_maxdim, final_svd_policy)
     end
 
     if _is_split_only(current_id_sets, target_id_sets)
@@ -94,14 +88,12 @@ function restructure_to(
             tt,
             target_groups;
             edges,
-            rtol=split_rtol,
-            cutoff=split_cutoff,
+            threshold=split_threshold,
             maxdim=split_maxdim,
             svd_policy=split_svd_policy,
-            form=split_form,
             final_sweep=split_final_sweep,
         )
-        return _final_truncate(result; final_rtol, final_cutoff, final_maxdim, final_svd_policy, final_form)
+        return _final_truncate(result; final_threshold, final_maxdim, final_svd_policy)
     end
 
     throw(ArgumentError(
@@ -162,22 +154,18 @@ end
 
 function _final_truncate(
     tt::TensorTrain;
-    final_rtol::Real,
-    final_cutoff::Real,
+    final_threshold::Real,
     final_maxdim::Integer,
     final_svd_policy::Union{Nothing, SvdTruncationPolicy},
-    final_form::Symbol,
 )
-    has_final_truncation = final_rtol > 0 || final_cutoff > 0 || final_maxdim > 0 ||
+    has_final_truncation = final_threshold > 0 || final_maxdim > 0 ||
         final_svd_policy !== nothing
     has_final_truncation || return tt
     return truncate(
         tt;
-        rtol=final_rtol,
-        cutoff=final_cutoff,
+        threshold=final_threshold,
         maxdim=final_maxdim,
         svd_policy=final_svd_policy,
-        form=final_form,
     )
 end
 
