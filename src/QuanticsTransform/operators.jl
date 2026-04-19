@@ -275,9 +275,9 @@ materialized as a `TensorNetworks.LinearOperator`.
 
 The pullback maps a source state `g(x)` of one variable to a target
 state `f(y) = g(a * y + b)`, with `a = a_num / a_den` and `b = b_num / b_den`
-expressed as exact rationals. `r` is the number of bits per variable; the
-layout is the same single-variable fused layout used by
-[`affine_operator`](@ref).
+expressed as exact rationals. Implemented as the transpose of the forward
+affine operator (the pullback is exactly the transpose of the forward
+operator).
 """
 function affine_pullback_operator(
     r::Integer,
@@ -287,22 +287,7 @@ function affine_pullback_operator(
     b_den::Integer;
     bc::Symbol=:periodic,
 )
-    layout_handle = _new_univariate_layout(r)
-    try
-        return _materialize_affine_pullback(
-            layout_handle,
-            Int64[a_num],
-            Int64[a_den],
-            Int64[b_num],
-            Int64[b_den],
-            1,
-            1,
-            Symbol[bc],
-            "materializing affine pullback operator",
-        )
-    finally
-        _release_qtt_layout_handle(layout_handle)
-    end
+    return transpose(affine_operator(r, a_num, a_den, b_num, b_den; bc=bc))
 end
 
 """
@@ -310,17 +295,9 @@ end
                                       bc=fill(:periodic, m))
 
 Multi-variable affine pullback operator. Maps a source state
-`g(x_1, ..., x_M)` to `f(y_1, ..., y_N) = g(A * y + b)` where:
-
-- `A` is an `M × N` rational matrix supplied in column-major order through
-  the parallel arrays `a_num`, `a_den` (each of length `m * n`).
-- `b` is the `M`-dimensional translation vector through `b_num`, `b_den`
-  (each of length `m`).
-- `bc` is the per-source-dimension boundary condition (`Vector{Symbol}` of
-  length `m`); each entry is one of `:periodic` or `:open`.
-
-The layout uses `max(m, n)` variables of `r` bits each (Fused), matching
-the convention of the C-API tests in tensor4all-rs#427.
+`g(x_1, ..., x_M)` to `f(y_1, ..., y_N) = g(A * y + b)`. See
+[`affine_operator_multivar`](@ref) for parameter semantics; the pullback is
+returned as the transpose of the forward operator.
 """
 function affine_pullback_operator_multivar(
     r::Integer,
@@ -332,24 +309,9 @@ function affine_pullback_operator_multivar(
     n::Integer;
     bc::AbstractVector{Symbol}=fill(:periodic, m),
 )
-    _require_positive_integer("m", m)
-    _require_positive_integer("n", n)
-    layout_handle = _new_multivar_layout(r, max(Int(m), Int(n)))
-    try
-        return _materialize_affine_pullback(
-            layout_handle,
-            a_num,
-            a_den,
-            b_num,
-            b_den,
-            m,
-            n,
-            bc,
-            "materializing multivar affine pullback operator",
-        )
-    finally
-        _release_qtt_layout_handle(layout_handle)
-    end
+    return transpose(
+        affine_operator_multivar(r, a_num, a_den, b_num, b_den, m, n; bc=bc),
+    )
 end
 
 """
