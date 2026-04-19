@@ -58,3 +58,28 @@ function LinearOperator(;
 end
 
 Base.length(op::LinearOperator) = length(op.input_indices)
+
+"""
+    Base.transpose(op::LinearOperator)
+
+Return the transposed operator by swapping the input/output axis labels.
+
+The pullback of a forward operator is its transpose: if `op` realizes the
+matrix `M[y, x]`, then `transpose(op)` realizes `M[x, y]`. This is an O(1)
+operation — the underlying MPO tensors are not copied; only the
+`input_indices` / `output_indices` and `true_input` / `true_output` vectors
+are swapped.
+
+`transpose(transpose(op))` yields an operator equivalent to `op` (indices and
+bound spaces restored, MPO unchanged).
+"""
+function Base.transpose(op::LinearOperator)
+    return LinearOperator(;
+        mpo=op.mpo,
+        input_indices=op.output_indices,
+        output_indices=op.input_indices,
+        true_input=op.true_output,
+        true_output=op.true_input,
+        metadata=op.metadata,
+    )
+end
