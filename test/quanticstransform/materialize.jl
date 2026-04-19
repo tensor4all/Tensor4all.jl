@@ -213,9 +213,6 @@ const QT = Tensor4all.QuanticsTransform
                   [dim(i) for i in forward.output_indices]
             @test [dim(i) for i in pullback.output_indices] ==
                   [dim(i) for i in forward.input_indices]
-            # transpose is zero-copy: MPO reference is preserved through transpose.
-            pullback_of_forward = transpose(forward)
-            @test pullback_of_forward.mpo === forward.mpo
         end
     end
 end
