@@ -48,10 +48,32 @@ inds(t)   # [Index(2|i; plev=0), Index(3|j; plev=0)]
 The array dimensions must match the index dimensions exactly, otherwise a
 `DimensionMismatch` error is raised.
 
-!!! warning "Tensor contraction is not yet implemented"
-    `contract(::Tensor, ::Tensor)` is listed in the API but currently raises
-    `SkeletonNotImplemented`. For tensor-train contraction, use
-    `SimpleTT.contract` (see below).
+### Tensor contraction
+
+`contract(::Tensor, ::Tensor)` contracts two tensors over their shared
+indices via the backend `t4a_tensor_contract` kernel:
+
+```julia
+i = Index(2; tags=["i"])
+j = Index(3; tags=["j"])
+k = Index(4; tags=["k"])
+
+a = Tensor(randn(2, 3), [i, j])
+b = Tensor(randn(3, 4), [j, k])
+c = contract(a, b)        # contracts over j; result has [i, k]
+inds(c)                   # [Index(2|i; plev=0), Index(4|k; plev=0)]
+```
+
+### Tensor SVD / QR
+
+```julia
+U, S, V = svd(t, [i]; threshold=1e-10)   # left=[i], right=remaining
+Q, R   = qr(t, [i])                       # same left partitioning
+```
+
+`svd` takes the same `threshold` / `maxdim` / `svd_policy` truncation
+contract as the chain-level operations; see the
+[Truncation Policy](truncation_policy.md) page.
 
 ## Two TensorTrain Types
 
@@ -113,6 +135,88 @@ TN.findsite(tt, s2)                        # 2
 TN.findsites(tt, [s1, s3])                 # [1, 3]
 TN.findallsiteinds_by_tag(tt; tag="x")    # [s1, s2, s3] (ordered by tag number)
 TN.findallsites_by_tag(tt; tag="x")       # [1, 2, 3]
+```
+
+## Chain operations on `TensorNetworks.TensorTrain`
+
+The following all accept the common `(threshold, maxdim, svd_policy)`
+truncation kwargs. See the [Truncation Policy](truncation_policy.md) page
+for the decision rules, the default registry
+(`set_default_svd_policy!` / `with_svd_policy`), and the ITensors.jl-
+compatible preset.
+
+### Truncation
+
+```julia
+# Drop singular values with σ / σ_max ≤ 1e-8 (default policy)
+tt_trunc = TN.truncate(tt; threshold=1e-8)
+
+# Cap the bond dimension regardless of threshold
+tt_trunc = TN.truncate(tt; maxdim=32)
+
+# Combine both knobs
+tt_trunc = TN.truncate(tt; threshold=1e-8, maxdim=32)
+```
+
+### Addition
+
+```julia
+# Elementwise sum of two TensorTrains with matching site indices
+tt_sum = TN.add(tt_a, tt_b; threshold=1e-10)
+```
+
+### Contraction
+
+```julia
+# Contract two TensorTrains over their shared site indices
+tt_c = TN.contract(tt_a, tt_b; threshold=1e-8, maxdim=64)
+
+# Method choices: :zipup (default), :fit, :naive
+tt_c = TN.contract(tt_a, tt_b; method=:fit, nfullsweeps=4)
+```
+
+### Applying a LinearOperator
+
+`TN.LinearOperator` wraps an MPO-like `TensorTrain` together with explicit
+input/output `Index` bindings; `TN.apply` evaluates it against a chain state.
+`QuanticsTransform` ships constructors (`shift_operator`, `affine_operator`,
+`binaryop_operator`, etc.) that return `LinearOperator` values.
+
+```julia
+using Tensor4all.QuanticsTransform
+op = shift_operator(4, 1)                    # 4-bit quantics shift by +1
+state = TN.random_tt(sites; linkdims=4)
+result = TN.apply(op, state; threshold=1e-10)
+```
+
+### Linear solve
+
+```julia
+# Solve A x = b where A is a LinearOperator and b is a TensorTrain
+x = TN.linsolve(A, b; threshold=1e-10, maxdim=64, nfullsweeps=8)
+```
+
+### Reorganizing site-index topology
+
+```julia
+# Fuse adjacent nodes into coarser groups
+tt_fused = TN.fuse_to(tt, [[s1, s2], [s3]])
+
+# Split a node into multiple target nodes (with optional final truncation)
+tt_split = TN.split_to(tt, [[s1], [s2, s3]]; threshold=1e-8, final_sweep=true)
+
+# General restructuring (dispatches to fuse / split / swap)
+tt_r = TN.restructure_to(tt, target_groups;
+    split_threshold=1e-8, final_threshold=1e-8)
+```
+
+### Norms, inner products, comparison
+
+```julia
+n = TN.norm(tt)                     # Frobenius norm
+d = TN.dot(tt_a, tt_b)              # inner product
+d = TN.dist(tt_a, tt_b)             # Euclidean distance
+is_eq = isapprox(tt_a, tt_b; rtol=1e-10)
 ```
 
 ## SimpleTT: Compression and Contraction

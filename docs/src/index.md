@@ -30,14 +30,18 @@ than the removed TreeTN-first layout.
 
 ## Still Missing
 
-The current branch is intentionally chain-oriented. Broader non-chain work,
-deeper backend integration, and some `QuanticsTransform` kernels are still not
-implemented.
+The current branch is intentionally chain-oriented. Broader non-chain
+behavior and deeper backend integration beyond the current chain surface
+are still out of scope. See the [Deferred Rework Plan](deferred_rework_plan.md)
+for the remaining items.
 
 ## Entry Points
 
 - [Getting Started](getting_started.md) — tutorial with code examples
 - [Module Overview](modules.md)
 - [API Notes](api.md)
+- [Truncation Policy](truncation_policy.md) — SVD truncation strategy,
+  `threshold` kwarg, default-policy registry, and the ITensors.jl-compatible
+  preset
 - [Design Documents](design_documents.md)
 - [Deferred Rework Plan](deferred_rework_plan.md)
