@@ -74,6 +74,30 @@ const QT = Tensor4all.QuanticsTransform
         @test length(op.mpo) == 3
     end
 
+    @testset "affine_operator_multivar" begin
+        # 2D swap matrix A = [[0, 1], [1, 0]], b = 0. Forward swap of variables.
+        op_swap = QT.affine_operator_multivar(
+            1,
+            [0, 1, 1, 0],
+            [1, 1, 1, 1],
+            [0, 0],
+            [1, 1],
+            2,
+            2;
+            bc=[:periodic, :periodic],
+        )
+        @test op_swap.mpo !== nothing
+        @test length(op_swap.input_indices) == length(op_swap.output_indices)
+
+        # Argument validation
+        @test_throws DimensionMismatch QT.affine_operator_multivar(
+            1, [0, 1], [1, 1], [0], [1], 2, 2,
+        )  # a wrong length
+        @test_throws ArgumentError QT.affine_operator_multivar(
+            1, [0], [1], [0], [1], 0, 1,
+        )  # m == 0
+    end
+
     @testset "multivar operators" begin
         @testset "shift_operator_multivar" begin
             op = QT.shift_operator_multivar(2, 1, 2, 1; bc=:periodic)

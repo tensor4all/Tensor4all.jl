@@ -186,21 +186,38 @@ end
 
 function _materialize_affine(
     layout_handle::Ptr{Cvoid},
-    a_num,
-    a_den,
-    b_num,
-    b_den,
-    bc::Symbol,
+    a_num::AbstractVector{<:Integer},
+    a_den::AbstractVector{<:Integer},
+    b_num::AbstractVector{<:Integer},
+    b_den::AbstractVector{<:Integer},
+    m::Integer,
+    n::Integer,
+    bc::AbstractVector{Symbol},
     context::AbstractString,
 )
-    _require_nonzero_integer("a_den", a_den)
-    _require_nonzero_integer("b_den", b_den)
+    length(a_num) == m * n || throw(DimensionMismatch(
+        "a_num must have length m*n = $(m * n), got $(length(a_num))",
+    ))
+    length(a_den) == m * n || throw(DimensionMismatch(
+        "a_den must have length m*n = $(m * n), got $(length(a_den))",
+    ))
+    length(b_num) == m || throw(DimensionMismatch(
+        "b_num must have length m = $m, got $(length(b_num))",
+    ))
+    length(b_den) == m || throw(DimensionMismatch(
+        "b_den must have length m = $m, got $(length(b_den))",
+    ))
+    length(bc) == m || throw(DimensionMismatch(
+        "bc must have length m = $m, got $(length(bc))",
+    ))
+    all(!=(0), a_den) || throw(ArgumentError("entries of a_den must be nonzero"))
+    all(!=(0), b_den) || throw(ArgumentError("entries of b_den must be nonzero"))
 
-    a_num_c = Int64[Int64(a_num)]
-    a_den_c = Int64[Int64(a_den)]
-    b_num_c = Int64[Int64(b_num)]
-    b_den_c = Int64[Int64(b_den)]
-    bc_c = Cint[_bc_code(bc)]
+    a_num_c = Int64.(a_num)
+    a_den_c = Int64.(a_den)
+    b_num_c = Int64.(b_num)
+    b_den_c = Int64.(b_den)
+    bc_c = Cint[_bc_code(b) for b in bc]
     return _materialize_single_target(context) do out
         ccall(
             TensorNetworks._t4a(:t4a_qtransform_affine_materialize),
@@ -221,8 +238,8 @@ function _materialize_affine(
             a_den_c,
             b_num_c,
             b_den_c,
-            Csize_t(1),
-            Csize_t(1),
+            Csize_t(m),
+            Csize_t(n),
             bc_c,
             out,
         )

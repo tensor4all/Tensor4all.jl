@@ -185,10 +185,71 @@ end
 """
     affine_operator(r, a_num, a_den, b_num, b_den; bc=:periodic)
 
-Construct a quantics affine operator materialized as a `TensorNetworks.LinearOperator`.
+Construct a single-variable quantics **forward** affine operator materialized
+as a `TensorNetworks.LinearOperator`. Maps a state `g(x)` of one variable to
+`f(y) = g((y - b) / a)` by applying the coordinate map `y = a * x + b`
+(`a = a_num / a_den`, `b = b_num / b_den`).
+
+To obtain the pullback operator `f(y) = g(a * y + b)` call `transpose` on the
+returned operator; the pullback is exactly the transpose of the forward
+operator.
 """
-function affine_operator(r::Integer, a_num, a_den, b_num, b_den; bc=:periodic)
+function affine_operator(
+    r::Integer,
+    a_num::Integer,
+    a_den::Integer,
+    b_num::Integer,
+    b_den::Integer;
+    bc::Symbol=:periodic,
+)
     layout_handle = _new_univariate_layout(r)
+    try
+        return _materialize_affine(
+            layout_handle,
+            Int64[a_num],
+            Int64[a_den],
+            Int64[b_num],
+            Int64[b_den],
+            1,
+            1,
+            Symbol[bc],
+            "materializing affine operator",
+        )
+    finally
+        _release_qtt_layout_handle(layout_handle)
+    end
+end
+
+"""
+    affine_operator_multivar(r, a_num, a_den, b_num, b_den, m, n;
+                             bc=fill(:periodic, m))
+
+Multi-variable forward affine operator. Applies the coordinate map
+`y = A * x + b`, where:
+
+- `A` is an `M × N` rational matrix supplied in column-major order through
+  the parallel arrays `a_num`, `a_den` (each of length `m * n`).
+- `b` is the `M`-dimensional translation vector through `b_num`, `b_den`
+  (each of length `m`).
+- `bc` is the per-output-dimension boundary condition (`Vector{Symbol}` of
+  length `m`); each entry is one of `:periodic` or `:open`.
+
+The layout uses `max(m, n)` variables of `r` bits each (Fused). To obtain the
+pullback `f(y) = g(A * y + b)` call `transpose` on the returned operator.
+"""
+function affine_operator_multivar(
+    r::Integer,
+    a_num::AbstractVector{<:Integer},
+    a_den::AbstractVector{<:Integer},
+    b_num::AbstractVector{<:Integer},
+    b_den::AbstractVector{<:Integer},
+    m::Integer,
+    n::Integer;
+    bc::AbstractVector{Symbol}=fill(:periodic, m),
+)
+    _require_positive_integer("m", m)
+    _require_positive_integer("n", n)
+    layout_handle = _new_multivar_layout(r, max(Int(m), Int(n)))
     try
         return _materialize_affine(
             layout_handle,
@@ -196,8 +257,10 @@ function affine_operator(r::Integer, a_num, a_den, b_num, b_den; bc=:periodic)
             a_den,
             b_num,
             b_den,
+            m,
+            n,
             bc,
-            "materializing affine operator",
+            "materializing multivar affine operator",
         )
     finally
         _release_qtt_layout_handle(layout_handle)
