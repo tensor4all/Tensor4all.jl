@@ -23,3 +23,27 @@ using Tensor4all
     @test Tensor4all.commoninds(xs, ys) == [j, ip]
     @test Tensor4all.uniqueinds(xs, ys) == [i]
 end
+
+@testset "Index replacement compatibility" begin
+    i = Tensor4all.Index(2; tags=["i"])
+    j = Tensor4all.Index(3; tags=["j"])
+    ip = Tensor4all.Index(2; tags=["ip"])
+    jp = Tensor4all.Index(3; tags=["jp"])
+    bad = Tensor4all.Index(5; tags=["bad"])
+    missing = Tensor4all.Index(2; tags=["missing"])
+
+    xs = [i, j]
+    @test Tensor4all.replaceind(xs, i, ip) == [ip, j]
+    @test Tensor4all.replaceind(xs, i => ip) == [ip, j]
+    @test Tensor4all.replaceinds(xs, i => ip, j => jp) == [ip, jp]
+    @test Tensor4all.replaceinds(xs) == xs
+    @test Tensor4all.replaceinds(xs, ()) == xs
+    @test Tensor4all.replaceinds(xs, [i], [ip]) == [ip, j]
+    @test Tensor4all.replaceinds(xs, [missing], [ip]) == xs
+    @test_throws ArgumentError Tensor4all.replaceinds(xs, [i], [bad])
+
+    a = Tensor4all.Index(2; tags=["a"])
+    b = Tensor4all.Index(2; tags=["b"])
+    ap = Tensor4all.Index(2; tags=["ap"])
+    @test Tensor4all.replaceinds([a, b], a => b, b => ap) == [b, ap]
+end
