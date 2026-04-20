@@ -35,7 +35,7 @@ export SkeletonPhaseError, SkeletonNotImplemented, BackendUnavailableError
 export backend_library_path, require_backend
 export Index, dim, id, tags, plev, hastag
 export sim, prime, noprime, setprime
-export replaceind, replaceinds, commoninds, uniqueinds
+export replaceind, replaceinds, replaceind!, replaceinds!, commoninds, uniqueinds
 export add
 export dag
 export dot, inner, dist

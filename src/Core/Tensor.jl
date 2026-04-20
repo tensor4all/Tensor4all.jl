@@ -100,6 +100,90 @@ function swapinds(t::Tensor, a::Index, b::Index)
 end
 
 """
+    replaceind(t, old, new)
+
+Return a copy of `t` with index metadata `old` replaced by `new`.
+"""
+function replaceind(t::Tensor, old::Index, new::Index)
+    return Tensor(t.data, replaceind(inds(t), old, new); backend_handle=t.backend_handle)
+end
+
+replaceind(t::Tensor, replacement::Pair{Index,Index}) = replaceind(
+    t,
+    first(replacement),
+    last(replacement),
+)
+
+"""
+    replaceinds(t, replacements...)
+
+Return a copy of `t` with multiple index metadata replacements applied.
+"""
+function replaceinds(t::Tensor, replacements::Pair{Index,Index}...)
+    return Tensor(t.data, replaceinds(inds(t), replacements...); backend_handle=t.backend_handle)
+end
+
+function replaceinds(
+    t::Tensor,
+    oldinds::AbstractVector{Index},
+    newinds::AbstractVector{Index},
+)
+    return Tensor(t.data, replaceinds(inds(t), oldinds, newinds); backend_handle=t.backend_handle)
+end
+
+function replaceinds(
+    t::Tensor,
+    oldinds::Tuple{Vararg{Index}},
+    newinds::Tuple{Vararg{Index}},
+)
+    return Tensor(t.data, replaceinds(inds(t), oldinds, newinds); backend_handle=t.backend_handle)
+end
+
+"""
+    replaceind!(t, old, new)
+
+Replace index metadata `old` by `new` in `t`.
+"""
+function replaceind!(t::Tensor, old::Index, new::Index)
+    t.inds .= replaceind(t.inds, old, new)
+    return t
+end
+
+replaceind!(t::Tensor, replacement::Pair{Index,Index}) = replaceind!(
+    t,
+    first(replacement),
+    last(replacement),
+)
+
+"""
+    replaceinds!(t, replacements...)
+
+Apply multiple index metadata replacements in place to `t`.
+"""
+function replaceinds!(t::Tensor, replacements::Pair{Index,Index}...)
+    t.inds .= replaceinds(t.inds, replacements...)
+    return t
+end
+
+function replaceinds!(
+    t::Tensor,
+    oldinds::AbstractVector{Index},
+    newinds::AbstractVector{Index},
+)
+    t.inds .= replaceinds(t.inds, oldinds, newinds)
+    return t
+end
+
+function replaceinds!(
+    t::Tensor,
+    oldinds::Tuple{Vararg{Index}},
+    newinds::Tuple{Vararg{Index}},
+)
+    t.inds .= replaceinds(t.inds, oldinds, newinds)
+    return t
+end
+
+"""
     _match_index_permutation(source_inds, target_inds)
 
 Return the permutation that reorders `source_inds` to match `target_inds`.
