@@ -137,17 +137,72 @@ end
 
 Replace `old` by `new` in the index collection `xs`.
 """
-replaceind(xs::AbstractVector{Index}, old::Index, new::Index) = [x == old ? new : x for x in xs]
+function replaceind(xs::AbstractVector{Index}, old::Index, new::Index)
+    return _replaceinds_impl(xs, (old,), (new,))
+end
+
+replaceind(xs::AbstractVector{Index}, replacement::Pair{Index,Index}) = replaceind(
+    xs,
+    first(replacement),
+    last(replacement),
+)
 
 """
     replaceinds(xs, replacements...)
 
-Apply multiple index replacements in sequence to `xs`.
+Apply multiple index replacements to `xs`, resolving matches against the
+original index collection.
 """
+replaceinds(xs::AbstractVector{Index}) = collect(xs)
+replaceinds(xs::AbstractVector{Index}, replacements::Tuple{}) = collect(xs)
+
 function replaceinds(xs::AbstractVector{Index}, replacements::Pair{Index,Index}...)
+    return _replaceinds_impl(xs, first.(replacements), last.(replacements))
+end
+
+function replaceinds(
+    xs::AbstractVector{Index},
+    oldinds::AbstractVector{Index},
+    newinds::AbstractVector{Index},
+)
+    return _replaceinds_impl(xs, oldinds, newinds)
+end
+
+function replaceinds(
+    xs::AbstractVector{Index},
+    oldinds::Tuple{Vararg{Index}},
+    newinds::Tuple{Vararg{Index}},
+)
+    return _replaceinds_impl(xs, oldinds, newinds)
+end
+
+function _replaceinds_impl(
+    xs::AbstractVector{Index},
+    oldinds::Tuple{Vararg{Index}},
+    newinds::Tuple{Vararg{Index}},
+)
+    return _replaceinds_impl(xs, collect(oldinds), collect(newinds))
+end
+
+function _replaceinds_impl(
+    xs::AbstractVector{Index},
+    oldinds::AbstractVector{Index},
+    newinds::AbstractVector{Index},
+)
+    length(oldinds) == length(newinds) || throw(DimensionMismatch(
+        "replaceinds requires matching replacement lengths, got $(length(oldinds)) old indices and $(length(newinds)) new indices",
+    ))
+
     ys = collect(xs)
-    for (old, new) in replacements
-        ys = replaceind(ys, old, new)
+    for (position, current) in pairs(xs)
+        match = findfirst(==(current), oldinds)
+        isnothing(match) && continue
+
+        replacement = newinds[match]
+        dim(current) == dim(replacement) || throw(ArgumentError(
+            "Cannot replace index $current (dim=$(dim(current))) with $replacement (dim=$(dim(replacement))); dimensions must match",
+        ))
+        ys[position] = replacement
     end
     return ys
 end
