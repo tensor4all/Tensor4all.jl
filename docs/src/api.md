@@ -10,6 +10,7 @@
 - `Tensor4all.hastag`, `Tensor4all.sim`, `Tensor4all.prime`,
   `Tensor4all.noprime`, `Tensor4all.setprime`
 - `Tensor4all.replaceind`, `Tensor4all.replaceinds`
+- `Tensor4all.replaceind!`, `Tensor4all.replaceinds!`
 - `Tensor4all.commoninds`, `Tensor4all.uniqueinds`
 - `Tensor4all.inds`, `Tensor4all.rank`, `Tensor4all.dims`,
   `Tensor4all.swapinds`
