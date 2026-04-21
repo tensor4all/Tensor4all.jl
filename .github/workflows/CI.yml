@@ -20,14 +20,14 @@ jobs:
       fail-fast: false
       matrix:
         julia-version:
-          - '1.10'
-          - '1.11'
+          - 'lts'
+          - '1'
         os:
           - ubuntu-latest
           - macos-latest
         include:
           - os: ubuntu-latest
-            julia-version: '1.10'
+            julia-version: 'lts'
             coverage: true
 
     steps:
