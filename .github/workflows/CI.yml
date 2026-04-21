@@ -44,16 +44,16 @@ jobs:
           git clone --filter=blob:none https://github.com/tensor4all/tensor4all-rs.git ../tensor4all-rs
           git -C ../tensor4all-rs checkout "$(cat deps/TENSOR4ALL_RS_PIN)"
 
+      # rust-cache runs cargo metadata and keys on rustc; install toolchain before Swatinem/rust-cache.
+      # RustToolChain.jl typically uses rustup/cargo on PATH when present.
+      - uses: dtolnay/rust-toolchain@stable
+
       - name: Cache Rust/Cargo (tensor4all-rs)
-        uses: actions/cache@v4
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ../tensor4all-rs/target
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: tensor4all-rs-${{ runner.os }}-${{ hashFiles('deps/TENSOR4ALL_RS_PIN') }}
-          restore-keys: |
-            tensor4all-rs-${{ runner.os }}-
+          workspaces: |
+            ../tensor4all-rs
+          key: tensor4all-rs-${{ hashFiles('deps/TENSOR4ALL_RS_PIN') }}
 
       # HDF5 is loaded at runtime from HDF5.jl (no system installation needed)
 
