@@ -57,15 +57,23 @@ jobs:
 
       # HDF5 is loaded at runtime from HDF5.jl (no system installation needed)
 
-      - name: Build and test
+      - name: Build
+        env:
+          TENSOR4ALL_RS_PATH: ${{ github.workspace }}/../tensor4all-rs
+        run: |
+          julia --project=. -e '
+            using Pkg
+            Pkg.instantiate()
+            Pkg.build()
+          '
+
+      - name: Test
         env:
           TENSOR4ALL_RS_PATH: ${{ github.workspace }}/../tensor4all-rs
           CI_COVERAGE: ${{ matrix.coverage == true && 'true' || 'false' }}
         run: |
           julia --project=. -e '
             using Pkg
-            Pkg.instantiate()
-            Pkg.build()
             cov = get(ENV, "CI_COVERAGE", "false") == "true"
             Pkg.test(; coverage=cov)
           '
