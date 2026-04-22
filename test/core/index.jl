@@ -36,6 +36,9 @@ end
 
     k = Tensor4all.Index(5; tags="site, n=1")
     @test Tensor4all.tags(k) == ["site", "n=1"]
+
+    mixed = Tensor4all.Index(6, "x=1, y=2 z=3")
+    @test Tensor4all.tags(mixed) == ["x=1", "y=2", "z=3"]
 end
 
 @testset "Index replacement compatibility" begin

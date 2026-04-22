@@ -3,7 +3,7 @@ const _next_index_id = Ref{UInt64}(0)
 next_index_id() = (_next_index_id[] += UInt64(1))
 
 function _normalize_tags(tags::AbstractString)
-    return filter(!isempty, strip.(split(String(tags), ',')))
+    return filter(!isempty, strip.(split(String(tags), r"[,\s]+")))
 end
 
 _normalize_tags(tags::AbstractVector{<:AbstractString}) = collect(String.(tags))
