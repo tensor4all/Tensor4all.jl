@@ -39,6 +39,12 @@ end
 
     mixed = Tensor4all.Index(6, "x=1, y=2 z=3")
     @test Tensor4all.tags(mixed) == ["x=1", "y=2", "z=3"]
+
+    unicode = Tensor4all.Index(7, "スピン=↑, サイト=1")
+    @test Tensor4all.tags(unicode) == ["スピン=↑", "サイト=1"]
+
+    unicode_space = Tensor4all.Index(8, "α=1　β=2")
+    @test Tensor4all.tags(unicode_space) == ["α=1", "β=2"]
 end
 
 @testset "Index replacement compatibility" begin
