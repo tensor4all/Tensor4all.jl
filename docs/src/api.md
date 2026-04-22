@@ -116,6 +116,19 @@ Private = false
 Order = [:type, :function]
 ```
 
+## ITensorCompat
+
+`Tensor4all.ITensorCompat` is an opt-in migration facade for ITensors-style
+code. It wraps `TensorNetworks.TensorTrain` values without replacing the
+native TensorNetworks modeling layer.
+
+```@autodocs
+Modules = [Tensor4all.ITensorCompat]
+Pages = ["ITensorCompat.jl"]
+Private = false
+Order = [:type, :function]
+```
+
 ## SimpleTT
 
 The raw-array TT layer is `Tensor4all.SimpleTT.TensorTrain{T,N}`.

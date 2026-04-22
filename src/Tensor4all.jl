@@ -23,6 +23,7 @@ include("Core/Tensor.jl")
 
 include("SimpleTT.jl")
 include("TensorNetworks.jl")
+include("ITensorCompat.jl")
 include("TensorCI.jl")
 include("QuanticsGrids.jl")
 include("QuanticsTCI.jl")
@@ -47,6 +48,6 @@ export Tensor, ITensor, inds, rank, dims, swapinds, contract
 export delta, isdiag, structured_storage_info, structured_payload
 export onehot
 export svd, qr
-export TensorNetworks, SimpleTT, TensorCI, QuanticsGrids, QuanticsTCI, QuanticsTransform
+export TensorNetworks, ITensorCompat, SimpleTT, TensorCI, QuanticsGrids, QuanticsTCI, QuanticsTransform
 
 end
