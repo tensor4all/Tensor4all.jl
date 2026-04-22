@@ -10,14 +10,18 @@ non-mutating versus mutating chain operations, truncation keyword names, and
 canonical-region invalidation after tensor replacement.
 
 Add a new `Tensor4all.ITensorCompat` submodule that provides an
-ITensors/ITensorMPS-like facade over the existing Tensor4all object model. The
-facade is for source-level migration compatibility. It must not replace
+ITensors/ITensorMPS source-compatibility facade over the existing Tensor4all
+object model. Inside this facade, ITensors naming and call syntax take
+priority over Tensor4all-native naming. The facade must not replace
 `TensorNetworks.TensorTrain` as the primary indexed chain type.
 
 ## Goals
 
 - Reduce downstream compatibility glue needed by BubbleTeaCI and similar
   ITensors-based packages.
+- Make `ITensorCompat` cutoff-only for truncating APIs. Tensor4all-native
+  `threshold` / `svd_policy` controls remain available through
+  `TensorNetworks`, not through the compatibility facade.
 - Preserve the existing public layer split described in `AGENTS.md`.
 - Keep `TensorNetworks.TensorTrain` generic: MPS-like and MPO-like meaning
   remains structural at the TensorNetworks layer.
@@ -27,7 +31,8 @@ facade is for source-level migration compatibility. It must not replace
 
 ## Non-goals
 
-- Do not make Tensor4all.jl an ITensors.jl clone.
+- Do not make Tensor4all.jl an ITensors.jl clone outside the explicit
+  `ITensorCompat` facade.
 - Do not change `TensorNetworks.siteinds(::TensorTrain)` to return a flat
   vector conditionally.
 - Do not promise exact ITensors storage aliasing or view semantics.
@@ -185,6 +190,11 @@ operations are generally useful and match existing Tensor4all names:
 
 ```julia
 Index(dim::Integer, tag::AbstractString; kwargs...)
+Index(dim::Integer; tags::AbstractString, kwargs...)
+const ITensor = Tensor
+ITensor(data, inds::Index...)
+ITensor(value::Number)
+Tensor(data, inds::Index...)
 replaceind(t::Tensor, old::Index, new::Index)
 replaceind!(t::Tensor, old::Index, new::Index)
 replaceinds(t::Tensor, oldinds, newinds)
@@ -195,16 +205,38 @@ hasinds(t::Tensor, query_inds...)
 scalar(t::Tensor)
 Base.eltype(t::Tensor)
 Base.:*(a::Tensor, b::Tensor)
+onehot(index_value::Pair{Index,<:Integer})
+delta(i::Index, j::Index; T=Float64)
 ```
 
 `*(a::Tensor, b::Tensor)` should delegate to `contract(a, b)`. This is an
 ITensors convenience, but it is also a natural tensor algebra shorthand.
 
-`replaceind!` and `replaceinds!` require `Tensor` to be mutable or require an
-explicit compatibility limitation. If `Tensor` remains immutable, provide only
-non-mutating Core methods and place mutating-looking convenience on wrappers
-where assignment into a train slot is possible. A separate design should decide
-whether `Tensor` should become mutable.
+`replaceind!` and `replaceinds!` should mutate tensor index metadata only. The
+current `Tensor` type is immutable as an object, but its `inds::Vector{Index}`
+field is mutable. Implement these methods by rewriting the contents of
+`t.inds`; do not touch dense data.
+
+`onehot(i => n)` should be lazy. It represents a rank-1 basis tensor with
+index `i` and a one at the 1-based value `n`, but it should not allocate a
+dense vector just to participate in a contraction. `contract(t,
+onehot(i => n))` and `contract(onehot(i => n), t)` should slice `t` along
+index `i` when that index is present, removing `i` from the output indices.
+Only explicit materialization, such as `Tensor(onehot(i => n))` or `Array`,
+should allocate the dense vector. If the contracted tensor does not contain
+`i`, the compatibility layer can fall back to ordinary outer-product
+semantics by materializing the one-hot operand.
+
+`delta(i, j)` returns the rank-2 identity tensor over equal dimension indices
+`i` and `j`. It can be dense in the first implementation because the main
+allocation problem for BubbleTeaCI-style evaluation is repeated basis-vector
+contraction, not identity construction. These helpers remove most downstream
+hand-written diagonal and basis tensor construction.
+
+Prefer ITensors syntax over Tensor4all-specific factory names. Do not add
+`zeros_tensor`, `ones_tensor`, or `diag_tensor` to the first compatibility
+surface. Dense constructors such as `ITensor(ones(T, dim(i)), i)` cover the
+all-ones case without new names.
 
 ## Tensor factorization compatibility
 
@@ -222,13 +254,16 @@ qr(t::Tensor, left_inds::Index...)
 svd(t::Tensor, left_inds::Index...; cutoff=0.0, maxdim=0, kwargs...)
 ```
 
-The `cutoff` keyword should map to `threshold` with an ITensors-like SVD policy.
+The `cutoff` keyword maps internally to Tensor4all's `threshold` with an
+ITensors-like SVD policy. Do not accept `threshold` or `svd_policy` in
+`ITensorCompat.svd`; callers that need Tensor4all-native truncation controls
+should call `Tensor4all.svd` or `TensorNetworks` directly.
 
 ## Truncation compatibility
 
 `TensorNetworks` intentionally uses `threshold` plus
 `SvdTruncationPolicy`. ITensors migration code commonly passes `cutoff`.
-`ITensorCompat` should accept `cutoff` and translate it explicitly:
+`ITensorCompat` should accept only `cutoff` and translate it explicitly:
 
 ```julia
 const ITENSORS_CUTOFF_POLICY = TensorNetworks.SvdTruncationPolicy(
@@ -238,7 +273,9 @@ const ITENSORS_CUTOFF_POLICY = TensorNetworks.SvdTruncationPolicy(
 ```
 
 Compat methods should reject ambiguous calls that pass both `cutoff` and
-`threshold`, with an `ArgumentError` that names both values.
+Tensor4all-native truncation controls such as `threshold` or `svd_policy`.
+The error should say that `ITensorCompat` is cutoff-only and direct the user to
+`TensorNetworks` for native controls.
 
 Default behavior:
 
@@ -246,9 +283,7 @@ Default behavior:
 - `maxdim = 0` means no hard rank cap.
 - `cutoff > 0` maps to
   `threshold = cutoff, svd_policy = ITENSORS_CUTOFF_POLICY`.
-- If the caller passes `svd_policy`, it is forwarded unless the call also
-  requests ITensors cutoff semantics. Ambiguous combinations should error
-  rather than silently reinterpret.
+- `threshold` and `svd_policy` are not part of the compatibility API.
 
 ## Constructors from raw site tensors
 
@@ -303,10 +338,13 @@ Add a focused `test/itensorcompat/` test group:
 - `orthogonalize!` and `truncate!` mutate the wrapper by replacing `m.tt` and
   return `m`.
 - `truncate!(; cutoff=...)` maps to ITensors-like truncation policy.
-- ambiguous `cutoff` plus `threshold` usage throws `ArgumentError`.
+- passing Tensor4all-native truncation keywords such as `threshold` or
+  `svd_policy` through `ITensorCompat` throws `ArgumentError`.
 - raw `Array{T,3}` constructors round-trip through `to_dense`.
-- Tensor-level `commoninds`, `uniqueinds`, `scalar`, and `*` match the existing
-  `contract` behavior.
+- Tensor-level `ITensor`, `commoninds`, `uniqueinds`, `replaceind!`, `scalar`,
+  `onehot`, `delta`, and `*` match ITensors-style usage.
+- contracting a tensor with `onehot(i => n)` slices the tensor along `i`
+  without requiring dense one-hot vector materialization.
 
 For BubbleTeaCI readiness, add a small integration-style test that performs:
 
@@ -323,15 +361,16 @@ BubbleTeaCI Tensor4all backend branch.
 ## Recommended implementation order
 
 1. Core compatibility primitives that are not controversial:
-   `Index(dim, tag)`, tensor `commoninds` / `uniqueinds`, `scalar`, `eltype`,
-   and `*(Tensor, Tensor)`.
+   `Index(dim, tag)`, `ITensor(data, inds...)`, tensor `commoninds` /
+   `uniqueinds`, `replaceind!`, `scalar`, `eltype`, `onehot`, `delta`, and
+   `*(Tensor, Tensor)`.
 2. TensorTrain canonical invalidation API:
    `invalidate_canonical!`, conservative `setindex!`, and topology-changing
    mutation methods.
 3. `ITensorCompat` module skeleton and `MPS` wrapper with validation,
    `siteinds`, indexing, dense, evaluate, scalar arithmetic, and site
    replacement.
-4. `cutoff` translation and mutating `truncate!` / `orthogonalize!`.
+4. cutoff-only translation and mutating `truncate!` / `orthogonalize!`.
 5. Raw-array `MPS` constructors.
 6. Narrow `MPO` wrapper.
 7. Documentation and BubbleTeaCI migration check.

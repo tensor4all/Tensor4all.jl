@@ -18,8 +18,9 @@
 - Do not add C API functions. This compatibility surface is Julia-owned.
 - Do not change `TensorNetworks.siteinds(::TensorTrain)` to return a flat
   vector. Flat site indices are only for `ITensorCompat.MPS`.
-- Keep `Tensor` immutable in this first pass. Implement non-mutating tensor
-  index replacement. Use train-slot assignment for mutation-like workflows.
+- Keep the `Tensor` object itself immutable in this first pass, but allow
+  `replaceind!` / `replaceinds!` to rewrite the mutable `inds::Vector` field.
+  This matches the ITensors-style call shape without copying tensor storage.
 - Each task below should be committed separately.
 - Focused tests can be run directly with `julia --startup-file=no --project=.`
   unless the host has the AMD EPYC Julia issue described in `AGENTS.md`.
@@ -63,7 +64,13 @@ Append tests to `test/core/tensor.jl`:
     k = Index(5, "k")
     i2 = sim(i)
 
+    @test ITensor === Tensor
+
     a = Tensor(reshape(collect(1.0:6.0), 2, 3), [i, j])
+    a2 = ITensor(reshape(collect(1.0:6.0), 2, 3), i, j)
+    @test Array(a2, i, j) == Array(a, i, j)
+    @test scalar(ITensor(3.5)) == 3.5
+
     b = Tensor(reshape(collect(1.0:15.0), 3, 5), [j, k])
 
     @test commoninds(a, b) == [j]
@@ -89,6 +96,20 @@ Append tests to `test/core/tensor.jl`:
 
     bad = Index(4, "bad")
     @test_throws ArgumentError replaceind(a, i, bad)
+
+    mutable_replaced = Tensor(Array(a, i, j), [i, j])
+    @test replaceind!(mutable_replaced, i, i2) === mutable_replaced
+    @test inds(mutable_replaced) == [i2, j]
+    @test Array(mutable_replaced, i2, j) == Array(a, i, j)
+
+    oh = onehot(i => 2)
+    @test inds(oh) == [i]
+    @test Array(Tensor(oh), i) == [0.0, 1.0]
+    @test Array(contract(a, oh), j) == Array(a, i, j)[2, :]
+    @test Array(contract(oh, a), j) == Array(a, i, j)[2, :]
+
+    ident = delta(i, i2)
+    @test Array(ident, i, i2) == Matrix{Float64}(I, 2, 2)
 end
 ```
 
@@ -102,7 +123,8 @@ julia --startup-file=no --project=. -e 'include("test/core/tensor.jl")'
 ```
 
 Expected: failures for missing `Index(dim, tag)`, tensor `commoninds`,
-`uniqueinds`, `hasinds`, `scalar`, `replaceind(::Tensor, ...)`, `eltype`, or
+`uniqueinds`, `hasinds`, `scalar`, `replaceind(::Tensor, ...)`,
+`replaceind!(::Tensor, ...)`, `onehot`, `delta`, `ITensor`, `eltype`, or
 `*(::Tensor, ::Tensor)`.
 
 **Step 4: Implement minimal Core API**
@@ -120,6 +142,10 @@ function Index(
     tag_list = filter(!isempty, strip.(tag_list))
     return Index(dim; tags=tag_list, kwargs...)
 end
+
+function Index(dim::Integer; tags::AbstractString, kwargs...)
+    return Index(dim, tags; kwargs...)
+end
 ```
 
 Also add collection helpers with dimension validation:
@@ -136,12 +162,27 @@ replaceind(xs::AbstractVector{Index}, old::Index, new::Index) =
     _replace_index_vector(xs, old, new)
 replaceind(xs::AbstractVector{Index}, replacement::Pair{Index,Index}) =
     replaceind(xs, first(replacement), last(replacement))
+
+function replaceinds(xs::AbstractVector{Index}, oldinds, newinds)
+    length(oldinds) == length(newinds) || throw(DimensionMismatch(
+        "replaceinds requires the same number of old and new indices, got $(length(oldinds)) and $(length(newinds))",
+    ))
+    out = collect(xs)
+    for (old, new) in zip(oldinds, newinds)
+        out = replaceind(out, old, new)
+    end
+    return out
+end
 ```
 
 In `src/Core/Tensor.jl`, add:
 
 ```julia
 Base.eltype(t::Tensor) = eltype(t.data)
+
+const ITensor = Tensor
+Tensor(data, inds::Index...) = Tensor(data, collect(inds))
+Tensor(value::Number) = Tensor(fill(value), Index[])
 
 commoninds(a::Tensor, b::Tensor) = commoninds(inds(a), inds(b))
 uniqueinds(a::Tensor, b::Tensor) = uniqueinds(inds(a), inds(b))
@@ -159,13 +200,68 @@ end
 replaceind(t::Tensor, replacement::Pair{Index,Index}) =
     replaceind(t, first(replacement), last(replacement))
 
+function replaceind!(t::Tensor, old::Index, new::Index)
+    t.inds .= replaceind(inds(t), old, new)
+    return t
+end
+
+replaceind!(t::Tensor, replacement::Pair{Index,Index}) =
+    replaceind!(t, first(replacement), last(replacement))
+
+function replaceinds(t::Tensor, oldinds, newinds)
+    return Tensor(copy(t.data), replaceinds(inds(t), oldinds, newinds); backend_handle=t.backend_handle)
+end
+
+function replaceinds!(t::Tensor, oldinds, newinds)
+    t.inds .= replaceinds(inds(t), oldinds, newinds)
+    return t
+end
+
+struct OneHotTensor{T}
+    index::Index
+    value::Int
+end
+
+function onehot(index_value::Pair{Index,<:Integer}; T::Type=Float64)
+    i, n = first(index_value), Int(last(index_value))
+    1 <= n <= dim(i) || throw(ArgumentError("onehot index value must be in 1:$(dim(i)), got $n"))
+    return OneHotTensor{T}(i, n)
+end
+
+inds(oh::OneHotTensor) = [oh.index]
+Base.eltype(::OneHotTensor{T}) where T = T
+
+function Tensor(oh::OneHotTensor{T}) where T
+    data = zeros(T, dim(oh.index))
+    data[oh.value] = one(T)
+    return Tensor(data, [oh.index])
+end
+
+function _contract_tensor_onehot(t::Tensor, oh::OneHotTensor)
+    axis = findfirst(==(oh.index), inds(t))
+    axis === nothing && return contract(t, Tensor(oh))
+    out_inds = deleteat!(copy(inds(t)), axis)
+    sliced = collect(selectdim(t.data, axis, oh.value))
+    return Tensor(sliced, out_inds)
+end
+
+contract(t::Tensor, oh::OneHotTensor) = _contract_tensor_onehot(t, oh)
+contract(oh::OneHotTensor, t::Tensor) = _contract_tensor_onehot(t, oh)
+
 Base.:*(a::Tensor, b::Tensor) = contract(a, b)
+Base.:*(a::Tensor, b::OneHotTensor) = contract(a, b)
+Base.:*(a::OneHotTensor, b::Tensor) = contract(a, b)
+
+function delta(i::Index, j::Index; T::Type=Float64)
+    dim(i) == dim(j) || throw(DimensionMismatch("delta requires equal dimensions, got $(dim(i)) and $(dim(j))"))
+    return Tensor(Matrix{T}(I, dim(i), dim(j)), [i, j])
+end
 ```
 
-Export any new public names from `src/Tensor4all.jl`, especially `hasinds` and
-`scalar`.
-
-Do not add `replaceind!` in this task because `Tensor` is immutable.
+Import `LinearAlgebra: I` if the existing file does not already import it.
+Export any new public names from `src/Tensor4all.jl`, especially `ITensor`,
+`hasinds`, `scalar`, `replaceind!`, `replaceinds`, `replaceinds!`,
+`onehot`, and `delta`.
 
 **Step 5: Run tests to verify pass**
 
@@ -592,6 +688,8 @@ Append:
     m2 = IC.MPS(TN.random_tt([s1, s2]; linkdims=2))
     @test IC.truncate!(m2; cutoff=1e-12) === m2
     @test_throws ArgumentError IC.truncate!(m2; cutoff=1e-12, threshold=1e-12)
+    @test_throws ArgumentError IC.truncate!(m2; threshold=1e-12)
+    @test_throws ArgumentError IC.truncate!(m2; svd_policy=nothing)
 end
 ```
 
@@ -619,18 +717,15 @@ const ITENSORS_CUTOFF_POLICY = SvdTruncationPolicy(
     rule = :discarded_tail_sum,
 )
 
-function _compat_truncation_kwargs(; cutoff=0.0, threshold=nothing, svd_policy=nothing, kwargs...)
-    if threshold !== nothing && cutoff != 0.0
-        throw(ArgumentError("Pass either cutoff or threshold, got cutoff=$cutoff and threshold=$threshold"))
-    end
-    if cutoff != 0.0
-        svd_policy !== nothing && throw(ArgumentError("cutoff implies ITensors cutoff policy; do not also pass svd_policy"))
-        return (; threshold=cutoff, svd_policy=ITENSORS_CUTOFF_POLICY, kwargs...)
-    end
-    if threshold === nothing
-        return (; svd_policy=svd_policy, kwargs...)
-    end
-    return (; threshold=threshold, svd_policy=svd_policy, kwargs...)
+function _compat_truncation_kwargs(; cutoff=0.0, kwargs...)
+    native_keys = (:threshold, :svd_policy)
+    used_native = [key for key in keys(kwargs) if key in native_keys]
+    isempty(used_native) || throw(ArgumentError(
+        "ITensorCompat truncation is cutoff-only; got native Tensor4all keyword(s) $(Tuple(used_native)). Use TensorNetworks.truncate for threshold or svd_policy.",
+    ))
+    cutoff >= 0 || throw(ArgumentError("cutoff must be nonnegative, got $cutoff"))
+    cutoff == 0.0 && return kwargs
+    return (; threshold=cutoff, svd_policy=ITENSORS_CUTOFF_POLICY, kwargs...)
 end
 
 function orthogonalize!(m::MPS, site::Integer; kwargs...)
@@ -638,8 +733,8 @@ function orthogonalize!(m::MPS, site::Integer; kwargs...)
     return m
 end
 
-function truncate!(m::MPS; cutoff=0.0, threshold=nothing, svd_policy=nothing, kwargs...)
-    resolved = _compat_truncation_kwargs(; cutoff, threshold, svd_policy, kwargs...)
+function truncate!(m::MPS; cutoff=0.0, kwargs...)
+    resolved = _compat_truncation_kwargs(; cutoff, kwargs...)
     m.tt = TensorNetworks.truncate(m.tt; resolved...)
     return m
 end
