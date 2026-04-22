@@ -165,10 +165,30 @@ end
 """
     MPO(tt)
 
-Placeholder wrapper for an ITensorMPS-style matrix-product operator.
+ITensorMPS-style wrapper over a `TensorNetworks.TensorTrain` whose tensors each
+have exactly two site indices.
 """
 mutable struct MPO
     tt::TensorTrain
+    function MPO(tt::TensorTrain)
+        groups = TensorNetworks.siteinds(tt)
+        for (position, group) in pairs(groups)
+            length(group) == 2 || throw(ArgumentError(
+                "MPO expects exactly two site indices at tensor $position, got $(length(group))",
+            ))
+        end
+        return new(tt)
+    end
 end
+
+Base.length(W::MPO) = length(W.tt)
+Base.getindex(W::MPO, i::Int) = W.tt[i]
+Base.setindex!(W::MPO, tensor::Tensor, i::Int) = setindex!(W.tt, tensor, i)
+
+siteinds(W::MPO) = TensorNetworks.siteinds(W.tt)
+linkinds(W::MPO) = TensorNetworks.linkinds(W.tt)
+linkdims(W::MPO) = TensorNetworks.linkdims(W.tt)
+rank(W::MPO) = maximum(linkdims(W); init=0)
+dag(W::MPO) = MPO(TensorNetworks.dag(W.tt))
 
 end

@@ -100,3 +100,28 @@ end
     inferred = IC.MPS(blocks)
     @test dim.(IC.siteinds(inferred)) == [2, 3]
 end
+
+@testset "ITensorCompat MPO surface" begin
+    x1 = Index(2, "x=1")
+    y1 = Index(2, "y=1")
+    x2 = Index(3, "x=2")
+    y2 = Index(3, "y=2")
+    l1 = Index(2; tags=["Link", "l=1"])
+
+    w1 = Tensor(randn(2, 2, 2), [x1, y1, l1])
+    w2 = Tensor(randn(2, 3, 3), [l1, x2, y2])
+    W = IC.MPO(TN.TensorTrain([w1, w2]))
+
+    @test length(W) == 2
+    @test IC.siteinds(W) == [[x1, y1], [x2, y2]]
+    @test IC.linkdims(W) == [2]
+    @test IC.rank(W) == 2
+    @test W[1] == w1
+
+    new_w1 = Tensor(randn(2, 2, 2), [x1, y1, l1])
+    @test (W[1] = new_w1) == new_w1
+    @test W[1] == new_w1
+
+    bad = Tensor(randn(2), [x1])
+    @test_throws ArgumentError IC.MPO(TN.TensorTrain([bad]))
+end
