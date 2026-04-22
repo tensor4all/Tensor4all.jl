@@ -1,6 +1,6 @@
 module ITensorCompat
 
-import ..Tensor4all: Index, Tensor, inds
+import ..Tensor4all: Index, Tensor, dim, inds
 import ..TensorNetworks
 import ..TensorNetworks: TensorTrain
 import ..TensorNetworks: add, dag, dot, evaluate, inner, linkdims, linkinds, norm, siteinds, to_dense
@@ -48,6 +48,59 @@ siteinds(m::MPS) = [only(group) for group in TensorNetworks.siteinds(m.tt)]
 linkinds(m::MPS) = TensorNetworks.linkinds(m.tt)
 linkdims(m::MPS) = TensorNetworks.linkdims(m.tt)
 rank(m::MPS) = maximum(linkdims(m); init=0)
+
+function _mps_links(blocks::AbstractVector{<:Array{T,3}}) where {T}
+    return [Index(size(blocks[i], 3); tags=["Link", "l=$i"]) for i in 1:(length(blocks) - 1)]
+end
+
+function _validate_mps_blocks(blocks::AbstractVector{<:Array{T,3}}, sites::AbstractVector{<:Index}) where {T}
+    length(blocks) == length(sites) || throw(DimensionMismatch(
+        "Need one MPS block per site, got $(length(blocks)) blocks and $(length(sites)) sites",
+    ))
+    isempty(blocks) && throw(ArgumentError("MPS blocks must not be empty"))
+
+    size(first(blocks), 1) == 1 || throw(DimensionMismatch(
+        "First MPS block must have left boundary dimension 1, got $(size(first(blocks), 1))",
+    ))
+    size(last(blocks), 3) == 1 || throw(DimensionMismatch(
+        "Last MPS block must have right boundary dimension 1, got $(size(last(blocks), 3))",
+    ))
+
+    for i in eachindex(blocks)
+        size(blocks[i], 2) == dim(sites[i]) || throw(DimensionMismatch(
+            "Block $i physical dimension $(size(blocks[i], 2)) does not match site dimension $(dim(sites[i]))",
+        ))
+    end
+    for i in 1:(length(blocks) - 1)
+        size(blocks[i], 3) == size(blocks[i + 1], 1) || throw(DimensionMismatch(
+            "MPS bond $i has mismatched dimensions $(size(blocks[i], 3)) and $(size(blocks[i + 1], 1))",
+        ))
+    end
+    return nothing
+end
+
+function MPS(blocks::AbstractVector{<:Array{T,3}}, sites::AbstractVector{<:Index}) where {T}
+    _validate_mps_blocks(blocks, sites)
+    links = _mps_links(blocks)
+    tensors = Tensor[]
+    for i in eachindex(blocks)
+        if length(blocks) == 1
+            push!(tensors, Tensor(collect(dropdims(blocks[i]; dims=(1, 3))), [sites[i]]))
+        elseif i == 1
+            push!(tensors, Tensor(collect(dropdims(blocks[i]; dims=1)), [sites[i], links[i]]))
+        elseif i == length(blocks)
+            push!(tensors, Tensor(collect(dropdims(blocks[i]; dims=3)), [links[i - 1], sites[i]]))
+        else
+            push!(tensors, Tensor(blocks[i], [links[i - 1], sites[i], links[i]]))
+        end
+    end
+    return MPS(TensorTrain(tensors))
+end
+
+function MPS(blocks::AbstractVector{<:Array{T,3}}) where {T}
+    sites = [Index(size(blocks[i], 2); tags=["site", "site=$i"]) for i in eachindex(blocks)]
+    return MPS(blocks, sites)
+end
 
 dot(a::MPS, b::MPS) = TensorNetworks.dot(a.tt, b.tt)
 inner(a::MPS, b::MPS) = TensorNetworks.inner(a.tt, b.tt)

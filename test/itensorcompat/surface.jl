@@ -82,3 +82,21 @@ end
     @test_throws ArgumentError IC.truncate!(m2; threshold=1e-12)
     @test_throws ArgumentError IC.truncate!(m2; svd_policy=nothing)
 end
+
+@testset "ITensorCompat raw MPS constructors" begin
+    sites = [Index(2, "s=1"), Index(3, "s=2")]
+    blocks = [
+        reshape(collect(1.0:4.0), 1, 2, 2),
+        reshape(collect(1.0:6.0), 2, 3, 1),
+    ]
+
+    m = IC.MPS(blocks, sites)
+    @test IC.siteinds(m) == sites
+    @test IC.linkdims(m) == [2]
+
+    dense = Array(IC.to_dense(m), sites...)
+    @test size(dense) == (2, 3)
+
+    inferred = IC.MPS(blocks)
+    @test dim.(IC.siteinds(inferred)) == [2, 3]
+end
