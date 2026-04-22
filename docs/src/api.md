@@ -14,6 +14,8 @@
 - `Tensor4all.commoninds`, `Tensor4all.uniqueinds`
 - `Tensor4all.inds`, `Tensor4all.rank`, `Tensor4all.dims`,
   `Tensor4all.swapinds`
+- `Tensor4all.delta`, `Tensor4all.isdiag`,
+  `Tensor4all.structured_storage_info`, `Tensor4all.structured_payload`
 - `Tensor4all.dag` — pure Julia tensor conjugation
 - `Array(t, inds...)` — dense tensor extraction in the requested index order
 - `Tensor4all.contract` — backend tensor contraction via the

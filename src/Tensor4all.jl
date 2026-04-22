@@ -43,6 +43,7 @@ export linkinds, linkdims, siteinds
 export norm
 export orthogonalize, truncate
 export Tensor, inds, rank, dims, swapinds, contract
+export delta, isdiag, structured_storage_info, structured_payload
 export svd, qr
 export TensorNetworks, SimpleTT, TensorCI, QuanticsGrids, QuanticsTCI, QuanticsTransform
 

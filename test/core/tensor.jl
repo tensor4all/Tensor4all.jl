@@ -1,5 +1,6 @@
 using Test
 using Tensor4all
+using LinearAlgebra: I
 
 @testset "Tensor skeleton" begin
     i = Tensor4all.Index(2; tags=["i"])
@@ -20,6 +21,7 @@ using Tensor4all
     @test Tensor4all.rank(contracted) == 0
     @test Tensor4all.dims(contracted) == ()
     @test contracted.data[] == 91.0
+    @test only(Array(contracted)) == sum(data .* data)
 end
 
 @testset "Tensor replaceind compatibility" begin
@@ -59,4 +61,34 @@ end
     @test Tensor4all.inds(mut2) == [ip, jp]
     @test mut2.data == data
     @test mut2.backend_handle == handle
+end
+
+@testset "structured diagonal tensor payload metadata" begin
+    i = Tensor4all.Index(3; tags=["i"])
+    j = Tensor4all.sim(i)
+
+    d = Tensor4all.delta(i, j)
+    @test Tensor4all.isdiag(d)
+
+    info = Tensor4all.structured_storage_info(d)
+    @test info.kind == :diagonal
+    @test info.dtype == Float64
+    @test info.logical_dims == (3, 3)
+    @test info.payload_dims == (3,)
+    @test info.payload_strides == (1,)
+    @test info.payload_length == 3
+    @test info.axis_classes == (1, 1)
+
+    @test Tensor4all.structured_payload(d) == ones(Float64, 3)
+    @test Array(d, i, j) == Matrix{Float64}(I, 3, 3)
+
+    handle = Tensor4all.TensorNetworks._new_tensor_handle(d, :f64)
+    try
+        roundtrip = Tensor4all.TensorNetworks._tensor_from_handle(handle)
+        @test Tensor4all.isdiag(roundtrip)
+        @test Tensor4all.structured_storage_info(roundtrip) == info
+        @test Tensor4all.structured_payload(roundtrip) == ones(Float64, 3)
+    finally
+        Tensor4all.TensorNetworks._release_tensor_handle(handle)
+    end
 end
