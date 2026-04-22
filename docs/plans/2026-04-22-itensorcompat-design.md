@@ -22,6 +22,9 @@ priority over Tensor4all-native naming. The facade must not replace
 - Make `ITensorCompat` cutoff-only for truncating APIs. Tensor4all-native
   `threshold` / `svd_policy` controls remain available through
   `TensorNetworks`, not through the compatibility facade.
+- Use payload-only diagonal/copy tensors for `delta`-like helpers once the
+  Rust C API exposes structured tensor payload metadata and logical-axis
+  equivalence classes.
 - Preserve the existing public layer split described in `AGENTS.md`.
 - Keep `TensorNetworks.TensorTrain` generic: MPS-like and MPO-like meaning
   remains structural at the TensorNetworks layer.
@@ -228,9 +231,20 @@ should allocate the dense vector. If the contracted tensor does not contain
 semantics by materializing the one-hot operand.
 
 `delta(i, j)` returns the rank-2 identity tensor over equal dimension indices
-`i` and `j`. It can be dense in the first implementation because the main
-allocation problem for BubbleTeaCI-style evaluation is repeated basis-vector
-contraction, not identity construction. These helpers remove most downstream
+`i` and `j`. It may use a dense fallback only until the Rust C API exposes
+structured diagonal payloads. The intended long-term implementation is a
+payload-only diagonal/copy tensor backed by `tensor4all-rs` structured storage:
+compact payload data plus logical-axis equivalence classes. Upstream issue
+https://github.com/tensor4all/tensor4all-rs/issues/434 tracks the required C
+API for constructing these tensors and reading their structured metadata
+without dense materialization.
+
+The Julia side should not model diagonal tensors as merely dense arrays with
+zeros. It needs enough Core API to preserve and inspect the structured state
+when Rust provides it: logical dimensions, payload dimensions, payload strides,
+payload length, scalar dtype, and axis equivalence classes. Public ITensors-like
+helpers such as `delta` can remain simple, but their implementation should call
+the storage-backed path when available. These helpers remove most downstream
 hand-written diagonal and basis tensor construction.
 
 Prefer ITensors syntax over Tensor4all-specific factory names. Do not add
@@ -345,6 +359,9 @@ Add a focused `test/itensorcompat/` test group:
   `onehot`, `delta`, and `*` match ITensors-style usage.
 - contracting a tensor with `onehot(i => n)` slices the tensor along `i`
   without requiring dense one-hot vector materialization.
+- once tensor4all-rs#434 is available, `delta` / copy tensor construction uses
+  structured payload storage and exposes payload/axis-class metadata without
+  dense materialization.
 
 For BubbleTeaCI readiness, add a small integration-style test that performs:
 
@@ -364,16 +381,18 @@ BubbleTeaCI Tensor4all backend branch.
    `Index(dim, tag)`, `ITensor(data, inds...)`, tensor `commoninds` /
    `uniqueinds`, `replaceind!`, `scalar`, `eltype`, `onehot`, `delta`, and
    `*(Tensor, Tensor)`.
-2. TensorTrain canonical invalidation API:
+2. Rust-backed structured diagonal payload integration once
+   https://github.com/tensor4all/tensor4all-rs/issues/434 is available.
+3. TensorTrain canonical invalidation API:
    `invalidate_canonical!`, conservative `setindex!`, and topology-changing
    mutation methods.
-3. `ITensorCompat` module skeleton and `MPS` wrapper with validation,
+4. `ITensorCompat` module skeleton and `MPS` wrapper with validation,
    `siteinds`, indexing, dense, evaluate, scalar arithmetic, and site
    replacement.
-4. cutoff-only translation and mutating `truncate!` / `orthogonalize!`.
-5. Raw-array `MPS` constructors.
-6. Narrow `MPO` wrapper.
-7. Documentation and BubbleTeaCI migration check.
+5. cutoff-only translation and mutating `truncate!` / `orthogonalize!`.
+6. Raw-array `MPS` constructors.
+7. Narrow `MPO` wrapper.
+8. Documentation and BubbleTeaCI migration check.
 
 This order gives BubbleTeaCI the highest-value compatibility surface before
 spending time on broader MPO parity.

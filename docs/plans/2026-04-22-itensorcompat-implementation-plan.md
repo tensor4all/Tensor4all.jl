@@ -15,7 +15,10 @@
 - Read `AGENTS.md` first. The design must preserve the public layer split:
   `Core`, `TensorNetworks`, `SimpleTT`, `TensorCI`, `QuanticsGrids`,
   `QuanticsTCI`, and `QuanticsTransform`.
-- Do not add C API functions. This compatibility surface is Julia-owned.
+- Do not add compatibility-only Rust kernels. The one upstream requirement is a
+  structured tensor C API that exposes compact payload metadata and logical-axis
+  equivalence classes; track that in
+  https://github.com/tensor4all/tensor4all-rs/issues/434.
 - Do not change `TensorNetworks.siteinds(::TensorTrain)` to return a flat
   vector. Flat site indices are only for `ITensorCompat.MPS`.
 - Keep the `Tensor` object itself immutable in this first pass, but allow
@@ -254,6 +257,8 @@ Base.:*(a::OneHotTensor, b::Tensor) = contract(a, b)
 
 function delta(i::Index, j::Index; T::Type=Float64)
     dim(i) == dim(j) || throw(DimensionMismatch("delta requires equal dimensions, got $(dim(i)) and $(dim(j))"))
+    # Temporary dense fallback. Replace with the structured diagonal payload
+    # path from tensor4all-rs#434 when that C API is available.
     return Tensor(Matrix{T}(I, dim(i), dim(j)), [i, j])
 end
 ```
@@ -279,6 +284,114 @@ Expected: both commands pass.
 ```bash
 git add src/Core/Index.jl src/Core/Tensor.jl src/Tensor4all.jl test/core/index.jl test/core/tensor.jl
 git commit -m "feat(core): add ITensors-style tensor primitives"
+```
+
+---
+
+### Task 1A: Rust-Backed Structured Diagonal Payloads
+
+**Depends on:** https://github.com/tensor4all/tensor4all-rs/issues/434
+
+**Files:**
+- Modify: `src/Core/Tensor.jl`
+- Modify: Rust FFI wrapper file that owns tensor constructors/readback
+- Modify: `src/Tensor4all.jl`
+- Test: `test/core/tensor.jl`
+
+**Step 1: Add failing structured diagonal tests**
+
+Append tests to `test/core/tensor.jl` after the `delta` tests:
+
+```julia
+@testset "structured diagonal tensor payload metadata" begin
+    i = Index(3, "i")
+    j = sim(i)
+
+    d = delta(i, j)
+    @test isdiag(d)
+
+    info = structured_storage_info(d)
+    @test info.kind == :diagonal
+    @test info.dtype == Float64
+    @test info.logical_dims == (3, 3)
+    @test info.payload_dims == (3,)
+    @test info.payload_length == 3
+    @test info.axis_classes == (1, 1)
+
+    @test structured_payload(d) == ones(Float64, 3)
+    @test Array(d, i, j) == Matrix{Float64}(I, 3, 3)
+end
+```
+
+Use 1-based `axis_classes` in Julia even if the C API exposes Rust's 0-based
+classes. This keeps the Julia metadata API consistent with Julia indexing.
+
+**Step 2: Run the test to verify failure**
+
+Run:
+
+```bash
+julia --startup-file=no --project=. -e 'include("test/core/tensor.jl")'
+```
+
+Expected: missing `isdiag`, `structured_storage_info`, `structured_payload`, or
+the Rust-backed diagonal constructor.
+
+**Step 3: Implement the Julia wrapper around the structured C API**
+
+When tensor4all-rs#434 is available, add a small Core wrapper that creates
+`Tensor` values from compact payload metadata instead of dense arrays. The
+wrapper should call the Rust path equivalent to:
+
+```text
+Storage::from_diag_col_major(payload, logical_rank)
+TensorDynLen::from_storage(indices, storage)
+```
+
+Expose these Julia-level operations:
+
+```julia
+isdiag(t::Tensor)::Bool
+structured_storage_info(t::Tensor)::NamedTuple
+structured_payload(t::Tensor)::Vector
+```
+
+`structured_storage_info` should read metadata without dense materialization:
+kind, scalar dtype, logical rank, logical dimensions, payload rank, payload
+dimensions, payload strides, payload length, and 1-based axis classes.
+
+`structured_payload` should copy out only the compact payload. It must not
+return dense storage for a diagonal tensor unless the caller explicitly asks for
+`Array(t, inds...)`.
+
+Update `delta(i, j; T=Float64)` to use the structured diagonal constructor:
+
+```julia
+function delta(i::Index, j::Index; T::Type=Float64)
+    dim(i) == dim(j) || throw(DimensionMismatch("delta requires equal dimensions, got $(dim(i)) and $(dim(j))"))
+    return _structured_diagonal_tensor([i, j], ones(T, dim(i)))
+end
+```
+
+Keep the dense fallback only behind an explicit internal capability check if
+the C API may be absent in older tensor4all-rs builds. Do not silently densify
+when the caller uses `structured_storage_info` or `structured_payload`.
+
+**Step 4: Run tests to verify pass**
+
+Run:
+
+```bash
+julia --startup-file=no --project=. -e 'include("test/core/tensor.jl")'
+```
+
+Expected: pass, including payload metadata and dense materialization checks.
+
+**Step 5: Commit**
+
+```bash
+git add src/Core/Tensor.jl src/Tensor4all.jl test/core/tensor.jl
+git commit -m "feat(core): expose structured diagonal tensors"
 ```
 
 ---
