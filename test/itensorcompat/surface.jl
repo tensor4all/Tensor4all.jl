@@ -63,3 +63,22 @@ end
     @test IC.replace_siteinds!(a, IC.siteinds(a), new_sites) === a
     @test IC.siteinds(a) == new_sites
 end
+
+@testset "ITensorCompat cutoff and mutating canonical operations" begin
+    s1 = Index(2, "s=1")
+    s2 = Index(2, "s=2")
+    m = IC.MPS(TN.random_tt([s1, s2]; linkdims=2))
+
+    before_dense = IC.to_dense(m)
+    @test IC.orthogonalize!(m, 1) === m
+    @test IC.to_dense(m) ≈ before_dense
+
+    @test IC.truncate!(m; maxdim=1) === m
+    @test maximum(IC.linkdims(m); init=0) <= 1
+
+    m2 = IC.MPS(TN.random_tt([s1, s2]; linkdims=2))
+    @test IC.truncate!(m2; cutoff=1e-12) === m2
+    @test_throws ArgumentError IC.truncate!(m2; cutoff=1e-12, threshold=1e-12)
+    @test_throws ArgumentError IC.truncate!(m2; threshold=1e-12)
+    @test_throws ArgumentError IC.truncate!(m2; svd_policy=nothing)
+end

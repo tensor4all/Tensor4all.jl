@@ -4,11 +4,19 @@ import ..Tensor4all: Index, Tensor, inds
 import ..TensorNetworks
 import ..TensorNetworks: TensorTrain
 import ..TensorNetworks: add, dag, dot, evaluate, inner, linkdims, linkinds, norm, siteinds, to_dense
+import ..TensorNetworks: orthogonalize, truncate
 import ..TensorNetworks: replace_siteinds, replace_siteinds!
+import ..TensorNetworks: SvdTruncationPolicy
 
 export MPS, MPO
 export siteinds, linkinds, linkdims, rank
 export add, dag, dot, evaluate, inner, norm, replace_siteinds, replace_siteinds!, to_dense
+export orthogonalize!, truncate!
+
+const ITENSORS_CUTOFF_POLICY = SvdTruncationPolicy(
+    measure=:squared_value,
+    rule=:discarded_tail_sum,
+)
 
 """
     MPS(tt)
@@ -63,6 +71,41 @@ end
 
 function replace_siteinds!(m::MPS, oldsites, newsites)
     TensorNetworks.replace_siteinds!(m.tt, collect(oldsites), collect(newsites))
+    return m
+end
+
+function _compat_truncation_kwargs(; cutoff::Real=0.0, kwargs...)
+    native_keys = (:threshold, :svd_policy)
+    used_native = [key for key in keys(kwargs) if key in native_keys]
+    isempty(used_native) || throw(ArgumentError(
+        "ITensorCompat truncation is cutoff-only; got native Tensor4all keyword(s) $(Tuple(used_native)). Use TensorNetworks.truncate for threshold or svd_policy.",
+    ))
+    cutoff >= 0 || throw(ArgumentError("cutoff must be nonnegative, got $cutoff"))
+    cutoff == 0.0 && return kwargs
+    return (; threshold=cutoff, svd_policy=ITENSORS_CUTOFF_POLICY, kwargs...)
+end
+
+"""
+    orthogonalize!(m, site; kwargs...)
+
+Canonicalize `m` at `site`, replacing the wrapped `TensorTrain` and returning
+`m`.
+"""
+function orthogonalize!(m::MPS, site::Integer; kwargs...)
+    m.tt = TensorNetworks.orthogonalize(m.tt, site; kwargs...)
+    return m
+end
+
+"""
+    truncate!(m; cutoff=0.0, maxdim=0, kwargs...)
+
+Truncate `m` with ITensors-style `cutoff` semantics. Tensor4all-native
+`threshold` and `svd_policy` keywords are intentionally rejected in this
+compatibility facade.
+"""
+function truncate!(m::MPS; cutoff::Real=0.0, kwargs...)
+    resolved = _compat_truncation_kwargs(; cutoff, kwargs...)
+    m.tt = TensorNetworks.truncate(m.tt; resolved...)
     return m
 end
 
