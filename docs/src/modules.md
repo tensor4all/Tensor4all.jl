@@ -8,8 +8,10 @@ The restored Julia frontend is layered like this:
 Core (Index, Tensor)
   ↓                ↓
 TensorNetworks     SimpleTT
-  ↓                ↑
-QuanticsTransform  TensorCI
+  ↓      ↓         ↑
+ITensorCompat      TensorCI
+  ↓
+QuanticsTransform
 
 Adopted wrapper modules:
 - QuanticsGrids
@@ -25,6 +27,7 @@ wrapper modules, but they are not owned by `Tensor4all.jl`.
 |------|----------------|---------------|
 | `Core` | `Index`, `Tensor`, base metadata behavior | implemented |
 | `TensorNetworks` | indexed chain wrapper, helper surface, operator boundary | implemented as public chain layer |
+| `ITensorCompat` | opt-in ITensors/ITensorMPS migration facade over `TensorNetworks.TensorTrain` | implemented |
 | `SimpleTT` | raw-array tensor trains, compression, MPO contraction | implemented |
 | `TensorCI` | interpolation boundary returning `TensorCI2` | implemented as adapter layer |
 | `QuanticsGrids` | adopted grid re-export layer | implemented |
@@ -40,6 +43,8 @@ wrapper modules, but they are not owned by `Tensor4all.jl`.
 - `SimpleTT` owns raw-array numerics.
 - `TensorNetworks` adds index semantics, chain helpers, `LinearOperator`,
   `apply`, and HDF5 interoperability.
+- `ITensorCompat` provides source-compatibility wrappers such as `MPS` and
+  `MPO`; it does not replace `TensorNetworks.TensorTrain`.
 - The broader chain-helper surface in `TensorNetworks` is implemented in pure
   Julia.
 - Operator-space setters are explicit `Vector{Index}` APIs rather than

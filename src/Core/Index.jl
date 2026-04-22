@@ -2,6 +2,12 @@ const _next_index_id = Ref{UInt64}(0)
 
 next_index_id() = (_next_index_id[] += UInt64(1))
 
+function _normalize_tags(tags::AbstractString)
+    return filter(!isempty, strip.(split(String(tags), ',')))
+end
+
+_normalize_tags(tags::AbstractVector{<:AbstractString}) = collect(String.(tags))
+
 """
     Index(dim; tags=String[], plev=0, id=next_index_id(), backend_handle=nothing)
     Index(dim, tags; plev=0, id=next_index_id(), backend_handle=nothing)
@@ -22,12 +28,6 @@ julia> (dim(i), tags(i), plev(i))
 (4, ["x"], 1)
 ```
 """
-function _normalize_tags(tags::AbstractString)
-    return filter(!isempty, strip.(split(String(tags), ',')))
-end
-
-_normalize_tags(tags::AbstractVector{<:AbstractString}) = collect(String.(tags))
-
 struct Index
     dim::Int
     id::UInt64

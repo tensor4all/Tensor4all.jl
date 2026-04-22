@@ -5,15 +5,16 @@
 `Core` exposes the low-level wrappers that everything else builds on:
 
 - `Tensor4all.Index`
-- `Tensor4all.Tensor`
+- `Tensor4all.Tensor`, `Tensor4all.ITensor`
 - `Tensor4all.dim`, `Tensor4all.id`, `Tensor4all.tags`, `Tensor4all.plev`
 - `Tensor4all.hastag`, `Tensor4all.sim`, `Tensor4all.prime`,
   `Tensor4all.noprime`, `Tensor4all.setprime`
 - `Tensor4all.replaceind`, `Tensor4all.replaceinds`
 - `Tensor4all.replaceind!`, `Tensor4all.replaceinds!`
-- `Tensor4all.commoninds`, `Tensor4all.uniqueinds`
+- `Tensor4all.commoninds`, `Tensor4all.uniqueinds`, `Tensor4all.hasinds`
 - `Tensor4all.inds`, `Tensor4all.rank`, `Tensor4all.dims`,
   `Tensor4all.swapinds`
+- `Tensor4all.scalar`, `Tensor4all.onehot`
 - `Tensor4all.delta`, `Tensor4all.isdiag`,
   `Tensor4all.structured_storage_info`, `Tensor4all.structured_payload`
 - `Tensor4all.dag` — pure Julia tensor conjugation
@@ -52,6 +53,8 @@ Other chain-facing names in this layer include:
 - `Tensor4all.TensorNetworks.SvdTruncationPolicy` — SVD truncation strategy
   (`scale`, `measure`, `rule`), paired with a per-call `threshold` kwarg
   on every truncating function. See the Truncation Policy chapter.
+- `Tensor4all.TensorNetworks.invalidate_canonical!` — conservative
+  canonical-window reset for tensor replacement and topology mutation
 - `Tensor4all.TensorNetworks.default_svd_policy`,
   `Tensor4all.TensorNetworks.set_default_svd_policy!`,
   `Tensor4all.TensorNetworks.with_svd_policy` — process-wide and task-local
