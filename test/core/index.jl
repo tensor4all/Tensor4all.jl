@@ -24,6 +24,20 @@ using Tensor4all
     @test Tensor4all.uniqueinds(xs, ys) == [i]
 end
 
+@testset "ITensors-style Index constructor" begin
+    i = Tensor4all.Index(3, "x")
+    @test Tensor4all.dim(i) == 3
+    @test Tensor4all.tags(i) == ["x"]
+
+    j = Tensor4all.Index(4, "x,y"; plev=2)
+    @test Tensor4all.dim(j) == 4
+    @test Tensor4all.tags(j) == ["x", "y"]
+    @test Tensor4all.plev(j) == 2
+
+    k = Tensor4all.Index(5; tags="site, n=1")
+    @test Tensor4all.tags(k) == ["site", "n=1"]
+end
+
 @testset "Index replacement compatibility" begin
     i = Tensor4all.Index(2; tags=["i"])
     j = Tensor4all.Index(3; tags=["j"])

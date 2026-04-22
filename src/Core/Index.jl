@@ -4,6 +4,7 @@ next_index_id() = (_next_index_id[] += UInt64(1))
 
 """
     Index(dim; tags=String[], plev=0, id=next_index_id(), backend_handle=nothing)
+    Index(dim, tags; plev=0, id=next_index_id(), backend_handle=nothing)
 
 Create a Julia-side review skeleton for an indexed tensor leg.
 
@@ -21,6 +22,12 @@ julia> (dim(i), tags(i), plev(i))
 (4, ["x"], 1)
 ```
 """
+function _normalize_tags(tags::AbstractString)
+    return filter(!isempty, strip.(split(String(tags), ',')))
+end
+
+_normalize_tags(tags::AbstractVector{<:AbstractString}) = collect(String.(tags))
+
 struct Index
     dim::Int
     id::UInt64
@@ -31,7 +38,7 @@ end
 
 function Index(
     dim::Integer;
-    tags::AbstractVector{<:AbstractString}=String[],
+    tags::Union{AbstractVector{<:AbstractString},AbstractString}=String[],
     plev::Integer=0,
     id::Integer=next_index_id(),
     backend_handle::Union{Nothing,Ptr{Cvoid}}=nothing,
@@ -42,10 +49,20 @@ function Index(
     return Index(
         Int(dim),
         UInt64(id),
-        collect(String.(tags)),
+        _normalize_tags(tags),
         Int(plev),
         backend_handle,
     )
+end
+
+function Index(
+    dim::Integer,
+    tag::AbstractString;
+    tags::Union{Nothing,AbstractVector{<:AbstractString},AbstractString}=nothing,
+    kwargs...,
+)
+    tag_list = tags === nothing ? _normalize_tags(tag) : _normalize_tags(tags)
+    return Index(dim; tags=tag_list, kwargs...)
 end
 
 """

@@ -39,6 +39,14 @@ struct Tensor{T,N}
     structured_storage::Union{Nothing,StructuredTensorStorage{T}}
 end
 
+"""
+    ITensor
+
+Compatibility alias for [`Tensor`](@ref). Constructor calls such as
+`ITensor(data, i, j)` use Tensor4all's Julia-owned tensor object model.
+"""
+const ITensor = Tensor
+
 function Tensor(
     data::Array{T,N},
     inds::AbstractVector{Index};
@@ -66,6 +74,10 @@ function Tensor(
         "Array must be contiguous in memory for C API. Got $(typeof(data)). Use collect(data) to make a contiguous copy.",
     ))
 end
+
+Tensor(data::Array, inds::Index...) = Tensor(data, collect(inds))
+Tensor(value::Number) = Tensor(fill(value), Index[])
+Base.eltype(t::Tensor) = eltype(t.data)
 
 function _validate_structured_storage(
     storage::Union{Nothing,StructuredTensorStorage},
@@ -185,7 +197,12 @@ end
 Return a copy of `t` with index metadata `old` replaced by `new`.
 """
 function replaceind(t::Tensor, old::Index, new::Index)
-    return Tensor(t.data, replaceind(inds(t), old, new); backend_handle=t.backend_handle)
+    return Tensor(
+        t.data,
+        replaceind(inds(t), old, new);
+        backend_handle=t.backend_handle,
+        structured_storage=_copy_structured_storage(t.structured_storage),
+    )
 end
 
 replaceind(t::Tensor, replacement::Pair{Index,Index}) = replaceind(
@@ -200,7 +217,12 @@ replaceind(t::Tensor, replacement::Pair{Index,Index}) = replaceind(
 Return a copy of `t` with multiple index metadata replacements applied.
 """
 function replaceinds(t::Tensor, replacements::Pair{Index,Index}...)
-    return Tensor(t.data, replaceinds(inds(t), replacements...); backend_handle=t.backend_handle)
+    return Tensor(
+        t.data,
+        replaceinds(inds(t), replacements...);
+        backend_handle=t.backend_handle,
+        structured_storage=_copy_structured_storage(t.structured_storage),
+    )
 end
 
 function replaceinds(
@@ -208,7 +230,12 @@ function replaceinds(
     oldinds::AbstractVector{Index},
     newinds::AbstractVector{Index},
 )
-    return Tensor(t.data, replaceinds(inds(t), oldinds, newinds); backend_handle=t.backend_handle)
+    return Tensor(
+        t.data,
+        replaceinds(inds(t), oldinds, newinds);
+        backend_handle=t.backend_handle,
+        structured_storage=_copy_structured_storage(t.structured_storage),
+    )
 end
 
 function replaceinds(
@@ -216,7 +243,12 @@ function replaceinds(
     oldinds::Tuple{Vararg{Index}},
     newinds::Tuple{Vararg{Index}},
 )
-    return Tensor(t.data, replaceinds(inds(t), oldinds, newinds); backend_handle=t.backend_handle)
+    return Tensor(
+        t.data,
+        replaceinds(inds(t), oldinds, newinds);
+        backend_handle=t.backend_handle,
+        structured_storage=_copy_structured_storage(t.structured_storage),
+    )
 end
 
 """
@@ -321,6 +353,8 @@ function Base.:*(α::Number, t::Tensor)
 end
 
 Base.:*(t::Tensor, α::Number) = α * t
+Base.:*(a::Tensor, b::Tensor) = contract(a, b)
+
 function Base.:/(t::Tensor, α::Number)
     return Tensor(
         t.data ./ α,
@@ -456,6 +490,72 @@ function structured_payload(t::Tensor)
     storage === nothing && return vec(copy(t.data))
     return copy(storage.payload)
 end
+
+commoninds(a::Tensor, b::Tensor) = commoninds(inds(a), inds(b))
+uniqueinds(a::Tensor, b::Tensor) = uniqueinds(inds(a), inds(b))
+
+"""
+    hasinds(t, inds...)
+
+Return `true` when all queried indices are attached to `t`.
+"""
+hasinds(t::Tensor, query::Index...) = all(index -> index in t.inds, query)
+
+"""
+    scalar(t)
+
+Return the scalar value stored in a rank-0 tensor.
+"""
+function scalar(t::Tensor)
+    rank(t) == 0 || throw(ArgumentError("scalar requires a rank-0 Tensor, got rank $(rank(t))"))
+    return only(t.data)
+end
+
+struct OneHotTensor{T}
+    index::Index
+    value::Int
+end
+
+"""
+    onehot(index => value; T=Float64)
+
+Create a lazy one-hot tensor over `index` at the 1-based position `value`.
+Contractions with tensors containing `index` slice the tensor instead of
+materializing a dense basis vector.
+"""
+function onehot(index_value::Pair{Index,<:Integer}; T::Type=Float64)
+    index = first(index_value)
+    value = Int(last(index_value))
+    1 <= value <= dim(index) || throw(ArgumentError(
+        "onehot index value must be in 1:$(dim(index)), got $value",
+    ))
+    return OneHotTensor{T}(index, value)
+end
+
+inds(oh::OneHotTensor) = [oh.index]
+rank(::OneHotTensor) = 1
+dims(oh::OneHotTensor) = (dim(oh.index),)
+Base.eltype(::OneHotTensor{T}) where {T} = T
+
+function Tensor(oh::OneHotTensor{T}) where {T}
+    data = zeros(T, dim(oh.index))
+    data[oh.value] = one(T)
+    return Tensor(data, [oh.index])
+end
+
+function _contract_tensor_onehot(t::Tensor, oh::OneHotTensor)
+    axis = findfirst(==(oh.index), t.inds)
+    axis === nothing && return contract(t, Tensor(oh))
+
+    out_inds = inds(t)
+    deleteat!(out_inds, axis)
+    return Tensor(collect(selectdim(t.data, axis, oh.value)), out_inds)
+end
+
+contract(t::Tensor, oh::OneHotTensor) = _contract_tensor_onehot(t, oh)
+contract(oh::OneHotTensor, t::Tensor) = _contract_tensor_onehot(t, oh)
+Base.:*(t::Tensor, oh::OneHotTensor) = contract(t, oh)
+Base.:*(oh::OneHotTensor, t::Tensor) = contract(oh, t)
 
 function _tensor_scalar_kind(tensors::Tensor...)
     any_complex = false

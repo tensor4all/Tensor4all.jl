@@ -36,14 +36,16 @@ export backend_library_path, require_backend
 export Index, dim, id, tags, plev, hastag
 export sim, prime, noprime, setprime
 export replaceind, replaceinds, replaceind!, replaceinds!, commoninds, uniqueinds
+export hasinds, scalar
 export add
 export dag
 export dot, inner, dist
 export linkinds, linkdims, siteinds
 export norm
 export orthogonalize, truncate
-export Tensor, inds, rank, dims, swapinds, contract
+export Tensor, ITensor, inds, rank, dims, swapinds, contract
 export delta, isdiag, structured_storage_info, structured_payload
+export onehot
 export svd, qr
 export TensorNetworks, SimpleTT, TensorCI, QuanticsGrids, QuanticsTCI, QuanticsTransform
 
