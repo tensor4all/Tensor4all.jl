@@ -14,11 +14,46 @@ Base.length(tt::TensorTrain) = length(tt.data)
 Base.iterate(tt::TensorTrain, state...) = iterate(tt.data, state...)
 Base.getindex(tt::TensorTrain, i::Int) = tt.data[i]
 
+"""
+    invalidate_canonical!(tt)
+
+Conservatively mark the canonical window of `tt` invalid after tensor
+replacement or topology mutation.
+"""
+function invalidate_canonical!(tt::TensorTrain)
+    tt.llim = 0
+    tt.rlim = length(tt) + 1
+    return tt
+end
+
 function Base.setindex!(tt::TensorTrain, value::Tensor, i::Int)
     tt.data[i] = value
-    tt.llim = min(tt.llim, i - 1)
-    tt.rlim = max(tt.rlim, i + 1)
+    invalidate_canonical!(tt)
     return value
+end
+
+function Base.insert!(tt::TensorTrain, i::Integer, value::Tensor)
+    insert!(tt.data, Int(i), value)
+    invalidate_canonical!(tt)
+    return tt
+end
+
+function Base.deleteat!(tt::TensorTrain, i)
+    deleteat!(tt.data, i)
+    invalidate_canonical!(tt)
+    return tt
+end
+
+function Base.push!(tt::TensorTrain, value::Tensor)
+    push!(tt.data, value)
+    invalidate_canonical!(tt)
+    return tt
+end
+
+function Base.pushfirst!(tt::TensorTrain, value::Tensor)
+    pushfirst!(tt.data, value)
+    invalidate_canonical!(tt)
+    return tt
 end
 
 TensorTrain(data::AbstractVector{<:Tensor}) = TensorTrain(Tensor[tensor for tensor in data], 0, length(data) + 1)

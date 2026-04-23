@@ -4,7 +4,7 @@ using Tensor4all
 const TN = Tensor4all.TensorNetworks
 
 @testset "TensorTrain llim/rlim" begin
-    @testset "setindex! widens ortho limits" begin
+    @testset "setindex! invalidates canonical window" begin
         i1 = Index(2; tags=["s1"])
         i2 = Index(2; tags=["s2"])
         i3 = Index(2; tags=["s3"])
@@ -18,11 +18,10 @@ const TN = Tensor4all.TensorNetworks
         tt = TN.TensorTrain([t1, t2, t3], 1, 3)
 
         tt[1] = t1
-        @test tt.llim == 0
-        @test tt.rlim == 3
+        @test (tt.llim, tt.rlim) == (0, length(tt) + 1)
     end
 
-    @testset "setindex! widens rlim" begin
+    @testset "setindex! invalidates right canonical boundary" begin
         i1 = Index(2; tags=["s1"])
         i2 = Index(2; tags=["s2"])
         link = Index(2; tags=["l"])
@@ -33,8 +32,7 @@ const TN = Tensor4all.TensorNetworks
         tt = TN.TensorTrain([t1, t2], 0, 2)
 
         tt[2] = t2
-        @test tt.llim == 0
-        @test tt.rlim == 3
+        @test (tt.llim, tt.rlim) == (0, length(tt) + 1)
     end
 
     @testset "default constructor has no ortho" begin
@@ -43,6 +41,44 @@ const TN = Tensor4all.TensorNetworks
         tt = TN.TensorTrain([t])
         @test tt.llim == 0
         @test tt.rlim == 2
+    end
+
+    @testset "TensorTrain mutation invalidates canonical window" begin
+        s1 = Index(2; tags=["s", "s=1"])
+        s2 = Index(2; tags=["s", "s=2"])
+        s3 = Index(2; tags=["s", "s=3"])
+        l1 = Index(1; tags=["Link", "l=1"])
+        l2 = Index(1; tags=["Link", "l=2"])
+
+        t1 = Tensor(ones(2, 1), [s1, l1])
+        t2 = Tensor(ones(1, 2), [l1, s2])
+        t3 = Tensor(ones(1, 2, 1), [l1, s2, l2])
+        t4 = Tensor(ones(1, 2), [l2, s3])
+
+        tt = TN.TensorTrain([t1, t2], 1, 3)
+        @test TN.invalidate_canonical!(tt) === tt
+        @test (tt.llim, tt.rlim) == (0, length(tt) + 1)
+
+        tt = TN.TensorTrain([t1, t2], 1, 3)
+        tt[1] = t1
+        @test (tt.llim, tt.rlim) == (0, length(tt) + 1)
+
+        tt = TN.TensorTrain([t1, t4], 1, 3)
+        insert!(tt, 2, t3)
+        @test length(tt) == 3
+        @test (tt.llim, tt.rlim) == (0, length(tt) + 1)
+
+        deleteat!(tt, 2)
+        @test length(tt) == 2
+        @test (tt.llim, tt.rlim) == (0, length(tt) + 1)
+
+        push!(tt, t4)
+        @test length(tt) == 3
+        @test (tt.llim, tt.rlim) == (0, length(tt) + 1)
+
+        pushfirst!(tt, t1)
+        @test length(tt) == 4
+        @test (tt.llim, tt.rlim) == (0, length(tt) + 1)
     end
 
     @testset "matchsiteinds resets llim/rlim for MPS-like embedding" begin

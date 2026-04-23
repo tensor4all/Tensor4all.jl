@@ -2,6 +2,7 @@ using Test
 using Tensor4all
 
 include("api/skeleton_alignment.jl")
+include("core/index.jl")
 include("core/tensor.jl")
 include("core/tensor_arithmetic.jl")
 include("core/tensor_factorize.jl")
@@ -25,6 +26,7 @@ include("tensornetworks/linear_operator.jl")
 include("tensornetworks/linsolve.jl")
 include("tensornetworks/transform_helpers.jl")
 include("tensornetworks/skeleton_surface.jl")
+include("itensorcompat/surface.jl")
 include("simplett/surface.jl")
 include("simplett/compress.jl")
 include("simplett/contraction.jl")
