@@ -20,6 +20,8 @@
   `Tensor4all.payload`
 - `Tensor4all.diagtensor`, `Tensor4all.delta`,
   `Tensor4all.identity_tensor`
+- `Tensor4all.onehot`, `Tensor4all.fixinds`, `Tensor4all.suminds`,
+  `Tensor4all.projectinds`
 - `Tensor4all.dag` — pure Julia tensor conjugation
 - `Array(t, inds...)` — dense tensor extraction in the requested index order
 - `Tensor4all.contract` — backend tensor contraction via the
@@ -33,7 +35,7 @@ Tensor4all
 
 ```@autodocs
 Modules = [Tensor4all]
-Pages = ["Tensor4all.jl", "Core/Errors.jl", "Core/Backend.jl", "Core/Index.jl", "Core/Tensor.jl", "Core/TensorStorage.jl"]
+Pages = ["Tensor4all.jl", "Core/Errors.jl", "Core/Backend.jl", "Core/Index.jl", "Core/Tensor.jl", "Core/TensorStorage.jl", "Core/IndexOps.jl"]
 Private = false
 Order = [:type, :function]
 ```
@@ -77,6 +79,13 @@ Other chain-facing names in this layer include:
 - `Tensor4all.TensorNetworks.matchsiteinds`
 - `Tensor4all.TensorNetworks.save_as_mps`
 - `Tensor4all.TensorNetworks.load_tt`
+- `Tensor4all.TensorNetworks.invalidate_canonical!`
+- `Tensor4all.TensorNetworks.replaceblock!`
+- `Tensor4all.TensorNetworks.insert_site!`
+- `Tensor4all.TensorNetworks.delete_site!`
+- `Tensor4all.TensorNetworks.fixinds`
+- `Tensor4all.TensorNetworks.suminds`
+- `Tensor4all.TensorNetworks.projectinds`
 - `Tensor4all.TensorNetworks.dag`
 - `Tensor4all.TensorNetworks.linkinds`
 - `Tensor4all.TensorNetworks.linkdims`
@@ -115,7 +124,7 @@ groupings; `rearrange_siteinds` is a thin wrapper over `restructure_to`.
 
 ```@autodocs
 Modules = [Tensor4all.TensorNetworks]
-Pages = ["TensorNetworks/types.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/transforms.jl", "TensorNetworks/truncation_policy.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/backend/treetn.jl", "TensorNetworks/backend/treetn_queries.jl", "TensorNetworks/backend/treetn_dense.jl", "TensorNetworks/backend/treetn_contract.jl", "TensorNetworks/backend/treetn_evaluate.jl", "TensorNetworks/backend/restructure/fuse_to.jl", "TensorNetworks/backend/restructure/split_to.jl", "TensorNetworks/backend/restructure/swap_site_indices.jl", "TensorNetworks/backend/restructure/restructure_to.jl", "TensorNetworks/backend/linsolve.jl", "TensorNetworks/random.jl", "TensorNetworks/bridge.jl", "TensorNetworks/deferred.jl"]
+Pages = ["TensorNetworks/types.jl", "TensorNetworks/mutation.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/index_ops.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/transforms.jl", "TensorNetworks/truncation_policy.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/backend/treetn.jl", "TensorNetworks/backend/treetn_queries.jl", "TensorNetworks/backend/treetn_dense.jl", "TensorNetworks/backend/treetn_contract.jl", "TensorNetworks/backend/treetn_evaluate.jl", "TensorNetworks/backend/restructure/fuse_to.jl", "TensorNetworks/backend/restructure/split_to.jl", "TensorNetworks/backend/restructure/swap_site_indices.jl", "TensorNetworks/backend/restructure/restructure_to.jl", "TensorNetworks/backend/linsolve.jl", "TensorNetworks/random.jl", "TensorNetworks/bridge.jl", "TensorNetworks/deferred.jl"]
 Private = false
 Order = [:type, :function]
 ```

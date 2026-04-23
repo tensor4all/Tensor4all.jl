@@ -21,6 +21,7 @@ include("Core/Backend.jl")
 include("Core/Index.jl")
 include("Core/Tensor.jl")
 include("Core/TensorStorage.jl")
+include("Core/IndexOps.jl")
 
 include("SimpleTT.jl")
 include("TensorNetworks.jl")
@@ -46,6 +47,7 @@ export orthogonalize, truncate
 export Tensor, ITensor, inds, rank, dims, scalar, swapinds, contract
 export storage_kind, payload_rank, payload_len, payload_dims, payload_strides, axis_classes, payload
 export diagtensor, delta, identity_tensor
+export onehot, fixinds, suminds, projectinds
 export svd, qr
 export TensorNetworks, SimpleTT, TensorCI, QuanticsGrids, QuanticsTCI, QuanticsTransform
 

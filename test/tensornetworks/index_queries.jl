@@ -233,7 +233,7 @@ end
                 Index(2; tags=["y", "y=1"]),
             ]
             replaced = TN.replace_siteinds(fixture.tt, oldsites, newsites)
-            replaced[2].data !== fixture.tt[2].data
+            Array(replaced[2], inds(replaced[2])...) == Array(fixture.tt[2], inds(fixture.tt[2])...)
         end
 
         @test begin
@@ -346,6 +346,30 @@ end
             ]
             TN.replace_siteinds!(fixture.tt, oldsites, newsites)
             inds(fixture.tt[3]) == [fixture.links[2], fixture.input_sites[3], newsites[1]]
+        end
+
+        @test begin
+            fixture = mps_like_fixture()
+            fixture.tt.llim = 1
+            fixture.tt.rlim = 3
+            original = fixture.tt[1]
+            newsite = Index(2; tags=["y", "y=1"])
+            TN.replace_siteinds!(fixture.tt, [fixture.sites[1]], [newsite])
+            fixture.tt[1] === original &&
+                inds(fixture.tt[1]) == [newsite, fixture.links[1]] &&
+                (fixture.tt.llim, fixture.tt.rlim) == (1, 3)
+        end
+
+        @testset "replace_siteinds preserves diagonal storage" begin
+            i = Index(2; tags=["x", "x=1"])
+            j = Index(2; tags=["y", "y=1"])
+            jp = Index(2; tags=["z", "z=1"])
+            tt = TN.TensorTrain([Tensor4all.delta(i, j)], 0, 2)
+            original = tt[1]
+            TN.replace_siteinds!(tt, [j], [jp])
+            @test tt[1] === original
+            @test Tensor4all.storage_kind(tt[1]) == :diagonal
+            @test Tensor4all.axis_classes(tt[1]) == [0, 0]
         end
     end
 
