@@ -185,7 +185,9 @@ input/output `Index` bindings; `TN.apply` evaluates it against a chain state.
 ```julia
 using Tensor4all.QuanticsTransform
 op = shift_operator(4, 1)                    # 4-bit quantics shift by +1
+sites = op.input_indices
 state = TN.random_tt(sites; linkdims=4)
+TN.set_iospaces!(op, op.input_indices, op.output_indices)
 result = TN.apply(op, state; threshold=1e-10)
 ```
 

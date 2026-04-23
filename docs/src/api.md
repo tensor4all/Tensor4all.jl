@@ -178,13 +178,12 @@ operator type itself does not live in `QuanticsTransform`.
 In the current branch, `shift_operator`, `shift_operator_multivar`,
 `flip_operator`, `flip_operator_multivar`, `phase_rotation_operator`,
 `phase_rotation_operator_multivar`, `cumsum_operator`, `fourier_operator`,
-`affine_operator`, `binaryop_operator`, and `binaryop_operator_multivar`
-materialize real MPO-backed operators through the C API.
+`affine_operator`, `affine_pullback_operator`,
+`affine_pullback_operator_multivar`, `binaryop_operator`, and
+`binaryop_operator_multivar` materialize real MPO-backed operators through the
+C API.
 `TensorNetworks.apply` owns execution of those materialized operators once the
 I/O spaces are bound.
-
-`affine_pullback_operator` is the only remaining deferred metadata-only
-placeholder in this phase.
 
 ```@autodocs
 Modules = [Tensor4all.QuanticsTransform]
@@ -197,6 +196,36 @@ Order = [:function]
 
 - `Tensor4all.QuanticsGrids` re-exports the public `QuanticsGrids.jl` surface
 - `Tensor4all.QuanticsTCI` re-exports the public `QuanticsTCI.jl` surface
+
+These modules are wrapper re-exports for discoverability. Tensor4all does not
+take ownership of their APIs; see the upstream
+[QuanticsGrids.jl](https://tensor4all.org/QuanticsGrids.jl/dev/apireference/)
+and
+[QuanticsTCI.jl](https://tensor4all.org/QuanticsTCI.jl/dev/apireference/)
+docs for the complete surface.
+
+```julia
+const QG = Tensor4all.QuanticsGrids
+
+grid = QG.DiscretizedGrid(3, 0.0, 1.0)
+grid_index = QG.origcoord_to_grididx(grid, 0.5)
+quantics_index = QG.grididx_to_quantics(grid, grid_index)
+QG.quantics_to_origcoord(grid, quantics_index)  # 0.5
+```
+
+```julia
+const QTCI = Tensor4all.QuanticsTCI
+
+qtt, ranks, errors = QTCI.quanticscrossinterpolate(
+    Float64,
+    x -> sin(x),
+    range(0, 1; length=8);
+    tolerance=1e-8,
+)
+
+qtt(4)      # evaluate at an integer grid index
+sum(qtt)    # upstream QuanticsTCI reduction
+```
 
 ## HDF5 Compatibility
 
