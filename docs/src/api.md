@@ -181,7 +181,23 @@ Order = [:type, :function]
 ## ITensorCompat
 
 `Tensor4all.ITensorCompat` is an opt-in migration facade over the native
-`TensorNetworks.TensorTrain` layer.
+`TensorNetworks.TensorTrain` layer. `TensorNetworks.TensorTrain` remains the
+primary indexed chain type; the compatibility wrappers keep migration code
+small without moving ownership away from the native Tensor4all APIs.
+
+The compatibility truncation surface is cutoff-only. Use
+`ITensorCompat.truncate!(m; cutoff, maxdim)` for ITensors-style behavior, and
+use `TensorNetworks.truncate` directly when you need native `threshold` or
+`svd_policy` controls.
+
+`fixinds`, `suminds`, `projectinds`, `diagtensor`, and
+`TensorNetworks.insert_identity!` are generic Tensor4all APIs. They are not
+BubbleTeaCI-specific helpers.
+
+Raw MPS blocks are read in `(left_link, site, right_link)` order. Raw MPO
+blocks are read in `(left_link, input_site, output_site, right_link)` order,
+matching the existing `TensorNetworks.TensorTrain(stt, input_inds,
+output_inds)` bridge.
 
 ```@autodocs
 Modules = [Tensor4all.ITensorCompat]

@@ -2,6 +2,7 @@ module ITensorCompat
 
 import ..Tensor4all: rank, scalar
 using ..Tensor4all: Index, Tensor, dim, inds
+using ..Tensor4all.SimpleTT
 using ..Tensor4all.TensorNetworks
 
 export MPS, MPO
@@ -75,6 +76,46 @@ rank(m::Union{MPS,MPO}) = length(m)
 function Base.eltype(m::Union{MPS,MPO})
     isempty(m.tt.data) && return Float64
     return promote_type(map(eltype, m.tt.data)...)
+end
+
+function _raw_blocks(blocks::AbstractVector{<:Array{T,N}}, label::AbstractString) where {T,N}
+    isempty(blocks) && throw(ArgumentError("$label raw block constructor requires at least one block"))
+    return [copy(block) for block in blocks]
+end
+
+function _generated_mps_sites(blocks::AbstractVector{<:Array{T,3}}) where {T}
+    return [Index(size(blocks[i], 2); tags=["Site", "n=$i"]) for i in eachindex(blocks)]
+end
+
+"""
+    MPS(blocks, sites)
+    MPS(blocks)
+
+Construct an MPS wrapper from raw blocks in `(left_link, site, right_link)`
+order. When `sites` are omitted, stable `["Site", "n=i"]` site tags are
+generated.
+"""
+function MPS(blocks::AbstractVector{<:Array{T,3}}, sites::AbstractVector{<:Index}) where {T}
+    stt = SimpleTT.TensorTrain{T,3}(_raw_blocks(blocks, "MPS"))
+    return MPS(TensorNetworks.TensorTrain(stt, sites))
+end
+
+MPS(blocks::AbstractVector{<:Array{T,3}}) where {T} =
+    MPS(blocks, _generated_mps_sites(blocks))
+
+"""
+    MPO(blocks, input_sites, output_sites)
+
+Construct an MPO wrapper from raw blocks in `(left_link, input_site,
+output_site, right_link)` order.
+"""
+function MPO(
+    blocks::AbstractVector{<:Array{T,4}},
+    input_sites::AbstractVector{<:Index},
+    output_sites::AbstractVector{<:Index},
+) where {T}
+    stt = SimpleTT.TensorTrain{T,4}(_raw_blocks(blocks, "MPO"))
+    return MPO(TensorNetworks.TensorTrain(stt, input_sites, output_sites))
 end
 
 const ITENSORS_CUTOFF_POLICY = TensorNetworks.SvdTruncationPolicy(;

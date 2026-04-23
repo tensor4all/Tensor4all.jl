@@ -13,6 +13,7 @@ than the removed TreeTN-first layout.
 - `QuanticsGrids` as the adopted grid re-export layer
 - `QuanticsTCI` as the adopted quantics-TCI re-export layer
 - `QuanticsTransform` for quantics-specific operator constructors
+- `ITensorCompat` as an opt-in migration facade over `TensorNetworks`
 
 ## Current Public Story
 
@@ -27,6 +28,9 @@ than the removed TreeTN-first layout.
   form.
 - HDF5 interoperability is provided in pure Julia through `save_as_mps` and
   `load_tt`.
+- `ITensorCompat.MPS` / `MPO` wrappers forward to `TensorNetworks`; truncation
+  is cutoff-only there, while native `threshold` / `svd_policy` controls remain
+  in `TensorNetworks`.
 
 ## Still Missing
 

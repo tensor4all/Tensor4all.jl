@@ -35,6 +35,8 @@ include("simplett/contraction.jl")
 include("tensorci/surface.jl")
 include("tensorci/crossinterpolate2.jl")
 include("itensorcompat/surface.jl")
+include("itensorcompat/raw_blocks.jl")
+include("itensorcompat/bubbleteaci_workflow.jl")
 include("quanticsgrids/surface.jl")
 include("quanticstci/surface.jl")
 if get(ENV, "T4A_SKIP_HDF5_TESTS", "0") != "1" && Base.find_package("HDF5") !== nothing

@@ -14,6 +14,9 @@ QuanticsTransform  TensorCI
 Adopted wrapper modules:
 - QuanticsGrids
 - QuanticsTCI
+
+Compatibility facade:
+- ITensorCompat
 ```
 
 `QuanticsGrids.jl` and `QuanticsTCI.jl` are adopted and re-exported through
@@ -30,6 +33,7 @@ wrapper modules, but they are not owned by `Tensor4all.jl`.
 | `QuanticsGrids` | adopted grid re-export layer | implemented |
 | `QuanticsTCI` | adopted quantics-TCI re-export layer | implemented |
 | `QuanticsTransform` | quantics-specific constructors of `TensorNetworks.LinearOperator` | partially implemented |
+| `ITensorCompat` | opt-in migration facade over `TensorNetworks.TensorTrain` | implemented for the BubbleTeaCI follow-up workflow |
 | HDF5 extension | pure Julia `save_as_mps` / `load_tt` | implemented |
 
 ## Key Boundaries
@@ -42,6 +46,9 @@ wrapper modules, but they are not owned by `Tensor4all.jl`.
   `apply`, and HDF5 interoperability.
 - The broader chain-helper surface in `TensorNetworks` is implemented in pure
   Julia.
+- `ITensorCompat` forwards to `TensorNetworks`; it is cutoff-only for
+  truncation and does not replace the native `threshold` / `svd_policy`
+  controls.
 - Operator-space setters are explicit `Vector{Index}` APIs rather than
   TensorTrain-driven auto-binding.
 - The Julia-facing C API target is reduced and chain-oriented.
@@ -60,6 +67,11 @@ The codebase has two separate tensor-train types:
 There is currently no automatic conversion between the two types. They serve
 different purposes in the module hierarchy: `SimpleTT` handles numerics,
 `TensorNetworks` handles indexed semantics.
+
+`ITensorCompat.MPS` and `ITensorCompat.MPO` wrap `TensorNetworks.TensorTrain`
+for migration-oriented workflows. Raw MPS blocks use `(left_link, site,
+right_link)` order; raw MPO blocks use `(left_link, input_site, output_site,
+right_link)` order.
 
 ## Still Deferred
 
