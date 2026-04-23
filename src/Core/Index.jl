@@ -84,6 +84,15 @@ Return `true` when `tag` is attached to `i`.
 hastag(i::Index, tag::AbstractString) = String(tag) in i.tags
 
 """
+    tagstring(tags)
+    tagstring(i)
+
+Return comma-separated tag text, or `"-"` when no tags are present.
+"""
+tagstring(tags::AbstractVector{<:AbstractString}) = isempty(tags) ? "-" : join(String.(tags), ",")
+tagstring(i::Index) = tagstring(tags(i))
+
+"""
     sim(i)
 
 Return a similar index with matching metadata and a fresh identifier.
@@ -128,8 +137,7 @@ Base.:(==)(a::Index, b::Index) = (
 Base.hash(i::Index, h::UInt) = hash((i.dim, i.id, i.tags, i.plev), h)
 
 function Base.show(io::IO, i::Index)
-    tagstring = isempty(i.tags) ? "-" : join(i.tags, ",")
-    print(io, "Index(", dim(i), "|", tagstring, "; plev=", plev(i), ")")
+    print(io, "Index(", dim(i), "|", tagstring(i), "; plev=", plev(i), ")")
 end
 
 """

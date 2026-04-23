@@ -1,6 +1,38 @@
 import Base: +, -, *, /
 import LinearAlgebra: norm, qr, svd
 
+mutable struct BackendTensorHandle
+    ptr::Ptr{Cvoid}
+    owned::Bool
+end
+
+function _release_owned_backend_tensor_handle(handle::BackendTensorHandle)
+    handle.owned || return nothing
+    ptr = handle.ptr
+    ptr == C_NULL && return nothing
+    handle.ptr = C_NULL
+    handle.owned = false
+    _tensor_networks_module()._release_tensor_handle(ptr)
+    return nothing
+end
+
+function BackendTensorHandle(ptr::Ptr{Cvoid}; owned::Bool=false)
+    handle = BackendTensorHandle(ptr, owned)
+    owned && finalizer(_release_owned_backend_tensor_handle, handle)
+    return handle
+end
+
+const BackendTensorHandleLike = Union{Nothing,Ptr{Cvoid},BackendTensorHandle}
+
+backend_handle_ptr(::Nothing) = C_NULL
+backend_handle_ptr(ptr::Ptr{Cvoid}) = ptr
+backend_handle_ptr(handle::BackendTensorHandle) = handle.ptr
+
+function _owned_backend_tensor_handle(ptr::Ptr{Cvoid})
+    ptr == C_NULL && throw(ArgumentError("Cannot wrap a null backend tensor handle"))
+    return BackendTensorHandle(ptr; owned=true)
+end
+
 """
     Tensor(data, inds; backend_handle=nothing)
 
@@ -26,13 +58,13 @@ julia> (rank(t), dims(t))
 struct Tensor{T,N}
     data::Array{T,N}
     inds::Vector{Index}
-    backend_handle::Union{Nothing,Ptr{Cvoid}}
+    backend_handle::BackendTensorHandleLike
 end
 
 function Tensor(
     data::Array{T,N},
     inds::AbstractVector{Index};
-    backend_handle::Union{Nothing,Ptr{Cvoid}}=nothing,
+    backend_handle::BackendTensorHandleLike=nothing,
 ) where {T,N}
     length(inds) == N || throw(DimensionMismatch(
         "Tensor rank $N requires $N indices, got $(length(inds))",
@@ -43,6 +75,27 @@ function Tensor(
     ))
     return Tensor{T,N}(copy(data), collect(inds), backend_handle)
 end
+
+backend_handle_ptr(t::Tensor) = backend_handle_ptr(t.backend_handle)
+
+function Tensor(data::Array, inds::Index...; backend_handle::BackendTensorHandleLike=nothing)
+    return Tensor(data, collect(inds); backend_handle)
+end
+
+function Tensor(data::AbstractArray, inds::Index...; backend_handle=nothing)
+    return Tensor(data, collect(inds); backend_handle)
+end
+
+function Tensor(value::Number)
+    data = Array{typeof(value),0}(undef)
+    data[] = value
+    return Tensor(data, Index[])
+end
+
+const ITensor = Tensor
+
+Base.eltype(t::Tensor) = eltype(t.data)
+Base.eltype(::Type{<:Tensor{T}}) where {T} = T
 
 function Tensor(data::AbstractArray, inds::AbstractVector{Index}; backend_handle=nothing)
     throw(ArgumentError(
@@ -70,6 +123,16 @@ rank(t::Tensor) = length(t.inds)
 Return the dense array dimensions of `t`.
 """
 dims(t::Tensor) = size(t.data)
+
+"""
+    scalar(t)
+
+Return the scalar value stored in a rank-0 tensor.
+"""
+function scalar(t::Tensor)
+    rank(t) == 0 || throw(ArgumentError("scalar requires a rank-0 Tensor, got rank $(rank(t))"))
+    return t.data[]
+end
 
 """
     prime(t, n=1)

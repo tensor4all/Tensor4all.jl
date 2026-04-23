@@ -24,6 +24,13 @@ using Tensor4all
     @test Tensor4all.uniqueinds(xs, ys) == [i]
 end
 
+@testset "tagstring" begin
+    i = Index(2; tags=["alpha", "site=1"])
+    @test Tensor4all.tagstring(i) == "alpha,site=1"
+    @test Tensor4all.tagstring(String[]) == "-"
+    @test occursin("alpha,site=1", sprint(show, i))
+end
+
 @testset "Index replacement compatibility" begin
     i = Tensor4all.Index(2; tags=["i"])
     j = Tensor4all.Index(3; tags=["j"])

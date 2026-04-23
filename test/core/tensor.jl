@@ -22,6 +22,16 @@ using Tensor4all
     @test contracted.data[] == 91.0
 end
 
+@testset "Tensor scalar and ITensor conveniences" begin
+    i = Index(2; tags=["i"])
+    t = Tensor([1.0, 2.0], i)
+    @test inds(t) == [i]
+    @test eltype(t) == Float64
+    @test Tensor4all.ITensor === Tensor4all.Tensor
+    @test Tensor4all.scalar(Tensor(3.5)) == 3.5
+    @test_throws ArgumentError Tensor4all.scalar(t)
+end
+
 @testset "Tensor replaceind compatibility" begin
     i = Tensor4all.Index(2; tags=["i"])
     j = Tensor4all.Index(3; tags=["j"])

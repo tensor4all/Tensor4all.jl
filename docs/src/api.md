@@ -14,6 +14,12 @@
 - `Tensor4all.commoninds`, `Tensor4all.uniqueinds`
 - `Tensor4all.inds`, `Tensor4all.rank`, `Tensor4all.dims`,
   `Tensor4all.swapinds`
+- `Tensor4all.storage_kind`, `Tensor4all.payload_rank`,
+  `Tensor4all.payload_len`, `Tensor4all.payload_dims`,
+  `Tensor4all.payload_strides`, `Tensor4all.axis_classes`,
+  `Tensor4all.payload`
+- `Tensor4all.diagtensor`, `Tensor4all.delta`,
+  `Tensor4all.identity_tensor`
 - `Tensor4all.dag` — pure Julia tensor conjugation
 - `Array(t, inds...)` — dense tensor extraction in the requested index order
 - `Tensor4all.contract` — backend tensor contraction via the
@@ -27,7 +33,7 @@ Tensor4all
 
 ```@autodocs
 Modules = [Tensor4all]
-Pages = ["Tensor4all.jl", "Core/Errors.jl", "Core/Backend.jl", "Core/Index.jl", "Core/Tensor.jl"]
+Pages = ["Tensor4all.jl", "Core/Errors.jl", "Core/Backend.jl", "Core/Index.jl", "Core/Tensor.jl", "Core/TensorStorage.jl"]
 Private = false
 Order = [:type, :function]
 ```

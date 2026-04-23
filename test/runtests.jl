@@ -3,6 +3,7 @@ using Tensor4all
 
 include("api/skeleton_alignment.jl")
 include("core/tensor.jl")
+include("core/tensor_storage.jl")
 include("core/tensor_arithmetic.jl")
 include("core/tensor_factorize.jl")
 include("core/tensor_contract.jl")
