@@ -81,6 +81,16 @@ end
     @test_throws ArgumentError IC.truncate!(m2; cutoff=1e-12, threshold=1e-12)
     @test_throws ArgumentError IC.truncate!(m2; threshold=1e-12)
     @test_throws ArgumentError IC.truncate!(m2; svd_policy=nothing)
+    @test_throws ArgumentError IC.truncate!(m2)
+end
+
+@testset "ITensorCompat scalar MPS" begin
+    m = IC.MPS(TN.TensorTrain([Tensor(3.5)]))
+    @test length(m) == 0
+    @test IC.siteinds(m) == Index[]
+    @test IC.scalar(m) == 3.5
+    @test Tensor4all.scalar(IC.to_dense(m)) == 3.5
+    @test IC.evaluate(m) == 3.5
 end
 
 @testset "ITensorCompat raw MPS constructors" begin

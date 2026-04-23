@@ -30,6 +30,9 @@ than the removed TreeTN-first layout.
   form.
 - HDF5 interoperability is provided in pure Julia through `save_as_mps` and
   `load_tt`.
+- `ITensorCompat` forwards to `TensorNetworks`; truncation is cutoff-only
+  there, while native `threshold` / `svd_policy` controls remain in
+  `TensorNetworks`.
 
 ## Still Missing
 

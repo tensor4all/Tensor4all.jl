@@ -4,7 +4,7 @@ using Tensor4all
 const TN = Tensor4all.TensorNetworks
 
 @testset "TensorTrain llim/rlim" begin
-    @testset "setindex! invalidates canonical window" begin
+    @testset "setindex! locally invalidates canonical window" begin
         i1 = Index(2; tags=["s1"])
         i2 = Index(2; tags=["s2"])
         i3 = Index(2; tags=["s3"])
@@ -18,7 +18,7 @@ const TN = Tensor4all.TensorNetworks
         tt = TN.TensorTrain([t1, t2, t3], 1, 3)
 
         tt[1] = t1
-        @test (tt.llim, tt.rlim) == (0, length(tt) + 1)
+        @test (tt.llim, tt.rlim) == (0, 3)
     end
 
     @testset "setindex! invalidates right canonical boundary" begin
@@ -158,5 +158,31 @@ const TN = Tensor4all.TensorNetworks
         @test (result.llim, result.rlim) == (0, 2)
         @test result.llim != state.llim
         @test TN.findallsiteinds_by_tag(result; tag="y") == output_true
+    end
+
+    @testset "public TensorTrain mutation helpers" begin
+        i1 = Index(2; tags=["s1"])
+        i2 = Index(2; tags=["s2"])
+        l = Index(2; tags=["Link", "l=1"])
+        t1 = Tensor(randn(2, 2), [i1, l])
+        t2 = Tensor(randn(2, 2), [l, i2])
+        tt = TN.TensorTrain([t1, t2], 1, 2)
+
+        @test TN.invalidate_canonical!(tt, 1) === tt
+        @test (tt.llim, tt.rlim) == (0, 2)
+
+        tt = TN.TensorTrain([t1, t2], 1, 2)
+        @test TN.replaceblock!(tt, 2, t2) === tt
+        @test (tt.llim, tt.rlim) == (1, 3)
+
+        newsite = Index(2; tags=["s3"])
+        newtensor = Tensor(randn(2), [newsite])
+        @test insert!(tt, 2, newtensor) === tt
+        @test (tt.llim, tt.rlim) == (0, length(tt) + 1)
+        @test deleteat!(tt, 2) === tt
+        @test (tt.llim, tt.rlim) == (0, length(tt) + 1)
+        @test push!(tt, newtensor) === tt
+        @test pushfirst!(tt, newtensor) === tt
+        @test (tt.llim, tt.rlim) == (0, length(tt) + 1)
     end
 end

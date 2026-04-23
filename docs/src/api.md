@@ -15,6 +15,7 @@
 - `Tensor4all.inds`, `Tensor4all.rank`, `Tensor4all.dims`,
   `Tensor4all.swapinds`
 - `Tensor4all.scalar`, `Tensor4all.onehot`
+- `Tensor4all.fixinds`, `Tensor4all.suminds`, `Tensor4all.projectinds`
 - `Tensor4all.delta`, `Tensor4all.isdiag`,
   `Tensor4all.structured_storage_info`, `Tensor4all.structured_payload`
 - `Tensor4all.dag` — pure Julia tensor conjugation
@@ -30,7 +31,7 @@ Tensor4all
 
 ```@autodocs
 Modules = [Tensor4all]
-Pages = ["Tensor4all.jl", "Core/Errors.jl", "Core/Backend.jl", "Core/Index.jl", "Core/Tensor.jl"]
+Pages = ["Tensor4all.jl", "Core/Errors.jl", "Core/Backend.jl", "Core/Index.jl", "Core/Tensor.jl", "Core/IndexOps.jl"]
 Private = false
 Order = [:type, :function]
 ```
@@ -53,8 +54,11 @@ Other chain-facing names in this layer include:
 - `Tensor4all.TensorNetworks.SvdTruncationPolicy` — SVD truncation strategy
   (`scale`, `measure`, `rule`), paired with a per-call `threshold` kwarg
   on every truncating function. See the Truncation Policy chapter.
-- `Tensor4all.TensorNetworks.invalidate_canonical!` — conservative
-  canonical-window reset for tensor replacement and topology mutation
+- `Tensor4all.TensorNetworks.invalidate_canonical!`,
+  `Tensor4all.TensorNetworks.replaceblock!`,
+  `Tensor4all.TensorNetworks.insert_site!`, and
+  `Tensor4all.TensorNetworks.delete_site!` — public mutation helpers that keep
+  canonical bounds consistent
 - `Tensor4all.TensorNetworks.default_svd_policy`,
   `Tensor4all.TensorNetworks.set_default_svd_policy!`,
   `Tensor4all.TensorNetworks.with_svd_policy` — process-wide and task-local
@@ -70,6 +74,11 @@ Other chain-facing names in this layer include:
 - `Tensor4all.TensorNetworks.replace_siteinds!`
 - `Tensor4all.TensorNetworks.replace_siteinds`
 - `Tensor4all.TensorNetworks.replace_siteinds_part!`
+- `Tensor4all.TensorNetworks.fixinds`
+- `Tensor4all.TensorNetworks.suminds`
+- `Tensor4all.TensorNetworks.projectinds`
+- `Tensor4all.TensorNetworks.identity_link_tensor`
+- `Tensor4all.TensorNetworks.insert_identity!`
 - `Tensor4all.TensorNetworks.rearrange_siteinds`
 - `Tensor4all.TensorNetworks.makesitediagonal`
 - `Tensor4all.TensorNetworks.extractdiagonal`
@@ -114,7 +123,7 @@ groupings; `rearrange_siteinds` is a thin wrapper over `restructure_to`.
 
 ```@autodocs
 Modules = [Tensor4all.TensorNetworks]
-Pages = ["TensorNetworks/types.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/transforms.jl", "TensorNetworks/truncation_policy.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/backend/treetn.jl", "TensorNetworks/backend/treetn_queries.jl", "TensorNetworks/backend/treetn_dense.jl", "TensorNetworks/backend/treetn_contract.jl", "TensorNetworks/backend/treetn_evaluate.jl", "TensorNetworks/backend/restructure/fuse_to.jl", "TensorNetworks/backend/restructure/split_to.jl", "TensorNetworks/backend/restructure/swap_site_indices.jl", "TensorNetworks/backend/restructure/restructure_to.jl", "TensorNetworks/backend/linsolve.jl", "TensorNetworks/random.jl", "TensorNetworks/bridge.jl", "TensorNetworks/deferred.jl"]
+Pages = ["TensorNetworks/types.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/transforms.jl", "TensorNetworks/index_ops.jl", "TensorNetworks/identity_helpers.jl", "TensorNetworks/truncation_policy.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/backend/treetn.jl", "TensorNetworks/backend/treetn_queries.jl", "TensorNetworks/backend/treetn_dense.jl", "TensorNetworks/backend/treetn_contract.jl", "TensorNetworks/backend/treetn_evaluate.jl", "TensorNetworks/backend/restructure/fuse_to.jl", "TensorNetworks/backend/restructure/split_to.jl", "TensorNetworks/backend/restructure/swap_site_indices.jl", "TensorNetworks/backend/restructure/restructure_to.jl", "TensorNetworks/backend/linsolve.jl", "TensorNetworks/random.jl", "TensorNetworks/bridge.jl", "TensorNetworks/deferred.jl"]
 Private = false
 Order = [:type, :function]
 ```
@@ -124,6 +133,18 @@ Order = [:type, :function]
 `Tensor4all.ITensorCompat` is an opt-in migration facade for ITensors-style
 code. It wraps `TensorNetworks.TensorTrain` values without replacing the
 native TensorNetworks modeling layer.
+
+The compatibility truncation surface is cutoff-only. Use
+`ITensorCompat.truncate!(m; cutoff, maxdim)` for ITensors-style behavior, and
+use `TensorNetworks.truncate` directly when you need native `threshold` or
+`svd_policy` controls.
+
+`fixinds`, `suminds`, `projectinds`, `delta`, and
+`TensorNetworks.insert_identity!` are generic Tensor4all APIs. They are not
+BubbleTeaCI-specific helpers.
+
+Raw MPS blocks are read in `(left_link, site, right_link)` order. Raw MPO
+blocks are read in `(left_link, input_site, output_site, right_link)` order.
 
 ```@autodocs
 Modules = [Tensor4all.ITensorCompat]

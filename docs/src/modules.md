@@ -47,6 +47,9 @@ wrapper modules, but they are not owned by `Tensor4all.jl`.
   `MPO`; it does not replace `TensorNetworks.TensorTrain`.
 - The broader chain-helper surface in `TensorNetworks` is implemented in pure
   Julia.
+- `ITensorCompat` forwards to `TensorNetworks`; it is cutoff-only for
+  truncation and does not replace the native `threshold` / `svd_policy`
+  controls.
 - Operator-space setters are explicit `Vector{Index}` APIs rather than
   TensorTrain-driven auto-binding.
 - The Julia-facing C API target is reduced and chain-oriented.
@@ -65,6 +68,11 @@ The codebase has two separate tensor-train types:
 There is currently no automatic conversion between the two types. They serve
 different purposes in the module hierarchy: `SimpleTT` handles numerics,
 `TensorNetworks` handles indexed semantics.
+
+`ITensorCompat.MPS` and `ITensorCompat.MPO` wrap `TensorNetworks.TensorTrain`
+for migration-oriented workflows. Raw MPS blocks use `(left_link, site,
+right_link)` order; raw MPO blocks use `(left_link, input_site, output_site,
+right_link)` order.
 
 ## Still Deferred
 

@@ -20,6 +20,7 @@ include("Core/Errors.jl")
 include("Core/Backend.jl")
 include("Core/Index.jl")
 include("Core/Tensor.jl")
+include("Core/IndexOps.jl")
 
 include("SimpleTT.jl")
 include("TensorNetworks.jl")
@@ -46,7 +47,7 @@ export norm
 export orthogonalize, truncate
 export Tensor, ITensor, inds, rank, dims, swapinds, contract
 export delta, isdiag, structured_storage_info, structured_payload
-export onehot
+export onehot, fixinds, suminds, projectinds
 export svd, qr
 export TensorNetworks, ITensorCompat, SimpleTT, TensorCI, QuanticsGrids, QuanticsTCI, QuanticsTransform
 

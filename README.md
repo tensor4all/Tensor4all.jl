@@ -10,6 +10,7 @@ This repository now follows the implementation-phase Julia-facing architecture:
 - `SimpleTT.TensorTrain{T,N}` is the raw-array tensor-train layer
 - `TensorCI` returns `SimpleTT`
 - `QuanticsTransform` is a Julia-owned operator layer
+- `ITensorCompat` is an opt-in migration facade over `TensorNetworks`
 - HDF5 roundtrip is handled in pure Julia through `save_as_mps` / `load_tt`
 
 `TreeTensorNetwork` still exists in the repository, but it is no longer the
@@ -26,6 +27,9 @@ primary public story.
 - `SimpleTT` compression with `:LU`, `:CI`, and `:SVD`
 - pure Julia MPO-MPO contraction for `SimpleTT` with `:naive` and `:zipup`
 - `TensorCI.crossinterpolate2` returning `SimpleTT.TensorTrain`
+- `ITensorCompat.MPS` / `MPO` wrappers for migration-oriented chain workflows,
+  including raw MPS blocks in `(left, site, right)` order and raw MPO blocks in
+  `(left, input, output, right)` order
 - pure Julia HDF5 MPS-schema roundtrip through the HDF5 extension
 - adopted quantics grid re-exports from `QuanticsGrids.jl`
 
