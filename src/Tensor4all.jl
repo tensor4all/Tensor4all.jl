@@ -20,7 +20,6 @@ include("Core/Errors.jl")
 include("Core/Backend.jl")
 include("Core/Index.jl")
 include("Core/Tensor.jl")
-include("Core/TensorStorage.jl")
 include("Core/IndexOps.jl")
 
 include("SimpleTT.jl")
@@ -36,21 +35,20 @@ using .TensorNetworks: add, dot, inner, dist, linkdims, linkinds, siteinds, orth
 export SKELETON_PHASE
 export SkeletonPhaseError, SkeletonNotImplemented, BackendUnavailableError
 export backend_library_path, require_backend
-export Index, dim, id, tags, plev, hastag, tagstring
+export Index, dim, id, tags, plev, hastag
 export sim, prime, noprime, setprime
 export replaceind, replaceinds, replaceind!, replaceinds!, commoninds, uniqueinds
+export hasinds, scalar
 export add
 export dag
 export dot, inner, dist
 export linkinds, linkdims, siteinds
 export norm
 export orthogonalize, truncate
-export Tensor, ITensor, inds, rank, dims, scalar, swapinds, contract
-export storage_kind, payload_rank, payload_len, payload_dims, payload_strides, axis_classes, payload
-export diagtensor, delta, identity_tensor
+export Tensor, ITensor, inds, rank, dims, swapinds, contract
+export delta, isdiag, structured_storage_info, structured_payload
 export onehot, fixinds, suminds, projectinds
 export svd, qr
-export TensorNetworks, SimpleTT, TensorCI, QuanticsGrids, QuanticsTCI, QuanticsTransform
-export ITensorCompat
+export TensorNetworks, ITensorCompat, SimpleTT, TensorCI, QuanticsGrids, QuanticsTCI, QuanticsTransform
 
 end

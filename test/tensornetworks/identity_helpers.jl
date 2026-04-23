@@ -17,7 +17,7 @@ const TN_ID = Tensor4all.TensorNetworks
     @test length(tt) == 3
     @test (tt.llim, tt.rlim) == (0, length(tt) + 1)
     @test newsite in only.(TN_ID.siteinds(tt)[2:2])
-    @test Tensor4all.storage_kind(tt[2]) == :diagonal
+    @test Tensor4all.isdiag(tt[2])
 
     summed = TN_ID.suminds(tt, newsite)
     @test Array(TN_ID.to_dense(summed), sites...) ≈ Array(original_dense, sites...)

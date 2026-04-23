@@ -368,8 +368,8 @@ end
             original = tt[1]
             TN.replace_siteinds!(tt, [j], [jp])
             @test tt[1] === original
-            @test Tensor4all.storage_kind(tt[1]) == :diagonal
-            @test Tensor4all.axis_classes(tt[1]) == [0, 0]
+            @test Tensor4all.isdiag(tt[1])
+            @test Tensor4all.structured_storage_info(tt[1]).axis_classes == (1, 1)
         end
     end
 

@@ -1,45 +1,22 @@
 import Base: +, -, *, /
 import LinearAlgebra: norm, qr, svd
 
-mutable struct BackendTensorHandle
-    ptr::Ptr{Cvoid}
-    owned::Bool
-end
-
-function _release_owned_backend_tensor_handle(handle::BackendTensorHandle)
-    handle.owned || return nothing
-    ptr = handle.ptr
-    ptr == C_NULL && return nothing
-    handle.ptr = C_NULL
-    handle.owned = false
-    _tensor_networks_module()._release_tensor_handle(ptr)
-    return nothing
-end
-
-function BackendTensorHandle(ptr::Ptr{Cvoid}; owned::Bool=false)
-    handle = BackendTensorHandle(ptr, owned)
-    owned && finalizer(_release_owned_backend_tensor_handle, handle)
-    return handle
-end
-
-const BackendTensorHandleLike = Union{Nothing,Ptr{Cvoid},BackendTensorHandle}
-
-backend_handle_ptr(::Nothing) = C_NULL
-backend_handle_ptr(ptr::Ptr{Cvoid}) = ptr
-backend_handle_ptr(handle::BackendTensorHandle) = handle.ptr
-
-function _owned_backend_tensor_handle(ptr::Ptr{Cvoid})
-    ptr == C_NULL && throw(ArgumentError("Cannot wrap a null backend tensor handle"))
-    return BackendTensorHandle(ptr; owned=true)
+struct StructuredTensorStorage{T}
+    kind::Symbol
+    payload::Vector{T}
+    payload_dims::Vector{Int}
+    payload_strides::Vector{Int}
+    axis_classes::Vector{Int}
 end
 
 """
     Tensor(data, inds; backend_handle=nothing)
 
-Create a tensor skeleton from Julia-owned dense array data and index metadata.
+Create a tensor from Julia-owned dense array data and index metadata.
 
-This constructor validates metadata and shape consistency during the skeleton
-phase. Backend-backed contraction and factorization behavior remains deferred.
+This constructor validates metadata and shape consistency. Tensors keep a dense
+Julia snapshot for indexing and `Array` extraction; selected constructors may
+also attach compact storage metadata used by backend calls.
 
 # Examples
 ```jldoctest
@@ -58,13 +35,23 @@ julia> (rank(t), dims(t))
 struct Tensor{T,N}
     data::Array{T,N}
     inds::Vector{Index}
-    backend_handle::BackendTensorHandleLike
+    backend_handle::Union{Nothing,Ptr{Cvoid}}
+    structured_storage::Union{Nothing,StructuredTensorStorage{T}}
 end
+
+"""
+    ITensor
+
+Compatibility alias for [`Tensor`](@ref). Constructor calls such as
+`ITensor(data, i, j)` use Tensor4all's Julia-owned tensor object model.
+"""
+const ITensor = Tensor
 
 function Tensor(
     data::Array{T,N},
     inds::AbstractVector{Index};
-    backend_handle::BackendTensorHandleLike=nothing,
+    backend_handle::Union{Nothing,Ptr{Cvoid}}=nothing,
+    structured_storage::Union{Nothing,StructuredTensorStorage{T}}=nothing,
 ) where {T,N}
     length(inds) == N || throw(DimensionMismatch(
         "Tensor rank $N requires $N indices, got $(length(inds))",
@@ -73,34 +60,71 @@ function Tensor(
     expected_dims == size(data) || throw(DimensionMismatch(
         "Tensor dimensions $expected_dims do not match data size $(size(data))",
     ))
-    return Tensor{T,N}(copy(data), collect(inds), backend_handle)
+    _validate_structured_storage(structured_storage, expected_dims)
+    return Tensor{T,N}(copy(data), collect(inds), backend_handle, structured_storage)
 end
 
-backend_handle_ptr(t::Tensor) = backend_handle_ptr(t.backend_handle)
-
-function Tensor(data::Array, inds::Index...; backend_handle::BackendTensorHandleLike=nothing)
-    return Tensor(data, collect(inds); backend_handle)
-end
-
-function Tensor(data::AbstractArray, inds::Index...; backend_handle=nothing)
-    return Tensor(data, collect(inds); backend_handle)
-end
-
-function Tensor(value::Number)
-    data = Array{typeof(value),0}(undef)
-    data[] = value
-    return Tensor(data, Index[])
-end
-
-const ITensor = Tensor
-
-Base.eltype(t::Tensor) = eltype(t.data)
-Base.eltype(::Type{<:Tensor{T}}) where {T} = T
-
-function Tensor(data::AbstractArray, inds::AbstractVector{Index}; backend_handle=nothing)
+function Tensor(
+    data::AbstractArray,
+    inds::AbstractVector{Index};
+    backend_handle=nothing,
+    structured_storage=nothing,
+)
     throw(ArgumentError(
         "Array must be contiguous in memory for C API. Got $(typeof(data)). Use collect(data) to make a contiguous copy.",
     ))
+end
+
+Tensor(data::Array, inds::Index...) = Tensor(data, collect(inds))
+Tensor(value::Number) = Tensor(fill(value), Index[])
+Base.eltype(t::Tensor) = eltype(t.data)
+
+function _validate_structured_storage(
+    storage::Union{Nothing,StructuredTensorStorage},
+    logical_dims::Tuple,
+)
+    storage === nothing && return nothing
+    storage.kind in (:diagonal, :structured) || throw(
+        ArgumentError("structured storage kind must be :diagonal or :structured, got $(storage.kind)"),
+    )
+    all(>(0), storage.payload_dims) || throw(
+        ArgumentError("payload dimensions must be positive, got $(storage.payload_dims)"),
+    )
+    length(storage.payload) == prod(storage.payload_dims; init=1) || throw(DimensionMismatch(
+        "payload length $(length(storage.payload)) does not match payload dimensions $(storage.payload_dims)",
+    ))
+    length(storage.payload_dims) == length(storage.payload_strides) || throw(DimensionMismatch(
+        "payload_dims length $(length(storage.payload_dims)) does not match payload_strides length $(length(storage.payload_strides))",
+    ))
+    length(storage.axis_classes) == length(logical_dims) || throw(DimensionMismatch(
+        "axis_classes length $(length(storage.axis_classes)) does not match tensor rank $(length(logical_dims))",
+    ))
+    if !isempty(storage.axis_classes)
+        minimum(storage.axis_classes) >= 1 || throw(
+            ArgumentError("axis_classes use 1-based payload axes, got $(storage.axis_classes)"),
+        )
+        maximum(storage.axis_classes) <= length(storage.payload_dims) || throw(
+            ArgumentError(
+                "axis_classes $(storage.axis_classes) refer to payload rank $(length(storage.payload_dims))",
+            ),
+        )
+    end
+    for (axis, payload_axis) in enumerate(storage.axis_classes)
+        expected_dim = storage.payload_dims[payload_axis]
+        actual_dim = logical_dims[axis]
+        actual_dim == expected_dim || throw(DimensionMismatch(
+            "logical axis $axis has dimension $actual_dim but payload axis $payload_axis has dimension $expected_dim",
+        ))
+    end
+    if storage.kind === :diagonal
+        length(storage.payload_dims) == 1 || throw(DimensionMismatch(
+            "diagonal storage requires payload rank 1, got $(length(storage.payload_dims))",
+        ))
+        all(==(1), storage.axis_classes) || throw(
+            ArgumentError("diagonal storage axis_classes must all be 1, got $(storage.axis_classes)"),
+        )
+    end
+    return nothing
 end
 
 """
@@ -125,22 +149,17 @@ Return the dense array dimensions of `t`.
 dims(t::Tensor) = size(t.data)
 
 """
-    scalar(t)
-
-Return the scalar value stored in a rank-0 tensor.
-"""
-function scalar(t::Tensor)
-    rank(t) == 0 || throw(ArgumentError("scalar requires a rank-0 Tensor, got rank $(rank(t))"))
-    return t.data[]
-end
-
-"""
     prime(t, n=1)
 
 Return `t` with all attached indices primed by `n`.
 """
 function prime(t::Tensor, n::Integer=1)
-    return Tensor(copy(t.data), prime.(inds(t), Ref(n)); backend_handle=t.backend_handle)
+    return Tensor(
+        copy(t.data),
+        prime.(inds(t), Ref(n));
+        backend_handle=t.backend_handle,
+        structured_storage=_copy_structured_storage(t.structured_storage),
+    )
 end
 
 """
@@ -148,7 +167,12 @@ end
 
 Return the elementwise complex-conjugated tensor with the same index metadata.
 """
-dag(t::Tensor) = Tensor(conj(t.data), inds(t); backend_handle=nothing)
+dag(t::Tensor) = Tensor(
+    conj(t.data),
+    inds(t);
+    backend_handle=nothing,
+    structured_storage=_map_structured_payload(conj, t.structured_storage),
+)
 
 """
     swapinds(t, a, b)
@@ -159,7 +183,12 @@ function swapinds(t::Tensor, a::Index, b::Index)
     swapped = map(inds(t)) do idx
         idx == a ? b : idx == b ? a : idx
     end
-    return Tensor(copy(t.data), swapped; backend_handle=t.backend_handle)
+    return Tensor(
+        copy(t.data),
+        swapped;
+        backend_handle=t.backend_handle,
+        structured_storage=_copy_structured_storage(t.structured_storage),
+    )
 end
 
 """
@@ -168,7 +197,12 @@ end
 Return a copy of `t` with index metadata `old` replaced by `new`.
 """
 function replaceind(t::Tensor, old::Index, new::Index)
-    return Tensor(t.data, replaceind(inds(t), old, new); backend_handle=t.backend_handle)
+    return Tensor(
+        t.data,
+        replaceind(inds(t), old, new);
+        backend_handle=t.backend_handle,
+        structured_storage=_copy_structured_storage(t.structured_storage),
+    )
 end
 
 replaceind(t::Tensor, replacement::Pair{Index,Index}) = replaceind(
@@ -183,7 +217,12 @@ replaceind(t::Tensor, replacement::Pair{Index,Index}) = replaceind(
 Return a copy of `t` with multiple index metadata replacements applied.
 """
 function replaceinds(t::Tensor, replacements::Pair{Index,Index}...)
-    return Tensor(t.data, replaceinds(inds(t), replacements...); backend_handle=t.backend_handle)
+    return Tensor(
+        t.data,
+        replaceinds(inds(t), replacements...);
+        backend_handle=t.backend_handle,
+        structured_storage=_copy_structured_storage(t.structured_storage),
+    )
 end
 
 function replaceinds(
@@ -191,7 +230,12 @@ function replaceinds(
     oldinds::AbstractVector{Index},
     newinds::AbstractVector{Index},
 )
-    return Tensor(t.data, replaceinds(inds(t), oldinds, newinds); backend_handle=t.backend_handle)
+    return Tensor(
+        t.data,
+        replaceinds(inds(t), oldinds, newinds);
+        backend_handle=t.backend_handle,
+        structured_storage=_copy_structured_storage(t.structured_storage),
+    )
 end
 
 function replaceinds(
@@ -199,7 +243,12 @@ function replaceinds(
     oldinds::Tuple{Vararg{Index}},
     newinds::Tuple{Vararg{Index}},
 )
-    return Tensor(t.data, replaceinds(inds(t), oldinds, newinds); backend_handle=t.backend_handle)
+    return Tensor(
+        t.data,
+        replaceinds(inds(t), oldinds, newinds);
+        backend_handle=t.backend_handle,
+        structured_storage=_copy_structured_storage(t.structured_storage),
+    )
 end
 
 """
@@ -287,11 +336,33 @@ function Base.:-(a::Tensor, b::Tensor)
     return Tensor(a.data .- b_data, inds(a); backend_handle=nothing)
 end
 
-Base.:-(t::Tensor) = Tensor(-t.data, inds(t); backend_handle=nothing)
+Base.:-(t::Tensor) = Tensor(
+    -t.data,
+    inds(t);
+    backend_handle=nothing,
+    structured_storage=_map_structured_payload(-, t.structured_storage),
+)
 
-Base.:*(α::Number, t::Tensor) = Tensor(α .* t.data, inds(t); backend_handle=nothing)
+function Base.:*(α::Number, t::Tensor)
+    return Tensor(
+        α .* t.data,
+        inds(t);
+        backend_handle=nothing,
+        structured_storage=_map_structured_payload(x -> α * x, t.structured_storage),
+    )
+end
+
 Base.:*(t::Tensor, α::Number) = α * t
-Base.:/(t::Tensor, α::Number) = Tensor(t.data ./ α, inds(t); backend_handle=nothing)
+Base.:*(a::Tensor, b::Tensor) = contract(a, b)
+
+function Base.:/(t::Tensor, α::Number)
+    return Tensor(
+        t.data ./ α,
+        inds(t);
+        backend_handle=nothing,
+        structured_storage=_map_structured_payload(x -> x / α, t.structured_storage),
+    )
+end
 
 norm(t::Tensor) = norm(t.data)
 
@@ -306,9 +377,185 @@ function Base.isapprox(
 end
 
 function Base.Array(t::Tensor, requested_inds::Index...)
+    isempty(requested_inds) && rank(t) == 0 && return copy(t.data)
     perm = _match_index_permutation(inds(t), collect(requested_inds))
     return perm == Tuple(1:rank(t)) ? copy(t.data) : permutedims(t.data, perm)
 end
+
+function _copy_structured_storage(storage::Nothing)
+    return nothing
+end
+
+function _copy_structured_storage(storage::StructuredTensorStorage{T}) where {T}
+    return StructuredTensorStorage{T}(
+        storage.kind,
+        copy(storage.payload),
+        copy(storage.payload_dims),
+        copy(storage.payload_strides),
+        copy(storage.axis_classes),
+    )
+end
+
+function _map_structured_payload(f::Function, storage::Nothing)
+    return nothing
+end
+
+function _map_structured_payload(f::Function, storage::StructuredTensorStorage)
+    payload = f.(storage.payload)
+    return StructuredTensorStorage{eltype(payload)}(
+        storage.kind,
+        payload,
+        copy(storage.payload_dims),
+        copy(storage.payload_strides),
+        copy(storage.axis_classes),
+    )
+end
+
+"""
+    delta(i, j, inds...; T=Float64)
+
+Create a diagonal tensor with payload `ones(T, dim(i))` over equal-dimension
+indices. The returned tensor keeps dense `Array` extraction compatible with the
+rest of the Julia object model, while backend calls use compact diagonal
+payload metadata.
+"""
+function delta(first_index::Index, second_index::Index, rest::Index...; T::Type=Float64)
+    indices = Index[first_index, second_index, rest...]
+    diagonal_dim = dim(first_index)
+    index_dims = dim.(indices)
+    all(==(diagonal_dim), index_dims) || throw(DimensionMismatch(
+        "delta indices must have equal dimensions, got $index_dims",
+    ))
+
+    payload = ones(T, diagonal_dim)
+    data = zeros(T, Tuple(index_dims))
+    for n in 1:diagonal_dim
+        data[ntuple(Returns(n), length(indices))...] = one(T)
+    end
+    storage = StructuredTensorStorage{T}(
+        :diagonal,
+        payload,
+        [diagonal_dim],
+        [1],
+        ones(Int, length(indices)),
+    )
+    return Tensor(data, indices; structured_storage=storage)
+end
+
+"""
+    isdiag(t)
+
+Return `true` when `t` is backed by compact diagonal storage metadata.
+"""
+isdiag(t::Tensor) = t.structured_storage !== nothing && t.structured_storage.kind === :diagonal
+
+"""
+    structured_storage_info(t)
+
+Return storage metadata for `t` as a named tuple. `axis_classes` are reported
+with Julia's 1-based axis numbering.
+"""
+function structured_storage_info(t::Tensor)
+    storage = t.structured_storage
+    if storage === nothing
+        return (;
+            kind=:dense,
+            dtype=eltype(t.data),
+            logical_dims=dims(t),
+            payload_dims=dims(t),
+            payload_strides=Tuple(strides(t.data)),
+            payload_length=length(t.data),
+            axis_classes=Tuple(1:rank(t)),
+        )
+    end
+    return (;
+        kind=storage.kind,
+        dtype=eltype(t.data),
+        logical_dims=dims(t),
+        payload_dims=Tuple(storage.payload_dims),
+        payload_strides=Tuple(storage.payload_strides),
+        payload_length=length(storage.payload),
+        axis_classes=Tuple(storage.axis_classes),
+    )
+end
+
+"""
+    structured_payload(t)
+
+Return a copy of the compact storage payload for `t`. Dense tensors return
+their column-major dense payload.
+"""
+function structured_payload(t::Tensor)
+    storage = t.structured_storage
+    storage === nothing && return vec(copy(t.data))
+    return copy(storage.payload)
+end
+
+commoninds(a::Tensor, b::Tensor) = commoninds(inds(a), inds(b))
+uniqueinds(a::Tensor, b::Tensor) = uniqueinds(inds(a), inds(b))
+
+"""
+    hasinds(t, inds...)
+
+Return `true` when all queried indices are attached to `t`.
+"""
+hasinds(t::Tensor, query::Index...) = all(index -> index in t.inds, query)
+
+"""
+    scalar(t)
+
+Return the scalar value stored in a rank-0 tensor.
+"""
+function scalar(t::Tensor)
+    rank(t) == 0 || throw(ArgumentError("scalar requires a rank-0 Tensor, got rank $(rank(t))"))
+    return only(t.data)
+end
+
+struct OneHotTensor{T}
+    index::Index
+    value::Int
+end
+
+"""
+    onehot(index => value; T=Float64)
+
+Create a lazy one-hot tensor over `index` at the 1-based position `value`.
+Contractions with tensors containing `index` slice the tensor instead of
+materializing a dense basis vector.
+"""
+function onehot(index_value::Pair{Index,<:Integer}; T::Type=Float64)
+    index = first(index_value)
+    value = Int(last(index_value))
+    1 <= value <= dim(index) || throw(ArgumentError(
+        "onehot index value must be in 1:$(dim(index)), got $value",
+    ))
+    return OneHotTensor{T}(index, value)
+end
+
+inds(oh::OneHotTensor) = [oh.index]
+rank(::OneHotTensor) = 1
+dims(oh::OneHotTensor) = (dim(oh.index),)
+Base.eltype(::OneHotTensor{T}) where {T} = T
+
+function Tensor(oh::OneHotTensor{T}) where {T}
+    data = zeros(T, dim(oh.index))
+    data[oh.value] = one(T)
+    return Tensor(data, [oh.index])
+end
+
+function _contract_tensor_onehot(t::Tensor, oh::OneHotTensor)
+    axis = findfirst(==(oh.index), t.inds)
+    axis === nothing && return contract(t, Tensor(oh))
+
+    out_inds = inds(t)
+    deleteat!(out_inds, axis)
+    return Tensor(collect(selectdim(t.data, axis, oh.value)), out_inds)
+end
+
+contract(t::Tensor, oh::OneHotTensor) = _contract_tensor_onehot(t, oh)
+contract(oh::OneHotTensor, t::Tensor) = _contract_tensor_onehot(t, oh)
+Base.:*(t::Tensor, oh::OneHotTensor) = contract(t, oh)
+Base.:*(oh::OneHotTensor, t::Tensor) = contract(oh, t)
 
 function _tensor_scalar_kind(tensors::Tensor...)
     any_complex = false

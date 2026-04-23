@@ -8,15 +8,14 @@ The restored Julia frontend is layered like this:
 Core (Index, Tensor)
   ↓                ↓
 TensorNetworks     SimpleTT
-  ↓                ↑
-QuanticsTransform  TensorCI
+  ↓      ↓         ↑
+ITensorCompat      TensorCI
+  ↓
+QuanticsTransform
 
 Adopted wrapper modules:
 - QuanticsGrids
 - QuanticsTCI
-
-Compatibility facade:
-- ITensorCompat
 ```
 
 `QuanticsGrids.jl` and `QuanticsTCI.jl` are adopted and re-exported through
@@ -28,12 +27,12 @@ wrapper modules, but they are not owned by `Tensor4all.jl`.
 |------|----------------|---------------|
 | `Core` | `Index`, `Tensor`, base metadata behavior | implemented |
 | `TensorNetworks` | indexed chain wrapper, helper surface, operator boundary | implemented as public chain layer |
+| `ITensorCompat` | opt-in ITensors/ITensorMPS migration facade over `TensorNetworks.TensorTrain` | implemented |
 | `SimpleTT` | raw-array tensor trains, compression, MPO contraction | implemented |
 | `TensorCI` | interpolation boundary returning `TensorCI2` | implemented as adapter layer |
 | `QuanticsGrids` | adopted grid re-export layer | implemented |
 | `QuanticsTCI` | adopted quantics-TCI re-export layer | implemented |
 | `QuanticsTransform` | quantics-specific constructors of `TensorNetworks.LinearOperator` | partially implemented |
-| `ITensorCompat` | opt-in migration facade over `TensorNetworks.TensorTrain` | implemented for the BubbleTeaCI follow-up workflow |
 | HDF5 extension | pure Julia `save_as_mps` / `load_tt` | implemented |
 
 ## Key Boundaries
@@ -44,6 +43,8 @@ wrapper modules, but they are not owned by `Tensor4all.jl`.
 - `SimpleTT` owns raw-array numerics.
 - `TensorNetworks` adds index semantics, chain helpers, `LinearOperator`,
   `apply`, and HDF5 interoperability.
+- `ITensorCompat` provides source-compatibility wrappers such as `MPS` and
+  `MPO`; it does not replace `TensorNetworks.TensorTrain`.
 - The broader chain-helper surface in `TensorNetworks` is implemented in pure
   Julia.
 - `ITensorCompat` forwards to `TensorNetworks`; it is cutoff-only for

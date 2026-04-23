@@ -34,7 +34,7 @@ Create a three-index copy tensor that preserves a chain when `site` is summed
 out.
 """
 function identity_link_tensor(left::Index, right::Index, site::Index; T=Float64)
-    return diagtensor(ones(T, dim(left)), Index[left, site, right])
+    return delta(left, site, right; T)
 end
 
 function _insert_left_boundary_identity!(tt::TensorTrain, newsite::Index, T)

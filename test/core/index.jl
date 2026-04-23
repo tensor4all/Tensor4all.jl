@@ -24,11 +24,27 @@ using Tensor4all
     @test Tensor4all.uniqueinds(xs, ys) == [i]
 end
 
-@testset "tagstring" begin
-    i = Index(2; tags=["alpha", "site=1"])
-    @test Tensor4all.tagstring(i) == "alpha,site=1"
-    @test Tensor4all.tagstring(String[]) == "-"
-    @test occursin("alpha,site=1", sprint(show, i))
+@testset "ITensors-style Index constructor" begin
+    i = Tensor4all.Index(3, "x")
+    @test Tensor4all.dim(i) == 3
+    @test Tensor4all.tags(i) == ["x"]
+
+    j = Tensor4all.Index(4, "x,y"; plev=2)
+    @test Tensor4all.dim(j) == 4
+    @test Tensor4all.tags(j) == ["x", "y"]
+    @test Tensor4all.plev(j) == 2
+
+    k = Tensor4all.Index(5; tags="site, n=1")
+    @test Tensor4all.tags(k) == ["site", "n=1"]
+
+    mixed = Tensor4all.Index(6, "x=1, y=2 z=3")
+    @test Tensor4all.tags(mixed) == ["x=1", "y=2", "z=3"]
+
+    unicode = Tensor4all.Index(7, "スピン=↑, サイト=1")
+    @test Tensor4all.tags(unicode) == ["スピン=↑", "サイト=1"]
+
+    unicode_space = Tensor4all.Index(8, "α=1　β=2")
+    @test Tensor4all.tags(unicode_space) == ["α=1", "β=2"]
 end
 
 @testset "Index replacement compatibility" begin

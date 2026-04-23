@@ -1,30 +1,3 @@
-struct OneHot{T}
-    index::Index
-    value::Int
-end
-
-"""
-    onehot(index => value; T=Float64)
-
-Return a lightweight one-hot selector for `index` at 1-based `value`.
-"""
-function onehot(replacement::Pair{Index,<:Integer}; T=Float64)
-    index = first(replacement)
-    value = Int(last(replacement))
-    1 <= value <= dim(index) || throw(ArgumentError(
-        "onehot value $value is out of range for index dimension $(dim(index))",
-    ))
-    return OneHot{T}(index, value)
-end
-
-inds(selector::OneHot) = Index[selector.index]
-
-function Tensor(selector::OneHot{T}) where {T}
-    data = zeros(T, dim(selector.index))
-    data[selector.value] = one(T)
-    return Tensor(data, [selector.index])
-end
-
 function _index_position(tensor_indices::Vector{Index}, index::Index, context::AbstractString)
     position = findfirst(==(index), tensor_indices)
     position === nothing && throw(ArgumentError(
@@ -45,6 +18,15 @@ function _tensor_from_indexed_data(data, result_inds::Vector{Index})
     return Tensor(data)
 end
 
+function _copy_tensor_without_index_op(t::Tensor)
+    return Tensor(
+        t.data,
+        inds(t);
+        backend_handle=t.backend_handle,
+        structured_storage=_copy_structured_storage(t.structured_storage),
+    )
+end
+
 """
     fixinds(t, replacements...)
 
@@ -52,7 +34,7 @@ Fix tensor indices to 1-based integer values and remove those indices from the
 result.
 """
 function fixinds(t::Tensor, replacements::Pair{Index,<:Integer}...)
-    isempty(replacements) && return Tensor(t.data, inds(t); backend_handle=t.backend_handle)
+    isempty(replacements) && return _copy_tensor_without_index_op(t)
 
     tensor_indices = inds(t)
     fixed = falses(length(tensor_indices))
@@ -80,7 +62,7 @@ end
 Sum over `indices` and remove them from the result.
 """
 function suminds(t::Tensor, indices::Index...)
-    isempty(indices) && return Tensor(t.data, inds(t); backend_handle=t.backend_handle)
+    isempty(indices) && return _copy_tensor_without_index_op(t)
 
     tensor_indices = inds(t)
     requested = collect(indices)
@@ -103,7 +85,7 @@ function projectinds(
     t::Tensor,
     replacements::Pair{Index,<:AbstractVector{<:Integer}}...,
 )
-    isempty(replacements) && return Tensor(t.data, inds(t); backend_handle=t.backend_handle)
+    isempty(replacements) && return _copy_tensor_without_index_op(t)
 
     tensor_indices = inds(t)
     selectors = Any[Colon() for _ in 1:rank(t)]
@@ -129,6 +111,3 @@ function projectinds(
 
     return Tensor(copy(t.data[selectors...]), result_inds)
 end
-
-contract(t::Tensor, selector::OneHot) = fixinds(t, selector.index => selector.value)
-contract(selector::OneHot, t::Tensor) = fixinds(t, selector.index => selector.value)
