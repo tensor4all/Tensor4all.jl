@@ -8,7 +8,7 @@ import Random: AbstractRNG
 import ScopedValues
 import ..Tensor4all: dag, contract
 import ..Tensor4all: fixinds, projectinds, suminds
-using ..Tensor4all: BackendTensorHandle, BackendUnavailableError, Index, Tensor, SkeletonNotImplemented, _owned_backend_tensor_handle, backend_handle_ptr, commoninds, dim, hastag, id, inds, plev, prime, rank, replaceinds!, require_backend, tags
+using ..Tensor4all: BackendTensorHandle, BackendUnavailableError, Index, Tensor, SkeletonNotImplemented, _owned_backend_tensor_handle, backend_handle_ptr, commoninds, diagtensor, dim, hastag, id, inds, plev, prime, rank, replaceinds!, require_backend, tags
 import ..SimpleTT
 
 const _LINK_TAG = "Link"
@@ -21,6 +21,7 @@ export norm
 export orthogonalize, truncate
 export invalidate_canonical!, replaceblock!, insert_site!, delete_site!
 export fixinds, suminds, projectinds
+export identity_link_tensor, insert_identity!
 export to_dense, evaluate, random_tt
 export set_input_space!, set_output_space!, set_iospaces!, apply, linsolve
 export findsite, findsites, findallsiteinds_by_tag, findallsites_by_tag
@@ -34,6 +35,7 @@ include("TensorNetworks/mutation.jl")
 include("TensorNetworks/operator_spaces.jl")
 include("TensorNetworks/site_helpers.jl")
 include("TensorNetworks/index_ops.jl")
+include("TensorNetworks/identity_helpers.jl")
 include("TensorNetworks/matchsiteinds.jl")
 include("TensorNetworks/transforms.jl")
 include("TensorNetworks/backend/capi.jl")

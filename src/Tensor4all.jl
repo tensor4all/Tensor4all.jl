@@ -25,6 +25,7 @@ include("Core/IndexOps.jl")
 
 include("SimpleTT.jl")
 include("TensorNetworks.jl")
+include("ITensorCompat.jl")
 include("TensorCI.jl")
 include("QuanticsGrids.jl")
 include("QuanticsTCI.jl")
@@ -50,5 +51,6 @@ export diagtensor, delta, identity_tensor
 export onehot, fixinds, suminds, projectinds
 export svd, qr
 export TensorNetworks, SimpleTT, TensorCI, QuanticsGrids, QuanticsTCI, QuanticsTransform
+export ITensorCompat
 
 end

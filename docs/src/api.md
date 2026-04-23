@@ -86,6 +86,8 @@ Other chain-facing names in this layer include:
 - `Tensor4all.TensorNetworks.fixinds`
 - `Tensor4all.TensorNetworks.suminds`
 - `Tensor4all.TensorNetworks.projectinds`
+- `Tensor4all.TensorNetworks.identity_link_tensor`
+- `Tensor4all.TensorNetworks.insert_identity!`
 - `Tensor4all.TensorNetworks.dag`
 - `Tensor4all.TensorNetworks.linkinds`
 - `Tensor4all.TensorNetworks.linkdims`
@@ -124,7 +126,7 @@ groupings; `rearrange_siteinds` is a thin wrapper over `restructure_to`.
 
 ```@autodocs
 Modules = [Tensor4all.TensorNetworks]
-Pages = ["TensorNetworks/types.jl", "TensorNetworks/mutation.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/index_ops.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/transforms.jl", "TensorNetworks/truncation_policy.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/backend/treetn.jl", "TensorNetworks/backend/treetn_queries.jl", "TensorNetworks/backend/treetn_dense.jl", "TensorNetworks/backend/treetn_contract.jl", "TensorNetworks/backend/treetn_evaluate.jl", "TensorNetworks/backend/restructure/fuse_to.jl", "TensorNetworks/backend/restructure/split_to.jl", "TensorNetworks/backend/restructure/swap_site_indices.jl", "TensorNetworks/backend/restructure/restructure_to.jl", "TensorNetworks/backend/linsolve.jl", "TensorNetworks/random.jl", "TensorNetworks/bridge.jl", "TensorNetworks/deferred.jl"]
+Pages = ["TensorNetworks/types.jl", "TensorNetworks/mutation.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/index_ops.jl", "TensorNetworks/identity_helpers.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/transforms.jl", "TensorNetworks/truncation_policy.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/backend/treetn.jl", "TensorNetworks/backend/treetn_queries.jl", "TensorNetworks/backend/treetn_dense.jl", "TensorNetworks/backend/treetn_contract.jl", "TensorNetworks/backend/treetn_evaluate.jl", "TensorNetworks/backend/restructure/fuse_to.jl", "TensorNetworks/backend/restructure/split_to.jl", "TensorNetworks/backend/restructure/swap_site_indices.jl", "TensorNetworks/backend/restructure/restructure_to.jl", "TensorNetworks/backend/linsolve.jl", "TensorNetworks/random.jl", "TensorNetworks/bridge.jl", "TensorNetworks/deferred.jl"]
 Private = false
 Order = [:type, :function]
 ```
@@ -172,6 +174,18 @@ raw numerical TT layer happens through `Tensor4all.SimpleTT.TensorTrain(tci)`.
 ```@autodocs
 Modules = [Tensor4all.TensorCI]
 Pages = ["TensorCI.jl"]
+Private = false
+Order = [:type, :function]
+```
+
+## ITensorCompat
+
+`Tensor4all.ITensorCompat` is an opt-in migration facade over the native
+`TensorNetworks.TensorTrain` layer.
+
+```@autodocs
+Modules = [Tensor4all.ITensorCompat]
+Pages = ["ITensorCompat.jl"]
 Private = false
 Order = [:type, :function]
 ```
