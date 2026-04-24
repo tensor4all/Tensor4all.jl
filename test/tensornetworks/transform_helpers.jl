@@ -4,62 +4,7 @@ using Random: MersenneTwister
 
 const TN = Tensor4all.TensorNetworks
 
-_prod_dims(xs) = isempty(xs) ? 1 : prod(xs)
-
-function _dense_contract(
-    a::AbstractArray,
-    ainds::Vector{Index},
-    b::AbstractArray,
-    binds::Vector{Index},
-)
-    common = [index for index in ainds if index in binds]
-    a_common_axes = [findfirst(==(index), ainds) for index in common]
-    b_common_axes = [findfirst(==(index), binds) for index in common]
-    a_rest_axes = [axis for axis in eachindex(ainds) if axis ∉ a_common_axes]
-    b_rest_axes = [axis for axis in eachindex(binds) if axis ∉ b_common_axes]
-
-    amat = reshape(
-        permutedims(a, (a_rest_axes..., a_common_axes...)),
-        _prod_dims(size(a)[a_rest_axes]),
-        _prod_dims(size(a)[a_common_axes]),
-    )
-    bmat = reshape(
-        permutedims(b, (b_common_axes..., b_rest_axes...)),
-        _prod_dims(size(b)[b_common_axes]),
-        _prod_dims(size(b)[b_rest_axes]),
-    )
-
-    data = reshape(
-        amat * bmat,
-        size(a)[a_rest_axes]...,
-        size(b)[b_rest_axes]...,
-    )
-    return data, [ainds[a_rest_axes]..., binds[b_rest_axes]...]
-end
-
-function dense_tensor(tt::TN.TensorTrain, target_inds::Vector{Index})
-    data = copy(tt[1].data)
-    current_inds = inds(tt[1])
-    for n in 2:length(tt)
-        data, current_inds = _dense_contract(data, current_inds, tt[n].data, inds(tt[n]))
-    end
-
-    boundary_axes = [axis for (axis, index) in pairs(current_inds) if hastag(index, "Link")]
-    for axis in boundary_axes
-        dim(current_inds[axis]) == 1 || error("Uncontracted nontrivial link index $(current_inds[axis])")
-    end
-    if !isempty(boundary_axes)
-        data = dropdims(data; dims=Tuple(boundary_axes))
-        current_inds = [index for index in current_inds if !hastag(index, "Link")]
-    end
-
-    permutation = map(target_inds) do index
-        axis = findfirst(==(index), current_inds)
-        axis === nothing && error("Target index $index not found in dense tensor")
-        axis
-    end
-    return permutedims(data, Tuple(permutation))
-end
+include("dense_helpers.jl")
 
 function siteinds_by_tensor(tt::TN.TensorTrain)
     counts = Dict{Index, Int}()
@@ -142,11 +87,11 @@ end
     @testset "makesitediagonal and extractdiagonal roundtrip a tagged site family" begin
         sites = [Index(2; tags=["x", "x=$n"]) for n in 1:2]
         psi = simple_mps(sites)
-        dense_original = dense_tensor(psi, sites)
+        dense_original = tn_test_dense_tensor(psi, sites)
 
         mpo = TN.makesitediagonal(psi, "x")
         diag_sites = prime.(sites)
-        dense_diagonal = dense_tensor(
+        dense_diagonal = tn_test_dense_tensor(
             mpo,
             [diag_sites[1], sites[1], diag_sites[2], sites[2]],
         )
@@ -163,7 +108,7 @@ end
 
         recovered = TN.extractdiagonal(mpo, "x")
         @test siteinds_by_tensor(recovered) == [[site] for site in sites]
-        @test dense_tensor(recovered, sites) ≈ dense_original
+        @test tn_test_dense_tensor(recovered, sites) ≈ dense_original
     end
 
     @testset "operator space setters require explicit Index vectors" begin
