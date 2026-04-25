@@ -25,6 +25,8 @@ export identity_link_tensor, insert_identity!
 export set_input_space!, set_output_space!, set_iospaces!, apply, linsolve
 export findsite, findsites, findallsiteinds_by_tag, findallsites_by_tag
 export replace_siteinds!, replace_siteinds, replace_siteinds_part!
+export insert_operator_identity!, delete_operator_site!, delete_operator_sites!
+export permute_operator_sites!, replace_operator_input_indices!, replace_operator_output_indices!
 export rearrange_siteinds, makesitediagonal, extractdiagonal, matchsiteinds
 export fuse_to, split_to, swap_site_indices, restructure_to
 export save_as_mps, load_tt
@@ -33,6 +35,8 @@ include("TensorNetworks/types.jl")
 include("TensorNetworks/operator_spaces.jl")
 include("TensorNetworks/site_helpers.jl")
 include("TensorNetworks/matchsiteinds.jl")
+include("TensorNetworks/operator_canonical.jl")
+include("TensorNetworks/operator_mutations.jl")
 include("TensorNetworks/transforms.jl")
 include("TensorNetworks/index_ops.jl")
 include("TensorNetworks/identity_helpers.jl")

@@ -129,6 +129,26 @@ function LinearOperator(;
     true_output::Vector{Union{Index, Nothing}}=Union{Index, Nothing}[],
     metadata::NamedTuple=(;),
 )
+    length(input_indices) == length(output_indices) || throw(
+        DimensionMismatch(
+            "LinearOperator input/output metadata length mismatch: got $(length(input_indices)) input indices and $(length(output_indices)) output indices",
+        ),
+    )
+    if mpo !== nothing
+        length(input_indices) == length(mpo) || throw(
+            ArgumentError("LinearOperator.mpo has $(length(mpo)) sites but input_indices has $(length(input_indices))"),
+        )
+    end
+    isempty(true_input) || length(true_input) == length(input_indices) || throw(
+        DimensionMismatch(
+            "LinearOperator true_input length mismatch: expected $(length(input_indices)), got $(length(true_input))",
+        ),
+    )
+    isempty(true_output) || length(true_output) == length(output_indices) || throw(
+        DimensionMismatch(
+            "LinearOperator true_output length mismatch: expected $(length(output_indices)), got $(length(true_output))",
+        ),
+    )
     bound_input = isempty(true_input) ? fill(nothing, length(input_indices)) : copy(true_input)
     bound_output = isempty(true_output) ? fill(nothing, length(output_indices)) : copy(true_output)
     return LinearOperator(
@@ -142,28 +162,3 @@ function LinearOperator(;
 end
 
 Base.length(op::LinearOperator) = length(op.input_indices)
-
-"""
-    Base.transpose(op::LinearOperator)
-
-Return the transposed operator by swapping the input/output axis labels.
-
-The pullback of a forward operator is its transpose: if `op` realizes the
-matrix `M[y, x]`, then `transpose(op)` realizes `M[x, y]`. This is an O(1)
-operation — the underlying MPO tensors are not copied; only the
-`input_indices` / `output_indices` and `true_input` / `true_output` vectors
-are swapped.
-
-`transpose(transpose(op))` yields an operator equivalent to `op` (indices and
-bound spaces restored, MPO unchanged).
-"""
-function Base.transpose(op::LinearOperator)
-    return LinearOperator(;
-        mpo=op.mpo,
-        input_indices=op.output_indices,
-        output_indices=op.input_indices,
-        true_input=op.true_output,
-        true_output=op.true_input,
-        metadata=op.metadata,
-    )
-end
