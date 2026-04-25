@@ -13,6 +13,7 @@ export MPS, MPO
 export siteinds, linkinds, linkdims, rank
 export add, dag, dot, evaluate, inner, norm, replace_siteinds, replace_siteinds!, to_dense
 export fixinds, suminds, projectinds, scalar
+export maxlinkdim, data
 export orthogonalize!, truncate!
 
 const ITENSORS_CUTOFF_POLICY = SvdTruncationPolicy(
@@ -254,5 +255,26 @@ function MPO(
     stt = SimpleTT.TensorTrain{T,4}(_raw_mpo_blocks(blocks))
     return MPO(TensorNetworks.TensorTrain(stt, input_sites, output_sites))
 end
+
+"""
+    maxlinkdim(m::MPS) -> Int
+    maxlinkdim(w::MPO) -> Int
+
+Return the maximum bond dimension (link index dimension) of `m` or `w`.
+Equivalent to `rank(m)` / `rank(w)`. Compatible with `ITensorMPS.maxlinkdim`.
+"""
+maxlinkdim(m::MPS) = rank(m)
+maxlinkdim(w::MPO) = rank(w)
+
+"""
+    data(m::MPS) -> Vector{Tensor}
+    data(w::MPO) -> Vector{Tensor}
+    data(tt::TensorTrain) -> Vector{Tensor}
+
+Return the underlying tensor storage vector. Compatible with `ITensors.data`.
+"""
+data(m::MPS) = m.tt.data
+data(w::MPO) = w.tt.data
+data(tt::TensorTrain) = tt.data
 
 end
