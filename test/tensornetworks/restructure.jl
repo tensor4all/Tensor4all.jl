@@ -35,6 +35,17 @@ function _dense_compare(a::Tensor, b::Tensor; rtol::Real=1e-10)
     return isapprox(a, b; rtol=rtol)
 end
 
+function _restruct_edge_counts(tt::TN_RESTRUCT.TensorTrain)
+    edges = Tuple{Int,Int,Int}[]
+    for i in 1:length(tt), j in (i + 1):length(tt)
+        shared = commoninds(inds(tt[i]), inds(tt[j]))
+        isempty(shared) || push!(edges, (i, j, length(shared)))
+    end
+    return edges
+end
+
+_restruct_chain_edge_counts(n::Integer) = [(i, i + 1, 1) for i in 1:(n - 1)]
+
 @testset "TensorTrain restructure" begin
     @testset "fuse_to: pairs adjacent MPS sites" begin
         # Build a 4-site MPS-like chain and fuse it into 2 nodes of 2 sites each.
@@ -132,6 +143,8 @@ end
     end
 
     @testset "restructure_to: split-only path" begin
+        # Regression for Tensor4all.jl#76 / tensor4all-rs#449: the split-only
+        # path must preserve the requested default chain topology.
         sx = [Index(2; tags=["x", "x=$i"]) for i in 1:2]
         sy = [Index(2; tags=["y", "y=$i"]) for i in 1:2]
         tt = _restruct_chain([[sx[1], sy[1]], [sx[2], sy[2]]]; seed=22)
@@ -140,6 +153,8 @@ end
         target_groups = [[sx[1]], [sy[1]], [sx[2]], [sy[2]]]
         result = TN_RESTRUCT.restructure_to(tt, target_groups)
         @test length(result) == 4
+        @test length.(TN_RESTRUCT.siteinds(result)) == fill(1, 4)
+        @test _restruct_edge_counts(result) == _restruct_chain_edge_counts(4)
         @test _dense_compare(before, TN_RESTRUCT.to_dense(result))
     end
 
@@ -158,6 +173,8 @@ end
         interleaved_groups = [[x1], [y1], [x2], [y2]]
         result = TN_RESTRUCT.restructure_to(fused, interleaved_groups)
         @test length(result) == 4
+        @test length.(TN_RESTRUCT.siteinds(result)) == fill(1, 4)
+        @test _restruct_edge_counts(result) == _restruct_chain_edge_counts(4)
         @test _dense_compare(before, TN_RESTRUCT.to_dense(result))
 
         # Round trip: interleaved back to fused must reproduce the original.
