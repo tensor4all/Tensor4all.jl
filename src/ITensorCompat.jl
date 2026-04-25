@@ -1,6 +1,6 @@
 module ITensorCompat
 
-import ..Tensor4all: Index, Tensor, dim, inds, rank, scalar
+import ..Tensor4all: Index, Tensor, dim, rank, scalar
 import ..SimpleTT
 import ..TensorNetworks
 import ..TensorNetworks: TensorTrain
@@ -223,6 +223,18 @@ mutable struct MPO
             ))
         end
         return new(tt)
+    end
+    """
+        MPO(tensors::Vector{Tensor})
+
+    Construct an MPO from an existing vector of `Tensor4all.Tensor` objects.
+    Each tensor must have at least three indices (two site indices and at least
+    one link index). Compatible with the ITensorMPS `MPO(::Vector{ITensor})`
+    constructor.
+    """
+    function MPO(tensors::Vector{<:Tensor})
+        isempty(tensors) && throw(ArgumentError("MPO tensor vector must not be empty"))
+        return MPO(TensorTrain(tensors))
     end
 end
 

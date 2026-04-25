@@ -48,3 +48,21 @@ end
     @test dtt isa Vector{Tensor4all.Tensor}
     @test length(dtt) == 1
 end
+
+@testset "MPO from Tensor vector" begin
+    i1 = Index(2; tags=["i1"]); o1 = Index(2; tags=["o1"])
+    i2 = Index(2; tags=["i2"]); o2 = Index(2; tags=["o2"])
+    l1 = Index(3; tags=["Link", "l=1"])
+    t1 = Tensor(reshape(collect(1.0:12.0), 2, 2, 3), [i1, o1, l1])
+    t2 = Tensor(reshape(collect(1.0:12.0), 3, 2, 2), [l1, i2, o2])
+    w = IC.MPO([t1, t2])
+    @test length(w) == 2
+    @test length(IC.siteinds(w)) == 2
+    @test IC.siteinds(w)[1] == [i1, o1]
+    @test IC.siteinds(w)[2] == [i2, o2]
+    @test IC.data(w)[1] === t1
+
+    # error case: tensor with wrong number of site indices
+    t_bad = Tensor(reshape(collect(1.0:6.0), 3, 2), [l1, i2])
+    @test_throws ArgumentError IC.MPO([t1, t_bad])
+end
