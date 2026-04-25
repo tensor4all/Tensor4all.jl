@@ -128,12 +128,12 @@ function _replace_operator_indices!(
     replacements = _replacement_mapping(oldsites, newsites)
     metadata = getfield(op, field)
     for index in oldsites
-        any(existing -> existing == index, metadata) || throw(
+        any(existing -> _same_index_identity(existing, index), metadata) || throw(
             ArgumentError("operator $(field) index $index does not occur in LinearOperator metadata"),
         )
     end
     replace_siteinds!(op.mpo, oldsites, newsites)
-    setfield!(op, field, [get(replacements, index, index) for index in metadata])
+    setfield!(op, field, [_replacement_for_index(index, replacements) for index in metadata])
     return _invalidate_operator_mpo!(op)
 end
 

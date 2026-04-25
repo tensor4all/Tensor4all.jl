@@ -124,4 +124,20 @@ end
         @test op.output_indices[end] == new_output
         @test new_output in _opmutation_siteinds_by_tensor(op.mpo)[end]
     end
+
+    @testset "index replacement matches operator metadata by identity" begin
+        op = _opmutation_identity_op(2)
+        old_input = op.input_indices[2]
+        metadata_copy = Index(
+            dim(old_input);
+            tags=["metadata-only"],
+            plev=plev(old_input),
+            id=id(old_input),
+        )
+        new_input = Index(dim(old_input); tags=["identity-renamed-in"])
+
+        @test TN_OPMUT.replace_operator_input_indices!(op, [metadata_copy], [new_input]) === op
+        @test op.input_indices[2] == new_input
+        @test new_input in _opmutation_siteinds_by_tensor(op.mpo)[2]
+    end
 end

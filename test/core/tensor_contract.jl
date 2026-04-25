@@ -33,4 +33,16 @@ using Tensor4all
         @test inds(result) == [i, j]
         @test result.data ≈ collect(1.0:2.0) * transpose(collect(1.0:3.0))
     end
+
+    @testset "index tags round-trip through backend with ITensors rules" begin
+        csv_tag = Index(2; tags=["d=1,r=1"])
+        unicode_space_tag = Index(3, "a\u3000b")
+        a = Tensor(collect(1.0:2.0), [csv_tag])
+        b = Tensor(collect(1.0:3.0), [unicode_space_tag])
+
+        result = contract(a, b)
+        @test inds(result) == [csv_tag, unicode_space_tag]
+        @test tags(inds(result)[1]) == ["d=1", "r=1"]
+        @test tags(inds(result)[2]) == ["a\u3000b"]
+    end
 end

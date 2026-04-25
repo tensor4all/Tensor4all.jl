@@ -1,11 +1,15 @@
 _query_indices(index::Index) = Index[index]
 _query_indices(indices::AbstractVector{<:Index}) = collect(indices)
 
+_index_identity_key(index::Index) = (id(index), plev(index), dim(index))
+_same_index_identity(a::Index, b::Index) = _index_identity_key(a) == _index_identity_key(b)
+
 function _index_counts(tt::TensorTrain)
-    counts = Dict{Index, Int}()
+    counts = Dict{Tuple{UInt64, Int, Int}, Int}()
     for tensor in tt
         for index in inds(tensor)
-            counts[index] = get(counts, index, 0) + 1
+            key = _index_identity_key(index)
+            counts[key] = get(counts, key, 0) + 1
         end
     end
     return counts
@@ -16,7 +20,7 @@ function _siteinds_by_tensor(tt::TensorTrain)
     siteinds = [Index[] for _ in tt.data]
     for (position, tensor) in pairs(tt.data)
         for index in inds(tensor)
-            counts[index] == 1 || continue
+            counts[_index_identity_key(index)] == 1 || continue
             hastag(index, _LINK_TAG) && continue
             push!(siteinds[position], index)
         end
@@ -35,6 +39,7 @@ function _siteinds_with_positions(tt::TensorTrain)
 end
 
 _siteind_set(tt::TensorTrain) = Set(last.(_siteinds_with_positions(tt)))
+_siteind_identity_set(tt::TensorTrain) = Set(_index_identity_key(index) for (_, index) in _siteinds_with_positions(tt))
 
 function _validate_scan_tag(tag::AbstractString)
     occursin('=', tag) && throw(
@@ -68,9 +73,10 @@ end
 
 function _tensor_positions_with_indices(tt::TensorTrain, query_indices::AbstractVector{<:Index})
     positions = Int[]
+    query_keys = Set(_index_identity_key.(query_indices))
     for (position, tensor) in pairs(tt.data)
         tensor_indices = inds(tensor)
-        any(index -> index in tensor_indices, query_indices) || continue
+        any(index -> _index_identity_key(index) in query_keys, tensor_indices) || continue
         push!(positions, position)
     end
     return positions
@@ -82,47 +88,65 @@ function _replacement_mapping(oldsites::AbstractVector{<:Index}, newsites::Abstr
             "Length mismatch: got $(length(oldsites)) old site indices and $(length(newsites)) new site indices",
         ),
     )
-    length(Set(oldsites)) == length(oldsites) || throw(
+    old_keys = _index_identity_key.(oldsites)
+    length(Set(old_keys)) == length(oldsites) || throw(
         ArgumentError("duplicate old site indices are not allowed in replace_siteinds"),
     )
-    return Dict(oldsites .=> newsites)
+    for (old, new) in zip(oldsites, newsites)
+        dim(old) == dim(new) || throw(ArgumentError(
+            "Cannot replace index $old (dim=$(dim(old))) with $new (dim=$(dim(new))); dimensions must match",
+        ))
+    end
+    return Dict(old_keys .=> newsites)
 end
 
 function _ensure_replacement_targets_exist(tt::TensorTrain, oldsites::AbstractVector{<:Index})
-    present = Set{Index}()
-    siteinds = _siteind_set(tt)
+    present = Set{Tuple{UInt64, Int, Int}}()
+    siteinds = _siteind_identity_set(tt)
     for tensor in tt
-        union!(present, inds(tensor))
+        union!(present, _index_identity_key.(inds(tensor)))
     end
     for index in oldsites
-        index in present || throw(ArgumentError("Not found: index $index does not occur in TensorTrain"))
-        index in siteinds || throw(
+        key = _index_identity_key(index)
+        key in present || throw(ArgumentError("Not found: index $index does not occur in TensorTrain"))
+        key in siteinds || throw(
             ArgumentError("Expected a site-like index in replace_siteinds, got non-site index $index"),
         )
     end
     return nothing
 end
 
-function _replace_tensor_indices(tensor::Tensor, replacements::Dict{Index, Index})
+function _replacement_for_index(index::Index, replacements::Dict{Tuple{UInt64, Int, Int}, Index})
+    key = _index_identity_key(index)
+    haskey(replacements, key) || return index
+    replacement = replacements[key]
+    dim(index) == dim(replacement) || throw(ArgumentError(
+        "Cannot replace index $index (dim=$(dim(index))) with $replacement (dim=$(dim(replacement))); dimensions must match",
+    ))
+    return replacement
+end
+
+function _replace_tensor_indices(tensor::Tensor, replacements::Dict{Tuple{UInt64, Int, Int}, Index})
     current_indices = inds(tensor)
     changed = false
     new_indices = map(current_indices) do index
-        if haskey(replacements, index)
+        replacement = _replacement_for_index(index, replacements)
+        if replacement != index
             changed = true
-            return replacements[index]
         end
-        return index
+        return replacement
     end
     return changed ? Tensor(tensor.data, new_indices; backend_handle=tensor.backend_handle) : tensor
 end
 
-function _replace_tensor_indices!(tensor::Tensor, replacements::Dict{Index, Index})
+function _replace_tensor_indices!(tensor::Tensor, replacements::Dict{Tuple{UInt64, Int, Int}, Index})
     old = Index[]
     new = Index[]
     for index in inds(tensor)
-        haskey(replacements, index) || continue
+        replacement = _replacement_for_index(index, replacements)
+        replacement == index && continue
         push!(old, index)
-        push!(new, replacements[index])
+        push!(new, replacement)
     end
     isempty(old) && return tensor
     return replaceinds!(tensor, old, new)

@@ -159,8 +159,7 @@ function _release_treetn_handle(ptr::Ptr{Cvoid})
 end
 
 function _split_tags_csv(csv::AbstractString)
-    isempty(csv) && return String[]
-    return split(csv, ',')
+    return _normalize_tags(csv)
 end
 
 function _new_index_handle(index::Index)
