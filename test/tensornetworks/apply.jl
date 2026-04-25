@@ -3,59 +3,7 @@ using Tensor4all
 
 const TN = Tensor4all.TensorNetworks
 
-_prod_dims(xs) = isempty(xs) ? 1 : prod(xs)
-
-function _dense_contract(
-    a::AbstractArray,
-    ainds::Vector{Index},
-    b::AbstractArray,
-    binds::Vector{Index},
-)
-    common = [index for index in ainds if index in binds]
-    a_common_axes = [findfirst(==(index), ainds) for index in common]
-    b_common_axes = [findfirst(==(index), binds) for index in common]
-    a_rest_axes = [axis for axis in eachindex(ainds) if axis ∉ a_common_axes]
-    b_rest_axes = [axis for axis in eachindex(binds) if axis ∉ b_common_axes]
-
-    amat = reshape(
-        permutedims(a, (a_rest_axes..., a_common_axes...)),
-        _prod_dims(size(a)[a_rest_axes]),
-        _prod_dims(size(a)[a_common_axes]),
-    )
-    bmat = reshape(
-        permutedims(b, (b_common_axes..., b_rest_axes...)),
-        _prod_dims(size(b)[b_common_axes]),
-        _prod_dims(size(b)[b_rest_axes]),
-    )
-
-    data = reshape(
-        amat * bmat,
-        size(a)[a_rest_axes]...,
-        size(b)[b_rest_axes]...,
-    )
-    return data, [ainds[a_rest_axes]..., binds[b_rest_axes]...]
-end
-
-function dense_tensor(tt::TN.TensorTrain, target_inds::Vector{Index})
-    data = copy(tt[1].data)
-    current_inds = inds(tt[1])
-    for n in 2:length(tt)
-        data, current_inds = _dense_contract(data, current_inds, tt[n].data, inds(tt[n]))
-    end
-
-    boundary_axes = [axis for (axis, index) in pairs(current_inds) if hastag(index, "Link")]
-    if !isempty(boundary_axes)
-        data = dropdims(data; dims=Tuple(boundary_axes))
-        current_inds = [index for index in current_inds if !hastag(index, "Link")]
-    end
-
-    permutation = map(target_inds) do index
-        axis = findfirst(==(index), current_inds)
-        axis === nothing && error("Target index $index not found")
-        axis
-    end
-    return permutedims(data, Tuple(permutation))
-end
+include("dense_helpers.jl")
 
 function simple_state(sites::Vector{Index})
     links = [
@@ -112,7 +60,7 @@ end
     result = TN.apply(op, state)
 
     @test TN.findallsiteinds_by_tag(result; tag="y") == output_true
-    @test dense_tensor(result, output_true) ≈ dense_tensor(state, input_sites)
+    @test tn_test_dense_tensor(result, output_true) ≈ tn_test_dense_tensor(state, input_sites)
 
     internal_in = Index(2; tags=["ain", "ain=2"])
     internal_out = Index(2; tags=["aout", "aout=2"])
@@ -122,11 +70,11 @@ end
     TN.set_iospaces!(partial, [input_sites[2]], [partial_output])
 
     partial_result = TN.apply(partial, state)
-    expected_partial = apply_matrix_on_last_axis(dense_tensor(state, input_sites), local_matrix)
+    expected_partial = apply_matrix_on_last_axis(tn_test_dense_tensor(state, input_sites), local_matrix)
 
-    @test dense_tensor(partial_result, [input_sites[1], partial_output]) ≈ expected_partial
+    @test tn_test_dense_tensor(partial_result, [input_sites[1], partial_output]) ≈ expected_partial
 
     pol = TN.SvdTruncationPolicy()
     result_pol = TN.apply(op, state; threshold=1e-12, svd_policy=pol)
-    @test dense_tensor(result_pol, output_true) ≈ dense_tensor(state, input_sites)
+    @test tn_test_dense_tensor(result_pol, output_true) ≈ tn_test_dense_tensor(state, input_sites)
 end

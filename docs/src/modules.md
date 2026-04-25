@@ -8,8 +8,10 @@ The restored Julia frontend is layered like this:
 Core (Index, Tensor)
   ↓                ↓
 TensorNetworks     SimpleTT
-  ↓                ↑
-QuanticsTransform  TensorCI
+  ↓      ↓         ↑
+ITensorCompat      TensorCI
+  ↓
+QuanticsTransform
 
 Adopted wrapper modules:
 - QuanticsGrids
@@ -25,6 +27,7 @@ wrapper modules, but they are not owned by `Tensor4all.jl`.
 |------|----------------|---------------|
 | `Core` | `Index`, `Tensor`, base metadata behavior | implemented |
 | `TensorNetworks` | indexed chain wrapper, helper surface, operator boundary | implemented as public chain layer |
+| `ITensorCompat` | opt-in ITensors/ITensorMPS migration facade over `TensorNetworks.TensorTrain` | implemented |
 | `SimpleTT` | raw-array tensor trains, compression, MPO contraction | implemented |
 | `TensorCI` | interpolation boundary returning `TensorCI2` | implemented as adapter layer |
 | `QuanticsGrids` | adopted grid re-export layer | implemented |
@@ -40,8 +43,13 @@ wrapper modules, but they are not owned by `Tensor4all.jl`.
 - `SimpleTT` owns raw-array numerics.
 - `TensorNetworks` adds index semantics, chain helpers, `LinearOperator`,
   `apply`, and HDF5 interoperability.
+- `ITensorCompat` provides source-compatibility wrappers such as `MPS` and
+  `MPO`; it does not replace `TensorNetworks.TensorTrain`.
 - The broader chain-helper surface in `TensorNetworks` is implemented in pure
   Julia.
+- `ITensorCompat` forwards to `TensorNetworks`; it is cutoff-only for
+  truncation and does not replace the native `threshold` / `svd_policy`
+  controls.
 - Operator-space setters are explicit `Vector{Index}` APIs rather than
   TensorTrain-driven auto-binding.
 - The Julia-facing C API target is reduced and chain-oriented.
@@ -60,6 +68,11 @@ The codebase has two separate tensor-train types:
 There is currently no automatic conversion between the two types. They serve
 different purposes in the module hierarchy: `SimpleTT` handles numerics,
 `TensorNetworks` handles indexed semantics.
+
+`ITensorCompat.MPS` and `ITensorCompat.MPO` wrap `TensorNetworks.TensorTrain`
+for migration-oriented workflows. Raw MPS blocks use `(left_link, site,
+right_link)` order; raw MPO blocks use `(left_link, input_site, output_site,
+right_link)` order.
 
 ## Still Deferred
 

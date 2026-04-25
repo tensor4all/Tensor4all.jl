@@ -116,6 +116,18 @@ function _replace_tensor_indices(tensor::Tensor, replacements::Dict{Index, Index
     return changed ? Tensor(tensor.data, new_indices; backend_handle=tensor.backend_handle) : tensor
 end
 
+function _replace_tensor_indices!(tensor::Tensor, replacements::Dict{Index, Index})
+    old = Index[]
+    new = Index[]
+    for index in inds(tensor)
+        haskey(replacements, index) || continue
+        push!(old, index)
+        push!(new, replacements[index])
+    end
+    isempty(old) && return tensor
+    return replaceinds!(tensor, old, new)
+end
+
 _copy_tensor(tensor::Tensor) = Tensor(tensor.data, inds(tensor); backend_handle=tensor.backend_handle)
 _copy_train(tt::TensorTrain) = TensorTrain([_copy_tensor(tensor) for tensor in tt.data], tt.llim, tt.rlim)
 
@@ -188,7 +200,7 @@ function replace_siteinds!(
     replacements = _replacement_mapping(oldsites, newsites)
     _ensure_replacement_targets_exist(tt, oldsites)
     for index in eachindex(tt.data)
-        tt.data[index] = _replace_tensor_indices(tt.data[index], replacements)
+        _replace_tensor_indices!(tt.data[index], replacements)
     end
     return tt
 end

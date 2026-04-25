@@ -172,6 +172,17 @@ Return the transposed operator by swapping internal input/output spaces,
 bound true spaces, and the corresponding physical tensor axes.
 """
 function Base.transpose(op::LinearOperator)
+    if op.mpo === nothing
+        return LinearOperator(;
+            mpo=nothing,
+            input_indices=op.output_indices,
+            output_indices=op.input_indices,
+            true_input=op.true_output,
+            true_output=op.true_input,
+            metadata=op.metadata,
+        )
+    end
+
     mpo = _validate_operator_metadata(op, "transpose")
     tensors = Tensor[]
     for position in eachindex(mpo.data)

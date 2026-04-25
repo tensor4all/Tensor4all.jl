@@ -88,6 +88,30 @@ end
         )
     end
 
+    @testset "affine_operator_multivar" begin
+        # 2D swap matrix A = [[0, 1], [1, 0]], b = 0. Forward swap of variables.
+        op_swap = QT.affine_operator_multivar(
+            1,
+            [0, 1, 1, 0],
+            [1, 1, 1, 1],
+            [0, 0],
+            [1, 1],
+            2,
+            2;
+            bc=[:periodic, :periodic],
+        )
+        @test op_swap.mpo !== nothing
+        @test length(op_swap.input_indices) == length(op_swap.output_indices)
+
+        # Argument validation
+        @test_throws DimensionMismatch QT.affine_operator_multivar(
+            1, [0, 1], [1, 1], [0], [1], 2, 2,
+        )  # a wrong length
+        @test_throws ArgumentError QT.affine_operator_multivar(
+            1, [0], [1], [0], [1], 0, 1,
+        )  # m == 0
+    end
+
     @testset "multivar operators" begin
         @testset "shift_operator_multivar" begin
             op = QT.shift_operator_multivar(2, 1, 2, 1; bc=:periodic)
@@ -187,6 +211,23 @@ end
         @test_throws ArgumentError QT.affine_pullback_operator_multivar(
             1, [0], [1], [0], [1], 0, 1,
         )  # m == 0
+
+        @testset "pullback == transpose(forward) via field swap" begin
+            # Simple 1D forward y = x + 3, r=2 (dim 4).
+            r = 2
+            a_num, a_den, b_num, b_den = 1, 1, 3, 1
+            forward = QT.affine_operator(r, a_num, a_den, b_num, b_den; bc=:periodic)
+            pullback = QT.affine_pullback_operator(r, a_num, a_den, b_num, b_den; bc=:periodic)
+
+            # pullback.input_indices should correspond to forward.output_indices (swap).
+            @test length(pullback.input_indices) == length(forward.output_indices)
+            @test length(pullback.output_indices) == length(forward.input_indices)
+            # Per-site dimensions consistent with transpose.
+            @test [dim(i) for i in pullback.input_indices] ==
+                  [dim(i) for i in forward.output_indices]
+            @test [dim(i) for i in pullback.output_indices] ==
+                  [dim(i) for i in forward.input_indices]
+        end
     end
 
     @testset "unfuse_quantics_operator" begin

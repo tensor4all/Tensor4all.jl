@@ -23,3 +23,50 @@ using Tensor4all
     @test Tensor4all.commoninds(xs, ys) == [j, ip]
     @test Tensor4all.uniqueinds(xs, ys) == [i]
 end
+
+@testset "ITensors-style Index constructor" begin
+    i = Tensor4all.Index(3, "x")
+    @test Tensor4all.dim(i) == 3
+    @test Tensor4all.tags(i) == ["x"]
+
+    j = Tensor4all.Index(4, "x,y"; plev=2)
+    @test Tensor4all.dim(j) == 4
+    @test Tensor4all.tags(j) == ["x", "y"]
+    @test Tensor4all.plev(j) == 2
+
+    k = Tensor4all.Index(5; tags="site, n=1")
+    @test Tensor4all.tags(k) == ["site", "n=1"]
+
+    mixed = Tensor4all.Index(6, "x=1, y=2 z=3")
+    @test Tensor4all.tags(mixed) == ["x=1", "y=2", "z=3"]
+
+    unicode = Tensor4all.Index(7, "スピン=↑, サイト=1")
+    @test Tensor4all.tags(unicode) == ["スピン=↑", "サイト=1"]
+
+    unicode_space = Tensor4all.Index(8, "α=1　β=2")
+    @test Tensor4all.tags(unicode_space) == ["α=1", "β=2"]
+end
+
+@testset "Index replacement compatibility" begin
+    i = Tensor4all.Index(2; tags=["i"])
+    j = Tensor4all.Index(3; tags=["j"])
+    ip = Tensor4all.Index(2; tags=["ip"])
+    jp = Tensor4all.Index(3; tags=["jp"])
+    bad = Tensor4all.Index(5; tags=["bad"])
+    missing = Tensor4all.Index(2; tags=["missing"])
+
+    xs = [i, j]
+    @test Tensor4all.replaceind(xs, i, ip) == [ip, j]
+    @test Tensor4all.replaceind(xs, i => ip) == [ip, j]
+    @test Tensor4all.replaceinds(xs, i => ip, j => jp) == [ip, jp]
+    @test Tensor4all.replaceinds(xs) == xs
+    @test Tensor4all.replaceinds(xs, ()) == xs
+    @test Tensor4all.replaceinds(xs, [i], [ip]) == [ip, j]
+    @test Tensor4all.replaceinds(xs, [missing], [ip]) == xs
+    @test_throws ArgumentError Tensor4all.replaceinds(xs, [i], [bad])
+
+    a = Tensor4all.Index(2; tags=["a"])
+    b = Tensor4all.Index(2; tags=["b"])
+    ap = Tensor4all.Index(2; tags=["ap"])
+    @test Tensor4all.replaceinds([a, b], a => b, b => ap) == [b, ap]
+end

@@ -6,19 +6,22 @@ import LinearAlgebra: norm
 import Random
 import Random: AbstractRNG
 import ScopedValues
-import ..Tensor4all: dag, contract
-using ..Tensor4all: BackendUnavailableError, Index, Tensor, SkeletonNotImplemented, commoninds, dim, hastag, id, inds, plev, prime, rank, require_backend, tags
+import ..Tensor4all: dag, contract, fixinds, suminds, projectinds
+using ..Tensor4all: BackendUnavailableError, Index, Tensor, StructuredTensorStorage, SkeletonNotImplemented, commoninds, delta, dim, hastag, id, inds, plev, prime, rank, replaceinds!, require_backend, tags
 import ..SimpleTT
 
 const _LINK_TAG = "Link"
 
 export TensorTrain, LinearOperator, SvdTruncationPolicy
+export invalidate_canonical!, replaceblock!, insert_site!, delete_site!
 export default_svd_policy, set_default_svd_policy!, with_svd_policy
 export add, dag, dot, inner, dist
 export linkinds, linkdims, siteinds
 export norm
 export orthogonalize, truncate
 export to_dense, evaluate, random_tt
+export fixinds, suminds, projectinds
+export identity_link_tensor, insert_identity!
 export set_input_space!, set_output_space!, set_iospaces!, apply, linsolve
 export findsite, findsites, findallsiteinds_by_tag, findallsites_by_tag
 export replace_siteinds!, replace_siteinds, replace_siteinds_part!
@@ -35,6 +38,8 @@ include("TensorNetworks/matchsiteinds.jl")
 include("TensorNetworks/operator_canonical.jl")
 include("TensorNetworks/operator_mutations.jl")
 include("TensorNetworks/transforms.jl")
+include("TensorNetworks/index_ops.jl")
+include("TensorNetworks/identity_helpers.jl")
 include("TensorNetworks/backend/capi.jl")
 include("TensorNetworks/truncation_policy.jl")
 include("TensorNetworks/backend/tensors.jl")

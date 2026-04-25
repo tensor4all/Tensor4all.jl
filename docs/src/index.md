@@ -8,6 +8,7 @@ than the removed TreeTN-first layout.
 ## Primary Public Modules
 
 - `TensorNetworks` for indexed chain objects
+- `ITensorCompat` as an opt-in ITensors/ITensorMPS migration facade
 - `SimpleTT` for raw-array tensor trains
 - `TensorCI` for cross interpolation that returns `TensorCI2`
 - `QuanticsGrids` as the adopted grid re-export layer
@@ -20,6 +21,8 @@ than the removed TreeTN-first layout.
   `Vector{Tensor}` plus `llim` / `rlim`.
 - `TensorNetworks.LinearOperator` and `TensorNetworks.apply` are the generic
   operator/application boundary.
+- `ITensorCompat.MPS` and `ITensorCompat.MPO` wrap `TensorNetworks.TensorTrain`
+  for ITensors-style migration code while keeping `TensorNetworks` canonical.
 - `SimpleTT.TensorTrain{T,N}` owns raw-array compression and MPO contraction.
 - `TensorCI.crossinterpolate2` returns `TensorCI2` for the supported multi-site
   path.
@@ -27,6 +30,9 @@ than the removed TreeTN-first layout.
   form.
 - HDF5 interoperability is provided in pure Julia through `save_as_mps` and
   `load_tt`.
+- `ITensorCompat` forwards to `TensorNetworks`; truncation is cutoff-only
+  there, while native `threshold` / `svd_policy` controls remain in
+  `TensorNetworks`.
 
 ## Still Missing
 

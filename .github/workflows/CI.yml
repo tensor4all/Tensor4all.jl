@@ -14,18 +14,20 @@ jobs:
   test:
     name: Julia ${{ matrix.julia-version }} - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         julia-version:
-          - '1.10'
-          - '1.11'
+          - 'lts'
+          - '1'
         os:
           - ubuntu-latest
           - macos-latest
         include:
           - os: ubuntu-latest
-            julia-version: '1.10'
+            julia-version: 'lts'
             coverage: true
 
     steps:
@@ -39,12 +41,23 @@ jobs:
 
       - name: Checkout tensor4all-rs backend
         run: |
-          git clone https://github.com/tensor4all/tensor4all-rs.git ../tensor4all-rs
+          git clone --filter=blob:none https://github.com/tensor4all/tensor4all-rs.git ../tensor4all-rs
           git -C ../tensor4all-rs checkout "$(cat deps/TENSOR4ALL_RS_PIN)"
+
+      # rust-cache runs cargo metadata and keys on rustc; install toolchain before Swatinem/rust-cache.
+      # RustToolChain.jl typically uses rustup/cargo on PATH when present.
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust/Cargo (tensor4all-rs)
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            ../tensor4all-rs
+          key: tensor4all-rs-${{ hashFiles('deps/TENSOR4ALL_RS_PIN') }}
 
       # HDF5 is loaded at runtime from HDF5.jl (no system installation needed)
 
-      - name: Build and test
+      - name: Build
         env:
           TENSOR4ALL_RS_PATH: ${{ github.workspace }}/../tensor4all-rs
         run: |
@@ -52,7 +65,17 @@ jobs:
             using Pkg
             Pkg.instantiate()
             Pkg.build()
-            Pkg.test()
+          '
+
+      - name: Test
+        env:
+          TENSOR4ALL_RS_PATH: ${{ github.workspace }}/../tensor4all-rs
+          CI_COVERAGE: ${{ matrix.coverage == true && 'true' || 'false' }}
+        run: |
+          julia --project=. -e '
+            using Pkg
+            cov = get(ENV, "CI_COVERAGE", "false") == "true"
+            Pkg.test(; coverage=cov)
           '
 
       - name: Process coverage

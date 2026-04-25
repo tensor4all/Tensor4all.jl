@@ -17,6 +17,8 @@ makedocs(
     format=Documenter.HTML(
         prettyurls=get(ENV, "CI", "false") == "true",
         canonical="https://tensor4all.github.io/Tensor4all.jl",
+        size_threshold_warn=150 * 2^10,
     ),
+    checkdocs=:exports,
     warnonly=[:missing_docs],
 )

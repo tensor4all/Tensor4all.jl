@@ -186,51 +186,6 @@ end
 
 function _materialize_affine(
     layout_handle::Ptr{Cvoid},
-    a_num,
-    a_den,
-    b_num,
-    b_den,
-    bc::Symbol,
-    context::AbstractString,
-)
-    _require_nonzero_integer("a_den", a_den)
-    _require_nonzero_integer("b_den", b_den)
-
-    a_num_c = Int64[Int64(a_num)]
-    a_den_c = Int64[Int64(a_den)]
-    b_num_c = Int64[Int64(b_num)]
-    b_den_c = Int64[Int64(b_den)]
-    bc_c = Cint[_bc_code(bc)]
-    return _materialize_single_target(context) do out
-        ccall(
-            TensorNetworks._t4a(:t4a_qtransform_affine_materialize),
-            Cint,
-            (
-                Ptr{Cvoid},
-                Ptr{Int64},
-                Ptr{Int64},
-                Ptr{Int64},
-                Ptr{Int64},
-                Csize_t,
-                Csize_t,
-                Ptr{Cint},
-                Ref{Ptr{Cvoid}},
-            ),
-            layout_handle,
-            a_num_c,
-            a_den_c,
-            b_num_c,
-            b_den_c,
-            Csize_t(1),
-            Csize_t(1),
-            bc_c,
-            out,
-        )
-    end
-end
-
-function _materialize_affine_pullback(
-    layout_handle::Ptr{Cvoid},
     a_num::AbstractVector{<:Integer},
     a_den::AbstractVector{<:Integer},
     b_num::AbstractVector{<:Integer},
@@ -265,7 +220,7 @@ function _materialize_affine_pullback(
     bc_c = Cint[_bc_code(b) for b in bc]
     return _materialize_single_target(context) do out
         ccall(
-            TensorNetworks._t4a(:t4a_qtransform_affine_pullback_materialize),
+            TensorNetworks._t4a(:t4a_qtransform_affine_materialize),
             Cint,
             (
                 Ptr{Cvoid},

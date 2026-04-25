@@ -2,8 +2,15 @@ const _next_index_id = Ref{UInt64}(0)
 
 next_index_id() = (_next_index_id[] += UInt64(1))
 
+function _normalize_tags(tags::AbstractString)
+    return filter(!isempty, strip.(split(String(tags), r"[,\s]+")))
+end
+
+_normalize_tags(tags::AbstractVector{<:AbstractString}) = collect(String.(tags))
+
 """
     Index(dim; tags=String[], plev=0, id=next_index_id(), backend_handle=nothing)
+    Index(dim, tags; plev=0, id=next_index_id(), backend_handle=nothing)
 
 Create a Julia-side review skeleton for an indexed tensor leg.
 
@@ -31,7 +38,7 @@ end
 
 function Index(
     dim::Integer;
-    tags::AbstractVector{<:AbstractString}=String[],
+    tags::Union{AbstractVector{<:AbstractString},AbstractString}=String[],
     plev::Integer=0,
     id::Integer=next_index_id(),
     backend_handle::Union{Nothing,Ptr{Cvoid}}=nothing,
@@ -42,10 +49,20 @@ function Index(
     return Index(
         Int(dim),
         UInt64(id),
-        collect(String.(tags)),
+        _normalize_tags(tags),
         Int(plev),
         backend_handle,
     )
+end
+
+function Index(
+    dim::Integer,
+    tag::AbstractString;
+    tags::Union{Nothing,AbstractVector{<:AbstractString},AbstractString}=nothing,
+    kwargs...,
+)
+    tag_list = tags === nothing ? _normalize_tags(tag) : _normalize_tags(tags)
+    return Index(dim; tags=tag_list, kwargs...)
 end
 
 """
@@ -82,6 +99,15 @@ plev(i::Index) = i.plev
 Return `true` when `tag` is attached to `i`.
 """
 hastag(i::Index, tag::AbstractString) = String(tag) in i.tags
+
+"""
+    tagstring(tags)
+    tagstring(i)
+
+Return comma-separated tag text, or `"-"` when no tags are present.
+"""
+tagstring(tags::AbstractVector{<:AbstractString}) = isempty(tags) ? "-" : join(String.(tags), ",")
+tagstring(i::Index) = tagstring(tags(i))
 
 """
     sim(i)
@@ -128,8 +154,7 @@ Base.:(==)(a::Index, b::Index) = (
 Base.hash(i::Index, h::UInt) = hash((i.dim, i.id, i.tags, i.plev), h)
 
 function Base.show(io::IO, i::Index)
-    tagstring = isempty(i.tags) ? "-" : join(i.tags, ",")
-    print(io, "Index(", dim(i), "|", tagstring, "; plev=", plev(i), ")")
+    print(io, "Index(", dim(i), "|", tagstring(i), "; plev=", plev(i), ")")
 end
 
 """
@@ -137,17 +162,72 @@ end
 
 Replace `old` by `new` in the index collection `xs`.
 """
-replaceind(xs::AbstractVector{Index}, old::Index, new::Index) = [x == old ? new : x for x in xs]
+function replaceind(xs::AbstractVector{Index}, old::Index, new::Index)
+    return _replaceinds_impl(xs, (old,), (new,))
+end
+
+replaceind(xs::AbstractVector{Index}, replacement::Pair{Index,Index}) = replaceind(
+    xs,
+    first(replacement),
+    last(replacement),
+)
 
 """
     replaceinds(xs, replacements...)
 
-Apply multiple index replacements in sequence to `xs`.
+Apply multiple index replacements to `xs`, resolving matches against the
+original index collection.
 """
+replaceinds(xs::AbstractVector{Index}) = collect(xs)
+replaceinds(xs::AbstractVector{Index}, replacements::Tuple{}) = collect(xs)
+
 function replaceinds(xs::AbstractVector{Index}, replacements::Pair{Index,Index}...)
+    return _replaceinds_impl(xs, first.(replacements), last.(replacements))
+end
+
+function replaceinds(
+    xs::AbstractVector{Index},
+    oldinds::AbstractVector{Index},
+    newinds::AbstractVector{Index},
+)
+    return _replaceinds_impl(xs, oldinds, newinds)
+end
+
+function replaceinds(
+    xs::AbstractVector{Index},
+    oldinds::Tuple{Vararg{Index}},
+    newinds::Tuple{Vararg{Index}},
+)
+    return _replaceinds_impl(xs, oldinds, newinds)
+end
+
+function _replaceinds_impl(
+    xs::AbstractVector{Index},
+    oldinds::Tuple{Vararg{Index}},
+    newinds::Tuple{Vararg{Index}},
+)
+    return _replaceinds_impl(xs, collect(oldinds), collect(newinds))
+end
+
+function _replaceinds_impl(
+    xs::AbstractVector{Index},
+    oldinds::AbstractVector{Index},
+    newinds::AbstractVector{Index},
+)
+    length(oldinds) == length(newinds) || throw(DimensionMismatch(
+        "replaceinds requires matching replacement lengths, got $(length(oldinds)) old indices and $(length(newinds)) new indices",
+    ))
+
     ys = collect(xs)
-    for (old, new) in replacements
-        ys = replaceind(ys, old, new)
+    for (position, current) in pairs(xs)
+        match = findfirst(==(current), oldinds)
+        isnothing(match) && continue
+
+        replacement = newinds[match]
+        dim(current) == dim(replacement) || throw(ArgumentError(
+            "Cannot replace index $current (dim=$(dim(current))) with $replacement (dim=$(dim(replacement))); dimensions must match",
+        ))
+        ys[position] = replacement
     end
     return ys
 end
