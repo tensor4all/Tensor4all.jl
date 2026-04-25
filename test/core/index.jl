@@ -6,7 +6,7 @@ using Tensor4all
     j = Tensor4all.sim(i)
 
     @test Tensor4all.dim(i) == 4
-    @test Tensor4all.tags(i) == ["x", "site"]
+    @test Tensor4all.tags(i) == ["site", "x"]
     @test Tensor4all.plev(i) == 1
     @test Tensor4all.hastag(i, "x")
     @test Tensor4all.id(i) != Tensor4all.id(j)
@@ -35,16 +35,25 @@ end
     @test Tensor4all.plev(j) == 2
 
     k = Tensor4all.Index(5; tags="site, n=1")
-    @test Tensor4all.tags(k) == ["site", "n=1"]
+    @test Tensor4all.tags(k) == ["n=1", "site"]
 
     mixed = Tensor4all.Index(6, "x=1, y=2 z=3")
-    @test Tensor4all.tags(mixed) == ["x=1", "y=2", "z=3"]
+    @test Tensor4all.tags(mixed) == ["x=1", "y=2z=3"]
 
     unicode = Tensor4all.Index(7, "スピン=↑, サイト=1")
-    @test Tensor4all.tags(unicode) == ["スピン=↑", "サイト=1"]
+    @test Tensor4all.tags(unicode) == ["サイト=1", "スピン=↑"]
 
     unicode_space = Tensor4all.Index(8, "α=1　β=2")
-    @test Tensor4all.tags(unicode_space) == ["α=1", "β=2"]
+    @test Tensor4all.tags(unicode_space) == ["α=1　β=2"]
+
+    vector_csv = Tensor4all.Index(9; tags=["d=1,r=1"])
+    @test Tensor4all.tags(vector_csv) == ["d=1", "r=1"]
+
+    dedup_sorted = Tensor4all.Index(10, "b,a,a")
+    @test Tensor4all.tags(dedup_sorted) == ["a", "b"]
+
+    whitespace_corners = Tensor4all.Index(11, "a\tb, c\u00a0d, e\u3000f")
+    @test Tensor4all.tags(whitespace_corners) == ["a\tb", "c\u00a0d", "e\u3000f"]
 end
 
 @testset "Index replacement compatibility" begin

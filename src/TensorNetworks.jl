@@ -7,7 +7,7 @@ import Random
 import Random: AbstractRNG
 import ScopedValues
 import ..Tensor4all: dag, contract, fixinds, suminds, projectinds
-using ..Tensor4all: BackendUnavailableError, Index, Tensor, StructuredTensorStorage, SkeletonNotImplemented, commoninds, delta, dim, hastag, id, inds, plev, prime, rank, replaceinds!, require_backend, tags
+using ..Tensor4all: BackendUnavailableError, Index, Tensor, StructuredTensorStorage, SkeletonNotImplemented, _normalize_tags, commoninds, delta, dim, hastag, id, inds, plev, prime, rank, replaceinds!, require_backend, tags
 import ..SimpleTT
 
 const _LINK_TAG = "Link"

@@ -3,10 +3,24 @@ const _next_index_id = Ref{UInt64}(0)
 next_index_id() = (_next_index_id[] += UInt64(1))
 
 function _normalize_tags(tags::AbstractString)
-    return filter(!isempty, strip.(split(String(tags), r"[,\s]+")))
+    normalized = String[]
+    current = IOBuffer()
+    for char in String(tags)
+        if char == ','
+            tag = String(take!(current))
+            isempty(tag) || push!(normalized, tag)
+        elseif char != ' '
+            print(current, char)
+        end
+    end
+    tag = String(take!(current))
+    isempty(tag) || push!(normalized, tag)
+    return sort!(unique(normalized))
 end
 
-_normalize_tags(tags::AbstractVector{<:AbstractString}) = collect(String.(tags))
+function _normalize_tags(tags::AbstractVector{<:AbstractString})
+    return _normalize_tags(join(String.(tags), ","))
+end
 
 """
     Index(dim; tags=String[], plev=0, id=next_index_id(), backend_handle=nothing)
