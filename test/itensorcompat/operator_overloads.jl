@@ -155,3 +155,17 @@ end
     @test all(length(g) == 2 for g in new_sites)
     @test id.(vcat(new_sites...)) != id.(vcat(i1, o1, i2, o2))
 end
+
+@testset "Index prime via ' operator" begin
+    idx = Index(4; tags=["x"], plev=0)
+    idx1 = idx'
+    @test Tensor4all.plev(idx1) == 1
+    @test Tensor4all.dim(idx1) == 4
+    @test Tensor4all.tags(idx1) == ["x"]
+    @test Tensor4all.id(idx1) == Tensor4all.id(idx)
+
+    idx2 = idx''
+    @test Tensor4all.plev(idx2) == 2
+
+    @test Tensor4all.plev(idx) == 0  # original unchanged
+end
