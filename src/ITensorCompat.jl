@@ -1,6 +1,6 @@
 module ITensorCompat
 
-import ..Tensor4all: Index, Tensor, dim, rank, scalar
+import ..Tensor4all: Index, Tensor, dim, rank, inds, scalar, prime, setprime, sim, plev
 import ..SimpleTT
 import ..TensorNetworks
 import ..TensorNetworks: TensorTrain
@@ -14,6 +14,7 @@ export siteinds, linkinds, linkdims, rank
 export add, dag, dot, evaluate, inner, norm, replace_siteinds, replace_siteinds!, to_dense
 export fixinds, suminds, projectinds, scalar
 export maxlinkdim, data
+export prime, prime!, replaceprime
 export orthogonalize!, truncate!
 
 const ITENSORS_CUTOFF_POLICY = SvdTruncationPolicy(
@@ -288,5 +289,113 @@ Return the underlying tensor storage vector. Compatible with `ITensors.data`.
 data(m::MPS) = m.tt.data
 data(w::MPO) = w.tt.data
 data(tt::TensorTrain) = tt.data
+
+"""
+    prime(m::MPS, n::Integer=1) -> MPS
+    prime(w::MPO, n::Integer=1) -> MPO
+
+Return a copy of `m`/`w` with site index prime levels increased by `n`.
+Tensor data is shared (not copied). Compatible with `ITensorMPS.prime`.
+"""
+function prime(m::MPS, n::Integer=1)
+    sites = siteinds(m)
+    primed = prime.(sites, Ref(n))
+    tensors = map(m.tt.data) do t
+        t_inds = inds(t)
+        new_inds = map(t_inds) do idx
+            p = findfirst(==(idx), sites)
+            p === nothing ? idx : primed[p]
+        end
+        typeof(t)(t.data, new_inds, t.backend_handle, t.structured_storage)
+    end
+    return MPS(TensorTrain(tensors, m.tt.llim, m.tt.rlim))
+end
+
+function prime(w::MPO, n::Integer=1)
+    groups = TensorNetworks.siteinds(w.tt)
+    flat_old = reduce(vcat, groups)
+    flat_new = [prime(idx, n) for idx in flat_old]
+    tensors = map(w.tt.data) do t
+        t_inds = inds(t)
+        new_inds = map(t_inds) do idx
+            p = findfirst(==(idx), flat_old)
+            p === nothing ? idx : flat_new[p]
+        end
+        typeof(t)(t.data, new_inds, t.backend_handle, t.structured_storage)
+    end
+    return MPO(TensorTrain(tensors, w.tt.llim, w.tt.rlim))
+end
+
+"""
+    prime!(m::MPS, n::Integer=1) -> MPS
+    prime!(w::MPO, n::Integer=1) -> MPO
+
+In-place version of [`prime`](@ref). Modifies site index prime levels in place
+and returns the mutated MPS/MPO. Compatible with `ITensorMPS.prime!`.
+"""
+function prime!(m::MPS, n::Integer=1)
+    sites = siteinds(m)
+    primed = prime.(sites, Ref(n))
+    TensorNetworks.replace_siteinds!(m.tt, sites, primed)
+    return m
+end
+
+function prime!(w::MPO, n::Integer=1)
+    groups = TensorNetworks.siteinds(w.tt)
+    flat_old = reduce(vcat, groups)
+    flat_new = [prime(idx, n) for idx in flat_old]
+    TensorNetworks.replace_siteinds!(w.tt, flat_old, flat_new)
+    return w
+end
+
+"""
+    replaceprime(m::MPS, pairs::Pair{Int,Int}...) -> MPS
+    replaceprime(w::MPO, pairs::Pair{Int,Int}...) -> MPO
+
+Replace prime levels in site indices of `m`/`w` according to `pairs`.
+Each pair `old => new` replaces indices with `plev == old` to `plev == new`.
+Compatible with `ITensorMPS.replaceprime`.
+"""
+function replaceprime(m::MPS, pairs::Pair{Int,Int}...)
+    sites = siteinds(m)
+    mapped = map(sites) do idx
+        for (old, new) in pairs
+            plev(idx) == old && return setprime(idx, new)
+        end
+        return idx
+    end
+    tensors = map(m.tt.data) do t
+        t_inds = inds(t)
+        new_inds = map(t_inds) do idx
+            p = findfirst(==(idx), sites)
+            p === nothing ? idx : mapped[p]
+        end
+        typeof(t)(t.data, new_inds, t.backend_handle, t.structured_storage)
+    end
+    return MPS(TensorTrain(tensors, m.tt.llim, m.tt.rlim))
+end
+
+function replaceprime(w::MPO, pairs::Pair{Int,Int}...)
+    groups = TensorNetworks.siteinds(w.tt)
+    mapped = map(groups) do group
+        map(group) do idx
+            for (old, new) in pairs
+                plev(idx) == old && return setprime(idx, new)
+            end
+            return idx
+        end
+    end
+    flat_old = reduce(vcat, groups)
+    flat_new = reduce(vcat, mapped)
+    tensors = map(w.tt.data) do t
+        t_inds = inds(t)
+        new_inds = map(t_inds) do idx
+            p = findfirst(==(idx), flat_old)
+            p === nothing ? idx : flat_new[p]
+        end
+        typeof(t)(t.data, new_inds, t.backend_handle, t.structured_storage)
+    end
+    return MPO(TensorTrain(tensors, w.tt.llim, w.tt.rlim))
+end
 
 end
