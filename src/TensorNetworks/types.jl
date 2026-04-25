@@ -45,6 +45,26 @@ function LinearOperator(;
     true_output::Vector{Union{Index, Nothing}}=Union{Index, Nothing}[],
     metadata::NamedTuple=(;),
 )
+    length(input_indices) == length(output_indices) || throw(
+        DimensionMismatch(
+            "LinearOperator input/output metadata length mismatch: got $(length(input_indices)) input indices and $(length(output_indices)) output indices",
+        ),
+    )
+    if mpo !== nothing
+        length(input_indices) == length(mpo) || throw(
+            ArgumentError("LinearOperator.mpo has $(length(mpo)) sites but input_indices has $(length(input_indices))"),
+        )
+    end
+    isempty(true_input) || length(true_input) == length(input_indices) || throw(
+        DimensionMismatch(
+            "LinearOperator true_input length mismatch: expected $(length(input_indices)), got $(length(true_input))",
+        ),
+    )
+    isempty(true_output) || length(true_output) == length(output_indices) || throw(
+        DimensionMismatch(
+            "LinearOperator true_output length mismatch: expected $(length(output_indices)), got $(length(true_output))",
+        ),
+    )
     bound_input = isempty(true_input) ? fill(nothing, length(input_indices)) : copy(true_input)
     bound_output = isempty(true_output) ? fill(nothing, length(output_indices)) : copy(true_output)
     return LinearOperator(

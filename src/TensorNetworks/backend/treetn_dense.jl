@@ -28,9 +28,21 @@ function to_dense(tt::TensorTrain)
         )
         _check_backend_status(status, "materializing TensorTrain to dense Tensor")
         result_handle = out[]
-        return _tensor_from_handle(result_handle)
+        return _restore_dense_site_metadata(tt, _tensor_from_handle(result_handle))
     finally
         _release_tensor_handle(result_handle)
         _release_treetn_handle(tt_handle)
     end
+end
+
+function _restore_dense_site_metadata(tt::TensorTrain, tensor::Tensor)
+    requested_by_id = Dict{UInt64, Index}()
+    for group in _siteinds_by_tensor(tt), index in group
+        requested_by_id[id(index)] = index
+    end
+
+    restored = map(inds(tensor)) do index
+        return get(requested_by_id, id(index), index)
+    end
+    return restored == inds(tensor) ? tensor : Tensor(tensor.data, restored)
 end

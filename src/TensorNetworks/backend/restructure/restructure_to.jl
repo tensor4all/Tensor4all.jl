@@ -21,10 +21,11 @@ primitive operations:
 | Same grouping but different node ownership of indices | [`swap_site_indices`](@ref) |
 | Each current node's sites are a subset of one target node | [`fuse_to`](@ref) |
 | Each target node's sites are a subset of one current node | [`split_to`](@ref) |
+| Mixed split/swap/fuse regrouping | `split_to` singletons, `swap_site_indices`, then `fuse_to` |
 
-Mixed patterns that need both splitting and fusing in the same call are
-not yet supported and raise `ArgumentError`. Use `split_to` then `fuse_to`
-manually for those cases.
+Mixed patterns are synthesized from the same primitives. Truncation controls
+apply to the split phase and the optional final truncation pass; the
+intermediate swap phase uses `swap_rtol` / `swap_maxdim`.
 
 # Phase keyword arguments
 
@@ -96,10 +97,19 @@ function restructure_to(
         return _final_truncate(result; final_threshold, final_maxdim, final_svd_policy)
     end
 
-    throw(ArgumentError(
-        "restructure_to: mixed split+fuse (or split+swap+fuse) restructuring is not yet supported. " *
-        "Compose split_to / swap_site_indices / fuse_to manually for this case."
-    ))
+    result = _mixed_restructure_to(
+        tt,
+        current_groups,
+        target_groups;
+        edges,
+        split_threshold,
+        split_maxdim,
+        split_svd_policy,
+        split_final_sweep,
+        swap_rtol,
+        swap_maxdim,
+    )
+    return _final_truncate(result; final_threshold, final_maxdim, final_svd_policy)
 end
 
 function _groups_equal_as_ordered_sets(a::Vector{Set{UInt64}}, b::Vector{Set{UInt64}})
@@ -152,6 +162,46 @@ function _is_split_only(current_sets::Vector{Set{UInt64}}, target_sets::Vector{S
     return true
 end
 
+function _singleton_groups(groups::AbstractVector{<:AbstractVector{<:Index}})
+    return [[index] for group in groups for index in group]
+end
+
+function _mixed_restructure_to(
+    tt::TensorTrain,
+    current_groups::Vector{<:AbstractVector{<:Index}},
+    target_groups::AbstractVector{<:AbstractVector{<:Index}};
+    edges::Union{Nothing, AbstractVector{<:Tuple{<:Integer, <:Integer}}},
+    split_threshold::Real,
+    split_maxdim::Integer,
+    split_svd_policy::Union{Nothing, SvdTruncationPolicy},
+    split_final_sweep::Bool,
+    swap_rtol::Real,
+    swap_maxdim::Integer,
+)
+    current_singletons = _singleton_groups(current_groups)
+    target_singletons = _singleton_groups(target_groups)
+
+    result = split_to(
+        tt,
+        current_singletons;
+        threshold=split_threshold,
+        maxdim=split_maxdim,
+        svd_policy=split_svd_policy,
+        final_sweep=split_final_sweep,
+    )
+
+    result_singletons = _siteinds_by_tensor(result)
+    result_id_sets = [Set(id(index) for index in group) for group in result_singletons]
+    target_singleton_id_sets = [Set(id(index) for index in group) for group in target_singletons]
+
+    if !_groups_equal_as_ordered_sets(result_id_sets, target_singleton_id_sets)
+        assignment = _build_swap_assignment(result_singletons, target_singletons)
+        result = swap_site_indices(result, assignment; rtol=swap_rtol, maxdim=swap_maxdim)
+    end
+
+    return fuse_to(result, target_groups; edges)
+end
+
 function _final_truncate(
     tt::TensorTrain;
     final_threshold::Real,
@@ -190,4 +240,3 @@ function _validate_target_groups_coverage(
     ))
     return nothing
 end
-

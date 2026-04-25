@@ -4,6 +4,10 @@ using Tensor4all
 const TN = Tensor4all.TensorNetworks
 const QT = Tensor4all.QuanticsTransform
 
+function _operator_dense(op::TN.LinearOperator)
+    return Array(TN.to_dense(op.mpo), op.output_indices..., op.input_indices...)
+end
+
 @testset "QuanticsTransform materialization" begin
     @testset "shift_operator" begin
         @testset "periodic" begin
@@ -72,6 +76,16 @@ const QT = Tensor4all.QuanticsTransform
         op = QT.affine_operator(3, 1, 1, 1, 1; bc=:periodic)
         @test op.mpo !== nothing
         @test length(op.mpo) == 3
+
+        transposed = transpose(op)
+        @test transposed.input_indices == op.output_indices
+        @test transposed.output_indices == op.input_indices
+        dense = _operator_dense(op)
+        nsites = length(op.input_indices)
+        @test _operator_dense(transposed) ≈ permutedims(
+            dense,
+            Tuple([collect((nsites + 1):(2 * nsites)); collect(1:nsites)]),
+        )
     end
 
     @testset "multivar operators" begin
@@ -173,5 +187,47 @@ const QT = Tensor4all.QuanticsTransform
         @test_throws ArgumentError QT.affine_pullback_operator_multivar(
             1, [0], [1], [0], [1], 0, 1,
         )  # m == 0
+    end
+
+    @testset "unfuse_quantics_operator" begin
+        r = 2
+        nvars = 2
+        op = QT.shift_operator_multivar(r, 1, nvars, 1; bc=:periodic)
+        input_sites = [Index(2; tags=["qin", "bit=$bit", "var=$var"]) for bit in 1:r for var in 1:nvars]
+        output_sites = [Index(2; tags=["qout", "bit=$bit", "var=$var"]) for bit in 1:r for var in 1:nvars]
+
+        unfused = QT.unfuse_quantics_operator(op, input_sites, output_sites; base=2)
+
+        @test unfused isa TN.LinearOperator
+        @test length(unfused.mpo) == r * nvars
+        @test unfused.input_indices == input_sites
+        @test unfused.output_indices == output_sites
+        @test length(unfused.input_indices) == length(unfused.output_indices) == length(unfused.true_input) == length(unfused.true_output)
+        @test all(isnothing, unfused.true_input)
+        @test all(dim(index) == 2 for index in unfused.input_indices)
+        @test all(dim(index) == 2 for index in unfused.output_indices)
+
+        expected = reshape(_operator_dense(op), ntuple(_ -> 2, 2 * r * nvars))
+        @test _operator_dense(unfused) ≈ expected
+    end
+
+    @testset "unfuse_quantics_operator documents fused-index encoding" begin
+        fused_input = Index(4; tags=["fused-in"])
+        fused_output = Index(4; tags=["fused-out"])
+        data = zeros(Float64, 4, 4)
+        data[3, 2] = 1.0
+        op = TN.LinearOperator(;
+            mpo=TN.TensorTrain([Tensor(data, [fused_output, fused_input])]),
+            input_indices=[fused_input],
+            output_indices=[fused_output],
+        )
+        input_sites = [Index(2; tags=["in", "var=$var"]) for var in 1:2]
+        output_sites = [Index(2; tags=["out", "var=$var"]) for var in 1:2]
+
+        unfused = QT.unfuse_quantics_operator(op, input_sites, output_sites; base=2)
+        dense = _operator_dense(unfused)
+
+        @test dense[1, 2, 2, 1] == 1.0
+        @test count(!iszero, dense) == 1
     end
 end

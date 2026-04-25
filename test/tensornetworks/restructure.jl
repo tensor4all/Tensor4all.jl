@@ -166,6 +166,23 @@ end
         @test _dense_compare(before, TN_RESTRUCT.to_dense(fused_back))
     end
 
+    @testset "restructure_to: mixed split/swap/fuse path" begin
+        # Source groups by bit layer, target groups by variable. This requires
+        # splitting existing nodes, moving singleton site indices, then fusing.
+        x1 = Index(2; tags=["x", "x=1"])
+        y1 = Index(2; tags=["y", "y=1"])
+        x2 = Index(2; tags=["x", "x=2"])
+        y2 = Index(2; tags=["y", "y=2"])
+
+        bit_layered = _restruct_chain([[x1, y1], [x2, y2]]; seed=24)
+        before = TN_RESTRUCT.to_dense(bit_layered)
+
+        variable_grouped = TN_RESTRUCT.restructure_to(bit_layered, [[x1, x2], [y1, y2]])
+
+        @test length(variable_grouped) == 2
+        @test _dense_compare(before, TN_RESTRUCT.to_dense(variable_grouped))
+    end
+
     @testset "argument validation" begin
         sites = [Index(2; tags=["s", "s=$i"]) for i in 1:2]
         tt = _restruct_chain([[sites[1]], [sites[2]]]; seed=31)
