@@ -370,4 +370,15 @@ function replaceprime(w::MPO, pairs::Pair{Int,Int}...)
     return MPO(tt)
 end
 
+"""
+    sim(::typeof(siteinds), m::MPS) -> Vector{Index}
+    sim(::typeof(siteinds), w::MPO) -> Vector{Vector{Index}}
+
+Return cloned site indices with fresh IDs but matching dimensions, tags, and
+prime levels. Compatible with ITensorMPS's `sim(siteinds, mps)` pattern.
+"""
+sim(::typeof(siteinds), m::MPS) = [sim(idx) for idx in siteinds(m)]
+
+sim(::typeof(siteinds), w::MPO) = [[sim(idx) for idx in group] for group in TensorNetworks.siteinds(w.tt)]
+
 end

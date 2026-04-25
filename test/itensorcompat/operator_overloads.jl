@@ -125,3 +125,33 @@ end
     wr = IC.replaceprime(w, 1 => 0)
     @test all(idx.plev == 0 for idx in Iterators.flatten(IC.siteinds(wr)))
 end
+
+@testset "sim(siteinds, ...) on MPS" begin
+    sites = [Index(2; tags=["s$n"], plev=n) for n in 1:2]
+    blocks = [
+        reshape([1.0, 0.0, 0.0, 1.0], 1, 2, 2),
+        reshape([2.0, 0.0, 0.0, -1.0], 2, 2, 1),
+    ]
+    m = IC.MPS(blocks, sites)
+    new_sites = IC.sim(IC.siteinds, m)
+    @test new_sites isa Vector{Tensor4all.Index}
+    @test length(new_sites) == 2
+    @test dim.(new_sites) == dim.(sites)
+    @test Tensor4all.tags.(new_sites) == Tensor4all.tags.(sites)
+    @test plev.(new_sites) == plev.(sites)
+    @test id.(new_sites) != id.(sites)
+end
+
+@testset "sim(siteinds, ...) on MPO" begin
+    i1 = Index(2; tags=["i1"]); o1 = Index(2; tags=["o1"])
+    i2 = Index(2; tags=["i2"]); o2 = Index(2; tags=["o2"])
+    l1 = Index(3; tags=["Link", "l=1"])
+    t1 = Tensor(reshape(collect(1.0:12.0), 2, 2, 3), [i1, o1, l1])
+    t2 = Tensor(reshape(collect(1.0:12.0), 3, 2, 2), [l1, i2, o2])
+    w = IC.MPO([t1, t2])
+    new_sites = IC.sim(IC.siteinds, w)
+    @test new_sites isa Vector{Vector{Tensor4all.Index}}
+    @test length(new_sites) == 2
+    @test all(length(g) == 2 for g in new_sites)
+    @test id.(vcat(new_sites...)) != id.(vcat(i1, o1, i2, o2))
+end
