@@ -1,18 +1,20 @@
 module ITensorCompat
 
-import ..Tensor4all: Index, Tensor, dim, inds, rank, scalar
+import ..Tensor4all: Index, Tensor, dim, rank, inds, scalar, prime, setprime, sim, plev
 import ..SimpleTT
 import ..TensorNetworks
 import ..TensorNetworks: TensorTrain
 import ..TensorNetworks: add, dag, dot, evaluate, inner, linkdims, linkinds, norm, siteinds, to_dense
 import ..TensorNetworks: orthogonalize, truncate
-import ..TensorNetworks: replace_siteinds, replace_siteinds!
+import ..TensorNetworks: replace_siteinds, replace_siteinds!, replace_siteinds_shared
 import ..TensorNetworks: SvdTruncationPolicy
 
 export MPS, MPO
 export siteinds, linkinds, linkdims, rank
 export add, dag, dot, evaluate, inner, norm, replace_siteinds, replace_siteinds!, to_dense
 export fixinds, suminds, projectinds, scalar
+export maxlinkdim, data
+export prime, prime!, replaceprime
 export orthogonalize!, truncate!
 
 const ITENSORS_CUTOFF_POLICY = SvdTruncationPolicy(
@@ -223,6 +225,18 @@ mutable struct MPO
         end
         return new(tt)
     end
+    """
+        MPO(tensors::Vector{Tensor})
+
+    Construct an MPO from an existing vector of `Tensor4all.Tensor` objects.
+    Each tensor must have at least three indices (two site indices and at least
+    one link index). Compatible with the ITensorMPS `MPO(::Vector{ITensor})`
+    constructor.
+    """
+    function MPO(tensors::Vector{<:Tensor})
+        isempty(tensors) && throw(ArgumentError("MPO tensor vector must not be empty"))
+        return MPO(TensorTrain(tensors))
+    end
 end
 
 Base.length(W::MPO) = length(W.tt)
@@ -254,5 +268,117 @@ function MPO(
     stt = SimpleTT.TensorTrain{T,4}(_raw_mpo_blocks(blocks))
     return MPO(TensorNetworks.TensorTrain(stt, input_sites, output_sites))
 end
+
+"""
+    maxlinkdim(m::MPS) -> Int
+    maxlinkdim(w::MPO) -> Int
+
+Return the maximum bond dimension (link index dimension) of `m` or `w`.
+Equivalent to `rank(m)` / `rank(w)`. Compatible with `ITensorMPS.maxlinkdim`.
+"""
+maxlinkdim(m::MPS) = rank(m)
+maxlinkdim(w::MPO) = rank(w)
+
+"""
+    data(m::MPS) -> Vector{Tensor}
+    data(w::MPO) -> Vector{Tensor}
+    data(tt::TensorTrain) -> Vector{Tensor}
+
+Return the underlying tensor storage vector. Compatible with `ITensors.data`.
+"""
+data(m::MPS) = m.tt.data
+data(w::MPO) = w.tt.data
+data(tt::TensorTrain) = tt.data
+
+"""
+    prime(m::MPS, n::Integer=1) -> MPS
+    prime(w::MPO, n::Integer=1) -> MPO
+
+Return a copy of `m`/`w` with site index prime levels increased by `n`.
+Tensor data is shared (not copied). Compatible with `ITensorMPS.prime`.
+"""
+function prime(m::MPS, n::Integer=1)
+    sites = siteinds(m)
+    primed = prime.(sites, Ref(n))
+    tt = replace_siteinds_shared(m.tt, sites, primed)
+    return MPS(tt)
+end
+
+function prime(w::MPO, n::Integer=1)
+    groups = TensorNetworks.siteinds(w.tt)
+    flat_old = reduce(vcat, groups)
+    flat_new = [prime(idx, n) for idx in flat_old]
+    tt = replace_siteinds_shared(w.tt, flat_old, flat_new)
+    return MPO(tt)
+end
+
+"""
+    prime!(m::MPS, n::Integer=1) -> MPS
+    prime!(w::MPO, n::Integer=1) -> MPO
+
+In-place version of [`prime`](@ref). Modifies site index prime levels in place
+and returns the mutated MPS/MPO. Compatible with `ITensorMPS.prime!`.
+"""
+function prime!(m::MPS, n::Integer=1)
+    sites = siteinds(m)
+    primed = prime.(sites, Ref(n))
+    TensorNetworks.replace_siteinds!(m.tt, sites, primed)
+    return m
+end
+
+function prime!(w::MPO, n::Integer=1)
+    groups = TensorNetworks.siteinds(w.tt)
+    flat_old = reduce(vcat, groups)
+    flat_new = [prime(idx, n) for idx in flat_old]
+    TensorNetworks.replace_siteinds!(w.tt, flat_old, flat_new)
+    return w
+end
+
+"""
+    replaceprime(m::MPS, pairs::Pair{Int,Int}...) -> MPS
+    replaceprime(w::MPO, pairs::Pair{Int,Int}...) -> MPO
+
+Replace prime levels in site indices of `m`/`w` according to `pairs`.
+Each pair `old => new` replaces indices with `plev == old` to `plev == new`.
+Compatible with `ITensorMPS.replaceprime`.
+"""
+function replaceprime(m::MPS, pairs::Pair{Int,Int}...)
+    sites = siteinds(m)
+    mapped = map(sites) do idx
+        for (old, new) in pairs
+            plev(idx) == old && return setprime(idx, new)
+        end
+        return idx
+    end
+    tt = replace_siteinds_shared(m.tt, sites, mapped)
+    return MPS(tt)
+end
+
+function replaceprime(w::MPO, pairs::Pair{Int,Int}...)
+    groups = TensorNetworks.siteinds(w.tt)
+    mapped = map(groups) do group
+        map(group) do idx
+            for (old, new) in pairs
+                plev(idx) == old && return setprime(idx, new)
+            end
+            return idx
+        end
+    end
+    flat_old = reduce(vcat, groups)
+    flat_new = reduce(vcat, mapped)
+    tt = replace_siteinds_shared(w.tt, flat_old, flat_new)
+    return MPO(tt)
+end
+
+"""
+    sim(::typeof(siteinds), m::MPS) -> Vector{Index}
+    sim(::typeof(siteinds), w::MPO) -> Vector{Vector{Index}}
+
+Return cloned site indices with fresh IDs but matching dimensions, tags, and
+prime levels. Compatible with ITensorMPS's `sim(siteinds, mps)` pattern.
+"""
+sim(::typeof(siteinds), m::MPS) = [sim(idx) for idx in siteinds(m)]
+
+sim(::typeof(siteinds), w::MPO) = [[sim(idx) for idx in group] for group in TensorNetworks.siteinds(w.tt)]
 
 end

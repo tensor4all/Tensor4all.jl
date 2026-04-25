@@ -24,7 +24,7 @@ export fixinds, suminds, projectinds
 export identity_link_tensor, insert_identity!
 export set_input_space!, set_output_space!, set_iospaces!, apply, linsolve
 export findsite, findsites, findallsiteinds_by_tag, findallsites_by_tag
-export replace_siteinds!, replace_siteinds, replace_siteinds_part!
+export replace_siteinds!, replace_siteinds, replace_siteinds_shared, replace_siteinds_part!
 export insert_operator_identity!, delete_operator_site!, delete_operator_sites!
 export permute_operator_sites!, replace_operator_input_indices!, replace_operator_output_indices!
 export rearrange_siteinds, makesitediagonal, extractdiagonal, matchsiteinds

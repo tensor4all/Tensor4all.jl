@@ -152,6 +152,24 @@ function _replace_tensor_indices!(tensor::Tensor, replacements::Dict{Tuple{UInt6
     return replaceinds!(tensor, old, new)
 end
 
+function _replace_tensor_indices_keep_data(tensor::Tensor, replacements::Dict{Tuple{UInt64, Int, Int}, Index})
+    current_indices = inds(tensor)
+    changed = false
+    new_indices = map(current_indices) do index
+        replacement = _replacement_for_index(index, replacements)
+        if replacement != index
+            changed = true
+        end
+        return replacement
+    end
+    if !changed
+        return tensor
+    end
+    return Tensor{eltype(tensor.data),ndims(tensor.data)}(
+        tensor.data, new_indices, tensor.backend_handle, tensor.structured_storage
+    )
+end
+
 _copy_tensor(tensor::Tensor) = Tensor(tensor.data, inds(tensor); backend_handle=tensor.backend_handle)
 _copy_train(tt::TensorTrain) = TensorTrain([_copy_tensor(tensor) for tensor in tt.data], tt.llim, tt.rlim)
 
@@ -242,6 +260,27 @@ function replace_siteinds(
 )
     copied = _copy_train(tt)
     return replace_siteinds!(copied, oldsites, newsites)
+end
+
+"""
+    replace_siteinds_shared(tt, oldsites, newsites)
+
+Return a new `TensorTrain` with each site-like index in `oldsites` replaced by
+the corresponding index in `newsites`. Unlike [`replace_siteinds`](@ref), tensor
+data arrays are shared (not copied). Compatible with the ITensorMPS convention
+where `prime(mps)` creates new index metadata but shares tensor storage.
+
+See also [`replace_siteinds`](@ref), [`replace_siteinds!`](@ref).
+"""
+function replace_siteinds_shared(
+    tt::TensorTrain,
+    oldsites::AbstractVector{<:Index},
+    newsites::AbstractVector{<:Index},
+)
+    replacements = _replacement_mapping(oldsites, newsites)
+    _ensure_replacement_targets_exist(tt, oldsites)
+    tensors = [_replace_tensor_indices_keep_data(t, replacements) for t in tt.data]
+    return TensorTrain(tensors, tt.llim, tt.rlim)
 end
 
 """

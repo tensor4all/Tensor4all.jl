@@ -158,6 +158,14 @@ function setprime(i::Index, n::Integer)
     return Index(dim(i); tags=tags(i), plev=Int(n), id=id(i), backend_handle=i.backend_handle)
 end
 
+"""
+    Base.adjoint(i::Index)
+
+Return `prime(i)`, enabling the `idx'` sugar syntax for creating a primed copy
+of an index. Compatible with ITensors.jl's `idx'` convention.
+"""
+Base.adjoint(i::Index) = prime(i)
+
 Base.:(==)(a::Index, b::Index) = (
     a.dim == b.dim &&
     a.id == b.id &&
