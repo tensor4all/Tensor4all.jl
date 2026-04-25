@@ -12,6 +12,7 @@ using Tensor4all
         Symbol("replace_siteinds!"),
         :replace_siteinds,
         Symbol("replace_siteinds_part!"),
+        :replace_siteinds_shared,
         :rearrange_siteinds,
         :makesitediagonal,
         :extractdiagonal,

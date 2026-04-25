@@ -6,7 +6,7 @@ import ..TensorNetworks
 import ..TensorNetworks: TensorTrain
 import ..TensorNetworks: add, dag, dot, evaluate, inner, linkdims, linkinds, norm, siteinds, to_dense
 import ..TensorNetworks: orthogonalize, truncate
-import ..TensorNetworks: replace_siteinds, replace_siteinds!
+import ..TensorNetworks: replace_siteinds, replace_siteinds!, replace_siteinds_shared
 import ..TensorNetworks: SvdTruncationPolicy
 
 export MPS, MPO
@@ -300,30 +300,16 @@ Tensor data is shared (not copied). Compatible with `ITensorMPS.prime`.
 function prime(m::MPS, n::Integer=1)
     sites = siteinds(m)
     primed = prime.(sites, Ref(n))
-    tensors = map(m.tt.data) do t
-        t_inds = inds(t)
-        new_inds = map(t_inds) do idx
-            p = findfirst(==(idx), sites)
-            p === nothing ? idx : primed[p]
-        end
-        typeof(t)(t.data, new_inds, t.backend_handle, t.structured_storage)
-    end
-    return MPS(TensorTrain(tensors, m.tt.llim, m.tt.rlim))
+    tt = replace_siteinds_shared(m.tt, sites, primed)
+    return MPS(tt)
 end
 
 function prime(w::MPO, n::Integer=1)
     groups = TensorNetworks.siteinds(w.tt)
     flat_old = reduce(vcat, groups)
     flat_new = [prime(idx, n) for idx in flat_old]
-    tensors = map(w.tt.data) do t
-        t_inds = inds(t)
-        new_inds = map(t_inds) do idx
-            p = findfirst(==(idx), flat_old)
-            p === nothing ? idx : flat_new[p]
-        end
-        typeof(t)(t.data, new_inds, t.backend_handle, t.structured_storage)
-    end
-    return MPO(TensorTrain(tensors, w.tt.llim, w.tt.rlim))
+    tt = replace_siteinds_shared(w.tt, flat_old, flat_new)
+    return MPO(tt)
 end
 
 """
@@ -364,15 +350,8 @@ function replaceprime(m::MPS, pairs::Pair{Int,Int}...)
         end
         return idx
     end
-    tensors = map(m.tt.data) do t
-        t_inds = inds(t)
-        new_inds = map(t_inds) do idx
-            p = findfirst(==(idx), sites)
-            p === nothing ? idx : mapped[p]
-        end
-        typeof(t)(t.data, new_inds, t.backend_handle, t.structured_storage)
-    end
-    return MPS(TensorTrain(tensors, m.tt.llim, m.tt.rlim))
+    tt = replace_siteinds_shared(m.tt, sites, mapped)
+    return MPS(tt)
 end
 
 function replaceprime(w::MPO, pairs::Pair{Int,Int}...)
@@ -387,15 +366,8 @@ function replaceprime(w::MPO, pairs::Pair{Int,Int}...)
     end
     flat_old = reduce(vcat, groups)
     flat_new = reduce(vcat, mapped)
-    tensors = map(w.tt.data) do t
-        t_inds = inds(t)
-        new_inds = map(t_inds) do idx
-            p = findfirst(==(idx), flat_old)
-            p === nothing ? idx : flat_new[p]
-        end
-        typeof(t)(t.data, new_inds, t.backend_handle, t.structured_storage)
-    end
-    return MPO(TensorTrain(tensors, w.tt.llim, w.tt.rlim))
+    tt = replace_siteinds_shared(w.tt, flat_old, flat_new)
+    return MPO(tt)
 end
 
 end
