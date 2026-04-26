@@ -108,6 +108,14 @@ Return the prime level of `i`.
 plev(i::Index) = i.plev
 
 """
+    hasplev(i, n) -> Bool
+
+Return `true` when index `i` has prime level `n`. This mirrors the
+`ITensors.hasplev` predicate used by ITensor-based code.
+"""
+hasplev(i::Index, n::Integer) = plev(i) == Int(n)
+
+"""
     hastag(i, tag)
 
 Return `true` when `tag` is attached to `i`.

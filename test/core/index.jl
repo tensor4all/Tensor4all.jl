@@ -8,6 +8,8 @@ using Tensor4all
     @test Tensor4all.dim(i) == 4
     @test Tensor4all.tags(i) == ["site", "x"]
     @test Tensor4all.plev(i) == 1
+    @test Tensor4all.hasplev(i, 1)
+    @test !Tensor4all.hasplev(i, 0)
     @test Tensor4all.hastag(i, "x")
     @test Tensor4all.id(i) != Tensor4all.id(j)
     @test Tensor4all.dim(j) == Tensor4all.dim(i)

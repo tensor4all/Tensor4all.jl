@@ -10,6 +10,18 @@ Public alias for the multi-site tensor-cross-interpolation result type from
 """
 const TensorCI2 = TensorCrossInterpolation.TensorCI2
 
+const _compat_symbols = (
+    :AbstractGlobalPivotFinder,
+    :AbstractTensorTrain,
+    :BatchEvaluator,
+    :CachedFunction,
+    :DefaultGlobalPivotFinder,
+    :GlobalPivotSearchInput,
+    :MultiIndex,
+    :TTCache,
+    :makebatchevaluatable,
+)
+
 function _reexportable_symbols()
     return filter(names(TensorCrossInterpolation)) do sym
         sym !== :crossinterpolate2 &&
@@ -22,6 +34,13 @@ end
 for sym in _reexportable_symbols()
     @eval const $(sym) = getfield(TensorCrossInterpolation, $(QuoteNode(sym)))
     @eval export $(sym)
+end
+
+for sym in _compat_symbols
+    if isdefined(TensorCrossInterpolation, sym) && !isdefined(@__MODULE__, sym)
+        @eval const $(sym) = getfield(TensorCrossInterpolation, $(QuoteNode(sym)))
+        @eval export $(sym)
+    end
 end
 
 export TensorCI2, crossinterpolate2

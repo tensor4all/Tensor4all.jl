@@ -101,6 +101,34 @@ function make_known_two_site_mps()
     return tt, [s1, s2], dense
 end
 
+function make_mpo_like_indices()
+    inputs = [Index(3; tags=["Site$n"], plev=0) for n in 1:3]
+    outputs = prime.(inputs)
+    links = [Index(9; tags=["Link", "l=1"]), Index(3; tags=["Link", "l=2"])]
+    return inputs, outputs, links
+end
+
+function make_mpo_like_tt(; scale::Float64=1.0, inputs=nothing, outputs=nothing, links=nothing)
+    if inputs === nothing
+        inputs, outputs, links = make_mpo_like_indices()
+    end
+
+    return TN.TensorTrain([
+        Tensor(
+            scale .* reshape(collect(1.0:81.0), 3, 3, 9),
+            [inputs[1], outputs[1], links[1]],
+        ),
+        Tensor(
+            scale .* reshape(collect(1.0:243.0), 9, 3, 3, 3),
+            [links[1], inputs[2], outputs[2], links[2]],
+        ),
+        Tensor(
+            scale .* reshape(collect(1.0:27.0), 3, 3, 3),
+            [links[2], inputs[3], outputs[3]],
+        ),
+    ])
+end
+
 @testset "TensorTrain arithmetic" begin
     @testset "scalar multiply" begin
         tt = make_test_mps()
@@ -178,6 +206,20 @@ end
         tt = make_test_mps(; sites, links)
         @test_throws ArgumentError empty_tt + tt
     end
+
+    @testset "same-id prime-pair MPO-like addition is rejected" begin
+        inputs, outputs, links = make_mpo_like_indices()
+        tt1 = make_mpo_like_tt(; scale=1.0, inputs, outputs, links)
+        tt2 = make_mpo_like_tt(; scale=-0.5, inputs, outputs, links)
+
+        @test_throws ArgumentError tt1 + tt2
+        @test_throws ArgumentError TensorNetworks.add(
+            tt1,
+            tt2;
+            threshold=1e-20,
+            svd_policy=Tensor4all.ITensorCompat.ITENSORS_CUTOFF_POLICY,
+        )
+    end
 end
 
 @testset "TensorTrain truncated add" begin
@@ -219,6 +261,15 @@ end
     n = TensorNetworks.norm(tt)
     @test n >= 0
     @test n ≈ sqrt(real(TensorNetworks.dot(tt, tt)))
+
+    @testset "same-id prime-pair MPO-like norm/dot is rejected" begin
+        inputs, outputs, links = make_mpo_like_indices()
+        tt1 = make_mpo_like_tt(; scale=1.0, inputs, outputs, links)
+        tt2 = make_mpo_like_tt(; scale=-0.5, inputs, outputs, links)
+
+        @test_throws ArgumentError TensorNetworks.norm(tt1)
+        @test_throws ArgumentError TensorNetworks.dot(tt1, tt2)
+    end
 end
 
 @testset "TensorTrain isapprox" begin

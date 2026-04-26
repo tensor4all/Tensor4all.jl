@@ -140,7 +140,7 @@ function _validate_tt_binary(a::TensorTrain, b::TensorTrain, op::AbstractString)
             ),
         )
     end
-    return nothing
+    return a_siteinds
 end
 
 function _treetn_from_handle(ptr::Ptr{Cvoid})
@@ -252,11 +252,42 @@ function truncate(
     end
 end
 
+function _has_multiple_site_indices_per_tensor(
+    site_groups::AbstractVector{<:AbstractVector{<:Index}},
+    op::AbstractString,
+)
+    isempty(site_groups) && return false
+    arities = length.(site_groups)
+    all(==(1), arities) && return false
+    all(==(first(arities)), arities) || throw(ArgumentError(
+        "$op requires a consistent number of site indices per tensor; got $arities",
+    ))
+    return first(arities) > 1
+end
+
+function _has_same_id_site_pair(site_groups::AbstractVector{<:AbstractVector{<:Index}})
+    return any(site_groups) do group
+        ids = id.(group)
+        length(unique(ids)) < length(ids)
+    end
+end
+
+function _reject_same_id_site_pair(site_groups::AbstractVector{<:AbstractVector{<:Index}}, op::AbstractString)
+    if _has_multiple_site_indices_per_tensor(site_groups, op) && _has_same_id_site_pair(site_groups)
+        throw(ArgumentError(
+            "$op does not yet support multi-site TensorTrains with same-id prime-pair site indices; " *
+            "TreeTN backend add/norm can fuse those site legs into Link legs. See https://github.com/tensor4all/Tensor4all.jl/issues/82",
+        ))
+    end
+    return nothing
+end
+
 """
     add(a, b; threshold=0.0, maxdim=0, svd_policy=nothing)
 
-Add two TensorTrain chains, optionally applying backend truncation controls.
-`threshold` / `maxdim` / `svd_policy` follow the Truncation Policy contract.
+Add two TensorTrain chains with the TreeTN backend, optionally applying backend
+truncation controls. MPO-like chains with same-id prime-pair site indices are
+rejected until backend issue #82 preserves those site groups correctly.
 """
 function add(
     a::TensorTrain,
@@ -265,9 +296,11 @@ function add(
     maxdim::Integer=0,
     svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
 )
-    _validate_tt_binary(a, b, "add")
+    site_groups = _validate_tt_binary(a, b, "add")
+    maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
 
     ffi_policy = _resolve_svd_policy(; threshold, svd_policy)
+    _reject_same_id_site_pair(site_groups, "add")
 
     scalar_kind = _promoted_scalar_kind(a, b)
     a_handle = _new_treetn_handle(a, scalar_kind)
@@ -303,7 +336,8 @@ end
 Return the backend inner product of two TensorTrain chains.
 """
 function dot(a::TensorTrain, b::TensorTrain)
-    _validate_tt_binary(a, b, "dot")
+    site_groups = _validate_tt_binary(a, b, "dot")
+    _reject_same_id_site_pair(site_groups, "dot")
 
     scalar_kind = _promoted_scalar_kind(a, b)
     a_handle = _new_treetn_handle(a, scalar_kind)
@@ -337,6 +371,9 @@ inner(a::TensorTrain, b::TensorTrain) = dot(a, b)
 
 function LinearAlgebra.norm(tt::TensorTrain)
     isempty(tt.data) && throw(ArgumentError("TensorTrain must not be empty for norm"))
+
+    site_groups = _siteinds_by_tensor(tt)
+    _reject_same_id_site_pair(site_groups, "norm")
 
     tt_handle = _new_treetn_handle(tt, _promoted_scalar_kind(tt))
     try

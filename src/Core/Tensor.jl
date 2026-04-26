@@ -77,6 +77,20 @@ end
 
 Tensor(data::Array, inds::Index...) = Tensor(data, collect(inds))
 Tensor(value::Number) = Tensor(fill(value), Index[])
+
+"""
+    Tensor(value, inds...)
+    ITensor(value, inds...)
+
+Create a dense tensor filled with scalar `value` over the supplied indices.
+This is an ITensors-compatible convenience constructor; `ITensor` is an alias
+of `Tensor`, so both spellings share the same implementation.
+"""
+function Tensor(value::Number, first_index::Index, rest_indices::Index...)
+    indices = Index[first_index, rest_indices...]
+    return Tensor(fill(value, dim.(indices)...), indices)
+end
+
 Base.eltype(t::Tensor) = eltype(t.data)
 
 function _validate_structured_storage(
