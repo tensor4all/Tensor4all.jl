@@ -14,17 +14,34 @@ const TN = Tensor4all.TensorNetworks
     m = IC.MPS(TN.TensorTrain([t1, t2]))
 
     @test length(m) == 2
+    @test firstindex(m) == 1
+    @test lastindex(m) == 2
+    @test axes(m) == (Base.OneTo(2),)
+    @test collect(eachindex(m)) == [1, 2]
+    @test collect(keys(m)) == [1, 2]
+    @test collect(pairs(m)) == [1 => t1, 2 => t2]
+    @test collect(m) == [t1, t2]
     @test collect(IC.siteinds(m)) == [s1, s2]
+    @test IC.siteind(m, 1) == s1
     @test IC.linkinds(m) == [l1]
+    @test IC.linkind(m, 1) == l1
     @test IC.linkdims(m) == [4]
     @test IC.rank(m) == 4
     @test eltype(m) == Float64
     @test m[1] == t1
+    @test m[1:2] == [t1, t2]
+    @test m[:] == [t1, t2]
+    @test m.data === IC.data(m)
 
     new_t1 = Tensor(randn(2, 4), [s1, l1])
     @test (m[1] = new_t1) == new_t1
     @test m[1] == new_t1
     @test (m.tt.llim, m.tt.rlim) == (0, length(m) + 1)
+
+    replacement_data = [t1, t2]
+    @test (m.data = replacement_data) === replacement_data
+    @test m[1] == t1
+    @test IC.siteinds(m) == [s1, s2]
 end
 
 @testset "ITensorCompat MPS validation" begin
@@ -87,6 +104,8 @@ end
 @testset "ITensorCompat scalar MPS" begin
     m = IC.MPS(TN.TensorTrain([Tensor(3.5)]))
     @test length(m) == 0
+    @test collect(eachindex(m)) == Int[]
+    @test collect(m) == Tensor4all.Tensor[]
     @test IC.siteinds(m) == Index[]
     @test IC.scalar(m) == 3.5
     @test Tensor4all.scalar(IC.to_dense(m)) == 3.5
@@ -113,9 +132,9 @@ end
 
 @testset "ITensorCompat MPO surface" begin
     x1 = Index(2, "x=1")
-    y1 = Index(2, "y=1")
+    y1 = Index(2, "y=1"; plev=1)
     x2 = Index(3, "x=2")
-    y2 = Index(3, "y=2")
+    y2 = Index(3, "y=2"; plev=1)
     l1 = Index(2; tags=["Link", "l=1"])
 
     w1 = Tensor(randn(2, 2, 2), [x1, y1, l1])
@@ -123,14 +142,31 @@ end
     W = IC.MPO(TN.TensorTrain([w1, w2]))
 
     @test length(W) == 2
+    @test firstindex(W) == 1
+    @test lastindex(W) == 2
+    @test axes(W) == (Base.OneTo(2),)
+    @test collect(eachindex(W)) == [1, 2]
+    @test collect(keys(W)) == [1, 2]
+    @test collect(pairs(W)) == [1 => w1, 2 => w2]
+    @test collect(W) == [w1, w2]
     @test IC.siteinds(W) == [[x1, y1], [x2, y2]]
+    @test_throws ArgumentError IC.siteind(W, 1)
+    @test IC.siteind(W, 1; plev=0) == x1
+    @test IC.linkind(W, 1) == l1
     @test IC.linkdims(W) == [2]
     @test IC.rank(W) == 2
+    @test eltype(W) == Float64
     @test W[1] == w1
+    @test W[1:2] == [w1, w2]
+    @test W[:] == [w1, w2]
+    @test W.data === IC.data(W)
 
     new_w1 = Tensor(randn(2, 2, 2), [x1, y1, l1])
     @test (W[1] = new_w1) == new_w1
     @test W[1] == new_w1
+
+    @test (W.data = [w1, w2]) == [w1, w2]
+    @test W[1] == w1
 
     bad = Tensor(randn(2), [x1])
     @test_throws ArgumentError IC.MPO(TN.TensorTrain([bad]))

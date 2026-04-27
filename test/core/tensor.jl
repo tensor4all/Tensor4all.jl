@@ -12,6 +12,9 @@ using LinearAlgebra: I
     @test Tensor4all.dims(tensor) == (2, 3)
     @test Tensor4all.inds(tensor) == [i, j]
     @test Tensor4all.inds(Tensor4all.prime(tensor)) == [Tensor4all.prime(i), Tensor4all.prime(j)]
+    filled = Tensor4all.Tensor(4.0, i, j)
+    @test Tensor4all.inds(filled) == [i, j]
+    @test filled.data == fill(4.0, 2, 3)
 
     bad = PermutedDimsArray(reshape(collect(1.0:8.0), 2, 2, 2), (2, 1, 3))
     k = Tensor4all.Index(2; tags=["k"])

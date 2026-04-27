@@ -10,6 +10,18 @@ Public alias for the multi-site tensor-cross-interpolation result type from
 """
 const TensorCI2 = TensorCrossInterpolation.TensorCI2
 
+const _compat_symbols = (
+    :AbstractGlobalPivotFinder,
+    :AbstractTensorTrain,
+    :BatchEvaluator,
+    :CachedFunction,
+    :DefaultGlobalPivotFinder,
+    :GlobalPivotSearchInput,
+    :MultiIndex,
+    :TTCache,
+    :makebatchevaluatable,
+)
+
 function _reexportable_symbols()
     return filter(names(TensorCrossInterpolation)) do sym
         sym !== :crossinterpolate2 &&
@@ -24,10 +36,18 @@ for sym in _reexportable_symbols()
     @eval export $(sym)
 end
 
+for sym in _compat_symbols
+    if isdefined(TensorCrossInterpolation, sym) && !isdefined(@__MODULE__, sym)
+        @eval const $(sym) = getfield(TensorCrossInterpolation, $(QuoteNode(sym)))
+        @eval export $(sym)
+    end
+end
+
 export TensorCI2, crossinterpolate2
 
 """
     crossinterpolate2(T, f, localdims; kwargs...)
+    crossinterpolate2(T, f, localdims, initialpivots; kwargs...)
 
 Run tensor cross interpolation and return the public `TensorCI2` result.
 """
@@ -38,6 +58,16 @@ function crossinterpolate2(::Type{T}, f, localdims; kwargs...) where {T}
         ),
     )
     tci, _, _ = TensorCrossInterpolation.crossinterpolate2(T, f, localdims; kwargs...)
+    return tci
+end
+
+function crossinterpolate2(::Type{T}, f, localdims, initialpivots; kwargs...) where {T}
+    length(localdims) >= 2 || throw(
+        ArgumentError(
+            "TensorCI.crossinterpolate2 currently requires at least two local dimensions because the public return type is TensorCI2.",
+        ),
+    )
+    tci, _, _ = TensorCrossInterpolation.crossinterpolate2(T, f, localdims, initialpivots; kwargs...)
     return tci
 end
 

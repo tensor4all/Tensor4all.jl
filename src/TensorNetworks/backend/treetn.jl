@@ -140,7 +140,7 @@ function _validate_tt_binary(a::TensorTrain, b::TensorTrain, op::AbstractString)
             ),
         )
     end
-    return nothing
+    return a_siteinds
 end
 
 function _treetn_from_handle(ptr::Ptr{Cvoid})
@@ -255,8 +255,8 @@ end
 """
     add(a, b; threshold=0.0, maxdim=0, svd_policy=nothing)
 
-Add two TensorTrain chains, optionally applying backend truncation controls.
-`threshold` / `maxdim` / `svd_policy` follow the Truncation Policy contract.
+Add two TensorTrain chains with the TreeTN backend, optionally applying backend
+truncation controls.
 """
 function add(
     a::TensorTrain,
@@ -266,6 +266,7 @@ function add(
     svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
 )
     _validate_tt_binary(a, b, "add")
+    maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
 
     ffi_policy = _resolve_svd_policy(; threshold, svd_policy)
 

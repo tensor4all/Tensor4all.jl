@@ -16,7 +16,7 @@ export TensorTrain, LinearOperator, SvdTruncationPolicy
 export invalidate_canonical!, replaceblock!, insert_site!, delete_site!
 export default_svd_policy, set_default_svd_policy!, with_svd_policy
 export add, dag, dot, inner, dist
-export linkinds, linkdims, siteinds
+export linkind, linkinds, linkdims, siteinds
 export norm
 export orthogonalize, truncate
 export to_dense, evaluate, random_tt

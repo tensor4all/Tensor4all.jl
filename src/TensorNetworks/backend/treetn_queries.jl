@@ -8,11 +8,14 @@ function dag(tt::TensorTrain)
 end
 
 """
+    linkind(tt, i)
     linkinds(tt)
     linkinds(tt, i)
 
 Return the shared bond indices between adjacent tensors in `tt`.
 """
+linkind(tt::TensorTrain, i::Integer) = linkinds(tt, i)
+
 function linkinds(tt::TensorTrain)
     isempty(tt.data) && return Index[]
 

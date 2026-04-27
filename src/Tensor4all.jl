@@ -30,25 +30,27 @@ include("QuanticsGrids.jl")
 include("QuanticsTCI.jl")
 include("QuanticsTransform/QuanticsTransform.jl")
 
-using .TensorNetworks: add, dot, inner, dist, linkdims, linkinds, siteinds, orthogonalize, truncate
+using .TensorNetworks: add, apply, dot, inner, dist, linkdims, linkind, linkinds, siteinds, orthogonalize, truncate
+using .ITensorCompat: random_itensor, random_mps, siteind
 
 export SKELETON_PHASE
 export SkeletonPhaseError, SkeletonNotImplemented, BackendUnavailableError
 export backend_library_path, require_backend
-export Index, dim, id, tags, plev, hastag
+export Index, dim, id, tags, plev, hasplev, hastag
 export sim, prime, noprime, setprime
 export replaceind, replaceinds, replaceind!, replaceinds!, commoninds, uniqueinds
 export hasinds, scalar
-export add
+export add, apply
 export dag
 export dot, inner, dist
-export linkinds, linkdims, siteinds
+export linkind, linkinds, linkdims, siteind, siteinds
 export norm
 export orthogonalize, truncate
 export Tensor, ITensor, inds, rank, dims, swapinds, contract
 export delta, isdiag, structured_storage_info, structured_payload
 export onehot, fixinds, suminds, projectinds
 export svd, qr
+export random_itensor, random_mps
 export TensorNetworks, ITensorCompat, SimpleTT, TensorCI, QuanticsGrids, QuanticsTCI, QuanticsTransform
 
 end
