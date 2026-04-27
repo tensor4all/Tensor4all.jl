@@ -27,4 +27,16 @@
     @test size(tt.sitetensors[2]) == (1, 2, 1)
     @test vec(tt.sitetensors[1]) == [1.0, 0.0]
     @test vec(tt.sitetensors[2]) == [1.0, 0.0]
+
+    tci_with_pivots = Tensor4all.TensorCI.crossinterpolate2(
+        Float64,
+        f2,
+        [2, 2],
+        [[1, 1]];
+        tolerance=1e-12,
+        maxbonddim=2,
+    )
+
+    @test tci_with_pivots isa Tensor4all.TensorCI.TensorCI2{Float64}
+    @test Tensor4all.SimpleTT.TensorTrain(tci_with_pivots) isa Tensor4all.SimpleTT.TensorTrain{Float64,3}
 end

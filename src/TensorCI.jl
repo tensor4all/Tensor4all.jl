@@ -47,6 +47,7 @@ export TensorCI2, crossinterpolate2
 
 """
     crossinterpolate2(T, f, localdims; kwargs...)
+    crossinterpolate2(T, f, localdims, initialpivots; kwargs...)
 
 Run tensor cross interpolation and return the public `TensorCI2` result.
 """
@@ -57,6 +58,16 @@ function crossinterpolate2(::Type{T}, f, localdims; kwargs...) where {T}
         ),
     )
     tci, _, _ = TensorCrossInterpolation.crossinterpolate2(T, f, localdims; kwargs...)
+    return tci
+end
+
+function crossinterpolate2(::Type{T}, f, localdims, initialpivots; kwargs...) where {T}
+    length(localdims) >= 2 || throw(
+        ArgumentError(
+            "TensorCI.crossinterpolate2 currently requires at least two local dimensions because the public return type is TensorCI2.",
+        ),
+    )
+    tci, _, _ = TensorCrossInterpolation.crossinterpolate2(T, f, localdims, initialpivots; kwargs...)
     return tci
 end
 

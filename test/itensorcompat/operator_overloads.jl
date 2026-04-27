@@ -146,7 +146,7 @@ end
     @test IC.siteinds(C + D) == [[input3[i], output3[i]] for i in eachindex(input3)]
 end
 
-@testset "non-chain MPO operations do not use dense fallback" begin
+@testset "non-chain MPO operations are rejected" begin
     # This is accepted by the strict MPO wrapper because each tensor has two
     # non-adjacent-bond site indices under TensorNetworks.siteinds, but it has
     # an extra T1-T3 edge and is not a chain.

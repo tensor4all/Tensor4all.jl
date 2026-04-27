@@ -349,8 +349,7 @@ rank(W::MPO) = maximum(linkdims(W); init=0)
     to_dense(W::MPO) -> Tensor
 
 Materialize `W` to a dense `Tensor` using the Tensor4all TreeTN backend.
-Non-chain MPO topologies are rejected by the `MPO` constructor and are not
-silently converted through dense fallback.
+Non-chain MPO topologies are rejected by the `MPO` constructor.
 """
 to_dense(W::MPO) = TensorNetworks.to_dense(W.tt)
 norm(W::MPO) = TensorNetworks.norm(W.tt)
@@ -363,8 +362,7 @@ dag(W::MPO) = MPO(TensorNetworks.dag(W.tt))
 
 Add or subtract two MPOs with ITensor-style `cutoff`/`maxdim` keywords. When
 backend addition produces a TensorTrain that cannot be represented by the
-strict chain `MPO` wrapper, this throws instead of hiding the issue with a
-dense fallback.
+strict chain `MPO` wrapper, this throws.
 """
 function add(a::MPO, b::MPO; cutoff::Real=0.0, maxdim::Integer=0, kwargs...)
     resolved = _compat_truncation_kwargs(; cutoff, maxdim, kwargs...)
@@ -530,12 +528,10 @@ end
     apply(W::MPO, m::MPS; cutoff=0.0, alg=nothing, method=nothing, kwargs...) -> MPS
 
 Apply MPO `W` to MPS `m` and return an `MPS`. The fast path uses
-`TensorNetworks.apply` when `W` is a chain-compatible `LinearOperator`; if
-that backend rejects the topology, the compatibility layer falls back to
-shared-index tensor-train contraction. If both chain paths fail, this throws
-instead of hiding the problem with a dense fallback. `cutoff` is translated to
-Tensor4all's `threshold`; `alg` accepts ITensor-style strings/symbols such as
-`"naive"` and is translated to Tensor4all's `method` keyword.
+`TensorNetworks.apply` with `W` represented as a chain-compatible
+`LinearOperator`. `cutoff` is translated to Tensor4all's `threshold`; `alg`
+accepts ITensor-style strings/symbols such as `"naive"` and is translated to
+Tensor4all's `method` keyword.
 """
 function apply(W::MPO, m::MPS; cutoff::Real=0.0, alg=nothing, method=nothing, kwargs...)
     input, output = _mpo_input_output_sites(W)
@@ -545,19 +541,7 @@ function apply(W::MPO, m::MPS; cutoff::Real=0.0, alg=nothing, method=nothing, kw
     resolved = _compat_backend_kwargs(; cutoff, alg, method, kwargs...)
     op = TensorNetworks.LinearOperator(; mpo=W.tt, input_indices=input, output_indices=output)
     TensorNetworks.set_iospaces!(op, siteinds(m), output)
-    try
-        return MPS(TensorNetworks.apply(op, m.tt; resolved...))
-    catch err
-        err isa ArgumentError || rethrow()
-        try
-            return MPS(TensorNetworks.contract(W.tt, m.tt; resolved...))
-        catch contract_err
-            throw(ArgumentError(
-                "ITensorCompat.apply(MPO, MPS) failed in both LinearOperator.apply and TensorTrain.contract paths; refusing dense fallback. " *
-                "apply error: $(err); contract error: $(contract_err)",
-            ))
-        end
-    end
+    return MPS(TensorNetworks.apply(op, m.tt; resolved...))
 end
 
 """
