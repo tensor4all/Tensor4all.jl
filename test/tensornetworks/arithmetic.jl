@@ -207,18 +207,23 @@ end
         @test_throws ArgumentError empty_tt + tt
     end
 
-    @testset "same-id prime-pair MPO-like addition is rejected" begin
+    @testset "same-id prime-pair MPO-like addition preserves site indices" begin
         inputs, outputs, links = make_mpo_like_indices()
         tt1 = make_mpo_like_tt(; scale=1.0, inputs, outputs, links)
         tt2 = make_mpo_like_tt(; scale=-0.5, inputs, outputs, links)
 
-        @test_throws ArgumentError tt1 + tt2
-        @test_throws ArgumentError TensorNetworks.add(
+        result = tt1 + tt2
+        @test TN.siteinds(result) == TN.siteinds(tt1)
+        @test length.(TN.siteinds(result)) == [2, 2, 2]
+
+        result_truncated = TensorNetworks.add(
             tt1,
             tt2;
             threshold=1e-20,
             svd_policy=Tensor4all.ITensorCompat.ITENSORS_CUTOFF_POLICY,
         )
+        @test TN.siteinds(result_truncated) == TN.siteinds(tt1)
+        @test length.(TN.siteinds(result_truncated)) == [2, 2, 2]
     end
 end
 
@@ -262,13 +267,19 @@ end
     @test n >= 0
     @test n ≈ sqrt(real(TensorNetworks.dot(tt, tt)))
 
-    @testset "same-id prime-pair MPO-like norm/dot is rejected" begin
+    @testset "same-id prime-pair MPO-like norm/dot works" begin
         inputs, outputs, links = make_mpo_like_indices()
         tt1 = make_mpo_like_tt(; scale=1.0, inputs, outputs, links)
         tt2 = make_mpo_like_tt(; scale=-0.5, inputs, outputs, links)
 
-        @test_throws ArgumentError TensorNetworks.norm(tt1)
-        @test_throws ArgumentError TensorNetworks.dot(tt1, tt2)
+        n = TensorNetworks.norm(tt1)
+        d = TensorNetworks.dot(tt1, tt2)
+        self_dot = TensorNetworks.dot(tt1, tt1)
+
+        @test n >= 0
+        @test d isa Number
+        @test real(self_dot) ≈ n^2
+        @test abs(imag(self_dot)) < 1e-10
     end
 end
 
