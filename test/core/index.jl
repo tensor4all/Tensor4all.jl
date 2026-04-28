@@ -58,6 +58,20 @@ end
     @test Tensor4all.tags(whitespace_corners) == ["a\tb", "c\u00a0d", "e\u3000f"]
 end
 
+@testset "Index tag backend constraints" begin
+    sixteen = "abcdefghijklmnop"
+    @test length(sixteen) == 16
+    @test Tensor4all.tags(Tensor4all.Index(2; tags=[sixteen])) == [sixteen]
+    @test Tensor4all.tags(Tensor4all.Index(2, "a,b,c,d")) == ["a", "b", "c", "d"]
+
+    long_tag = "abcdefghijklmnopq"
+    @test length(long_tag) == 17
+    @test_throws ArgumentError Tensor4all.Index(2; tags=[long_tag])
+    @test_throws ArgumentError Tensor4all.Index(2, long_tag)
+    @test_throws ArgumentError Tensor4all.Index(2; tags=["a", "b", "c", "d", "e"])
+    @test_throws ArgumentError Tensor4all.Index(2, "a,b,c,d,e")
+end
+
 @testset "Index replacement compatibility" begin
     i = Tensor4all.Index(2; tags=["i"])
     j = Tensor4all.Index(3; tags=["j"])

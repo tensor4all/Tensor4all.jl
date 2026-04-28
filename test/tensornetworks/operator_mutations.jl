@@ -172,7 +172,7 @@ end
             plev=plev(old_input),
             id=id(old_input),
         )
-        new_input = Index(dim(old_input); tags=["identity-renamed-in"])
+        new_input = Index(dim(old_input); tags=["id-ren-in"])
 
         @test_throws ArgumentError TN_OPMUT.replace_operator_input_indices!(op, [metadata_copy], [new_input])
     end
