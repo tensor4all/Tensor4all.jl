@@ -38,7 +38,7 @@ function _shared_index_with_neighbor(
 end
 
 function _operator_boundary_link(position::Int, side::Symbol)
-    return Index(1; tags=["Link", "operator-boundary=$position", "side=$(String(side))"])
+    return Index(1; tags=["Link", "op-bnd=$position", "side=$(String(side))"])
 end
 
 function _operator_link_indices(tt::TensorTrain, position::Int, input_index::Index, output_index::Index)

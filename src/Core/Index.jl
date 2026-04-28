@@ -1,4 +1,6 @@
 const _next_index_id = Ref{UInt64}(0)
+const _MAX_INDEX_TAGS = 4
+const _MAX_INDEX_TAG_LENGTH = 16
 
 next_index_id() = (_next_index_id[] += UInt64(1))
 
@@ -22,6 +24,19 @@ function _normalize_tags(tags::AbstractVector{<:AbstractString})
     return _normalize_tags(join(String.(tags), ","))
 end
 
+function _validate_index_tags(tags::AbstractVector{<:AbstractString})
+    length(tags) <= _MAX_INDEX_TAGS || throw(ArgumentError(
+        "Index supports at most $_MAX_INDEX_TAGS tags for the tensor4all-rs backend, got $(length(tags)): $(collect(tags))",
+    ))
+    for tag in tags
+        tag_length = length(tag)
+        tag_length <= _MAX_INDEX_TAG_LENGTH || throw(ArgumentError(
+            "Index tag length must be at most $_MAX_INDEX_TAG_LENGTH characters for the tensor4all-rs backend, got $tag_length for \"$tag\"",
+        ))
+    end
+    return nothing
+end
+
 """
     Index(dim; tags=String[], plev=0, id=next_index_id(), backend_handle=nothing)
     Index(dim, tags; plev=0, id=next_index_id(), backend_handle=nothing)
@@ -30,7 +45,9 @@ Create a Julia-side review skeleton for an indexed tensor leg.
 
 The metadata behavior is implemented during the skeleton phase, while the
 optional backend handle keeps the public shape aligned with the eventual
-backend-facing design.
+backend-facing design. Tags are normalized, deduplicated, sorted, and validated
+against the current tensor4all-rs backend limit of at most 4 tags, each at most
+16 characters.
 
 # Examples
 ```jldoctest
@@ -63,7 +80,10 @@ function Index(
     return Index(
         Int(dim),
         UInt64(id),
-        _normalize_tags(tags),
+        let normalized_tags = _normalize_tags(tags)
+            _validate_index_tags(normalized_tags)
+            normalized_tags
+        end,
         Int(plev),
         backend_handle,
     )
