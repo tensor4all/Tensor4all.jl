@@ -36,13 +36,17 @@ function to_dense(tt::TensorTrain)
 end
 
 function _restore_dense_site_metadata(tt::TensorTrain, tensor::Tensor)
-    requested_by_id = Dict{UInt64, Index}()
+    requested = Dict{Index, Index}()
     for group in _siteinds_by_tensor(tt), index in group
-        requested_by_id[id(index)] = index
+        requested[index] = index
     end
 
     restored = map(inds(tensor)) do index
-        return get(requested_by_id, id(index), index)
+        canonical = get(requested, index, nothing)
+        canonical === nothing && throw(
+            ArgumentError("Dense Tensor returned unexpected site index $index; expected one of $(collect(keys(requested)))."),
+        )
+        return canonical
     end
     return restored == inds(tensor) ? tensor : Tensor(tensor.data, restored)
 end

@@ -57,11 +57,11 @@ function _infer_unfuse_nvariables(
     return nvariables
 end
 
-function _unfuse_tensor_indices(tensor::Tensor, replacements::Dict{UInt64, Vector{Index}})
+function _unfuse_tensor_indices(tensor::Tensor, replacements::Dict{Index, Vector{Index}})
     new_indices = Index[]
     new_dims = Int[]
     for index in inds(tensor)
-        replacement = get(replacements, id(index), nothing)
+        replacement = get(replacements, index, nothing)
         if replacement === nothing
             push!(new_indices, index)
             push!(new_dims, dim(index))
@@ -82,15 +82,15 @@ function _restore_requested_site_indices!(
     tt::TensorNetworks.TensorTrain,
     requested::AbstractVector{<:Index},
 )
-    actual_by_id = Dict{UInt64, Index}()
+    actual_by_index = Dict{Index, Index}()
     for group in TensorNetworks.siteinds(tt), index in group
-        actual_by_id[id(index)] = index
+        actual_by_index[index] = index
     end
 
     oldsites = Index[]
     newsites = Index[]
     for index in requested
-        actual = get(actual_by_id, id(index), nothing)
+        actual = get(actual_by_index, index, nothing)
         actual === nothing && throw(
             ArgumentError("restructured operator is missing requested site index $index"),
         )
@@ -134,9 +134,9 @@ function unfuse_quantics_operator(
     expanded_tensors = Tensor[]
     for position in eachindex(op.mpo.data)
         offset = (position - 1) * nvariables
-        replacements = Dict{UInt64, Vector{Index}}(
-            id(op.output_indices[position]) => collect(output_sites[(offset + 1):(offset + nvariables)]),
-            id(op.input_indices[position]) => collect(input_sites[(offset + 1):(offset + nvariables)]),
+        replacements = Dict{Index, Vector{Index}}(
+            op.output_indices[position] => collect(output_sites[(offset + 1):(offset + nvariables)]),
+            op.input_indices[position] => collect(input_sites[(offset + 1):(offset + nvariables)]),
         )
         push!(expanded_tensors, _unfuse_tensor_indices(op.mpo[position], replacements))
     end

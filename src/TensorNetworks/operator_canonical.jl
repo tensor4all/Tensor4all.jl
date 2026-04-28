@@ -27,10 +27,10 @@ end
 function _shared_index_with_neighbor(
     tensor_indices::Vector{Index},
     neighbor::Tensor,
-    forbidden::Set{UInt64},
+    forbidden::Set{Index},
 )
-    neighbor_ids = Set(id.(inds(neighbor)))
-    matches = [index for index in tensor_indices if id(index) in neighbor_ids && id(index) ∉ forbidden]
+    neighbor_indices = Set(inds(neighbor))
+    matches = [index for index in tensor_indices if index in neighbor_indices && index ∉ forbidden]
     length(matches) <= 1 || throw(
         ArgumentError("Expected at most one shared link index between neighboring operator tensors, got $matches"),
     )
@@ -43,15 +43,15 @@ end
 
 function _operator_link_indices(tt::TensorTrain, position::Int, input_index::Index, output_index::Index)
     tensor_indices = inds(tt[position])
-    forbidden = Set([id(input_index), id(output_index)])
+    forbidden = Set([input_index, output_index])
     left = position > 1 ? _shared_index_with_neighbor(tensor_indices, tt[position - 1], forbidden) : nothing
     right = position < length(tt) ? _shared_index_with_neighbor(tensor_indices, tt[position + 1], forbidden) : nothing
 
     leftovers = [
         index for index in tensor_indices
-        if id(index) ∉ forbidden &&
-            (left === nothing || id(index) != id(left)) &&
-            (right === nothing || id(index) != id(right))
+        if index ∉ forbidden &&
+            (left === nothing || index != left) &&
+            (right === nothing || index != right)
     ]
 
     if position == 1 && left === nothing
@@ -73,7 +73,7 @@ function _operator_link_indices(tt::TensorTrain, position::Int, input_index::Ind
 end
 
 function _axis_for_index(tensor_indices::Vector{Index}, index::Index)
-    return findfirst(candidate -> id(candidate) == id(index), tensor_indices)
+    return findfirst(==(index), tensor_indices)
 end
 
 function _operator_canonical_tensor(

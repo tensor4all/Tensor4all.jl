@@ -200,6 +200,23 @@ _restruct_chain_edge_counts(n::Integer) = [(i, i + 1, 1) for i in 1:(n - 1)]
         @test _dense_compare(before, TN_RESTRUCT.to_dense(variable_grouped))
     end
 
+    @testset "restructure_to: primed site pairs stay distinct" begin
+        site = Index(2; tags=["site"])
+        primed = prime(site)
+        tt = _restruct_chain([[site, primed]]; seed=25)
+        before = TN_RESTRUCT.to_dense(tt)
+
+        unchanged = TN_RESTRUCT.restructure_to(tt, [[site, primed]])
+        @test length(unchanged) == 1
+        @test TN_RESTRUCT.siteinds(unchanged) == [[site, primed]]
+        @test _dense_compare(before, TN_RESTRUCT.to_dense(unchanged))
+
+        split = TN_RESTRUCT.restructure_to(tt, [[site], [primed]])
+        @test length(split) == 2
+        @test TN_RESTRUCT.siteinds(split) == [[site], [primed]]
+        @test _dense_compare(before, TN_RESTRUCT.to_dense(split))
+    end
+
     @testset "argument validation" begin
         sites = [Index(2; tags=["s", "s=$i"]) for i in 1:2]
         tt = _restruct_chain([[sites[1]], [sites[2]]]; seed=31)

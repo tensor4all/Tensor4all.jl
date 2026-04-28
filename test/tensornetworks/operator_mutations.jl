@@ -93,6 +93,44 @@ end
         @test length(op.input_indices) == length(op.output_indices) == length(op.true_input) == length(op.true_output)
     end
 
+    @testset "insert identity supports primed input-output pairs" begin
+        input = Index(2; tags=["site"])
+        output = prime(input)
+        data = reshape([1.0, 0.0, 0.0, 1.0], 2, 2)
+        op = TN_OPMUT.LinearOperator(;
+            mpo=TN_OPMUT.TensorTrain([Tensor(data, [input, output])]),
+            input_indices=[input],
+            output_indices=[output],
+            true_input=Union{Index, Nothing}[input],
+            true_output=Union{Index, Nothing}[output],
+        )
+        new_input = Index(2; tags=["inserted-in"])
+        new_output = Index(2; tags=["inserted-out"])
+
+        @test TN_OPMUT.insert_operator_identity!(op, 1, new_input, new_output) === op
+        @test op.input_indices == [new_input, input]
+        @test op.output_indices == [new_output, output]
+    end
+
+    @testset "canonicalization requires exact input-output metadata" begin
+        input = Index(2; tags=["site"])
+        output = prime(input)
+        metadata_input = Index(dim(input); tags=["metadata-in"], plev=plev(input), id=id(input))
+        metadata_output = Index(dim(output); tags=["metadata-out"], plev=plev(output), id=id(output))
+        data = reshape([1.0, 0.0, 0.0, 1.0], 2, 2)
+        op = TN_OPMUT.LinearOperator(;
+            mpo=TN_OPMUT.TensorTrain([Tensor(data, [input, output])]),
+            input_indices=[metadata_input],
+            output_indices=[metadata_output],
+            true_input=Union{Index, Nothing}[input],
+            true_output=Union{Index, Nothing}[output],
+        )
+        new_input = Index(2; tags=["inserted-in"])
+        new_output = Index(2; tags=["inserted-out"])
+
+        @test_throws ArgumentError TN_OPMUT.insert_operator_identity!(op, 1, new_input, new_output)
+    end
+
     @testset "permutation and index replacement update operator metadata" begin
         op = _opmutation_identity_op(3)
         original_input = copy(op.input_indices)
@@ -125,7 +163,7 @@ end
         @test new_output in _opmutation_siteinds_by_tensor(op.mpo)[end]
     end
 
-    @testset "index replacement matches operator metadata by identity" begin
+    @testset "index replacement requires exact operator metadata" begin
         op = _opmutation_identity_op(2)
         old_input = op.input_indices[2]
         metadata_copy = Index(
@@ -136,8 +174,6 @@ end
         )
         new_input = Index(dim(old_input); tags=["identity-renamed-in"])
 
-        @test TN_OPMUT.replace_operator_input_indices!(op, [metadata_copy], [new_input]) === op
-        @test op.input_indices[2] == new_input
-        @test new_input in _opmutation_siteinds_by_tensor(op.mpo)[2]
+        @test_throws ArgumentError TN_OPMUT.replace_operator_input_indices!(op, [metadata_copy], [new_input])
     end
 end

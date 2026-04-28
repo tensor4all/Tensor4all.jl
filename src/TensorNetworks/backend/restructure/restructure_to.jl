@@ -62,29 +62,25 @@ function restructure_to(
     _validate_target_groups_coverage(tt, target_groups)
 
     current_groups = _siteinds_by_tensor(tt)
-    # Compare by Index id rather than full Index equality: site indices that
-    # round-trip through the C API can come back with the same id but a
-    # different tag ordering, which would defeat Set{Index} comparison even
-    # though they refer to the same physical degree of freedom.
-    target_id_sets = [Set(id(index) for index in group) for group in target_groups]
-    current_id_sets = [Set(id(index) for index in group) for group in current_groups]
+    target_sets = [Set(group) for group in target_groups]
+    current_sets = [Set(group) for group in current_groups]
 
-    if _groups_equal_as_ordered_sets(current_id_sets, target_id_sets)
+    if _groups_equal_as_ordered_sets(current_sets, target_sets)
         return _final_truncate(tt; final_threshold, final_maxdim, final_svd_policy)
     end
 
-    if _is_swap_only(current_id_sets, target_id_sets)
+    if _is_swap_only(current_sets, target_sets)
         assignment = _build_swap_assignment(current_groups, target_groups)
         result = swap_site_indices(tt, assignment; rtol=swap_rtol, maxdim=swap_maxdim)
         return _final_truncate(result; final_threshold, final_maxdim, final_svd_policy)
     end
 
-    if _is_fuse_only(current_id_sets, target_id_sets)
+    if _is_fuse_only(current_sets, target_sets)
         result = fuse_to(tt, target_groups; edges)
         return _final_truncate(result; final_threshold, final_maxdim, final_svd_policy)
     end
 
-    if _is_split_only(current_id_sets, target_id_sets)
+    if _is_split_only(current_sets, target_sets)
         result = split_to(
             tt,
             target_groups;
@@ -112,13 +108,13 @@ function restructure_to(
     return _final_truncate(result; final_threshold, final_maxdim, final_svd_policy)
 end
 
-function _groups_equal_as_ordered_sets(a::Vector{Set{UInt64}}, b::Vector{Set{UInt64}})
+function _groups_equal_as_ordered_sets(a::Vector{Set{Index}}, b::Vector{Set{Index}})
     return length(a) == length(b) && all(a[i] == b[i] for i in eachindex(a))
 end
 
 # Site assignments share the same partition into groups, but at least one
 # index sits at a different node in the target than in the current grouping.
-function _is_swap_only(current_sets::Vector{Set{UInt64}}, target_sets::Vector{Set{UInt64}})
+function _is_swap_only(current_sets::Vector{Set{Index}}, target_sets::Vector{Set{Index}})
     length(current_sets) == length(target_sets) || return false
     # Target's set of partitions must equal current's set of partitions
     # (regardless of node order / assignment).
@@ -129,16 +125,14 @@ function _build_swap_assignment(
     current_groups::Vector{<:AbstractVector{<:Index}},
     target_groups::AbstractVector{<:AbstractVector{<:Index}},
 )
-    # Map every site index to its target 1-based node position. Compare by
-    # Index id so that C API round-trips (which may scramble tag order)
-    # don't break the assignment lookup.
+    # Map every site index to its target 1-based node position.
     assignment = Dict{Index, Int}()
-    current_position_by_id = Dict{UInt64, Int}()
+    current_position = Dict{Index, Int}()
     for (pos, group) in enumerate(current_groups), index in group
-        current_position_by_id[id(index)] = pos
+        current_position[index] = pos
     end
     for (pos, group) in enumerate(target_groups), index in group
-        get(current_position_by_id, id(index), -1) == pos && continue
+        get(current_position, index, -1) == pos && continue
         assignment[index] = pos
     end
     return assignment
@@ -146,7 +140,7 @@ end
 
 # Every current node's site indices must fit entirely into a single target node.
 # When that holds, fuse_to alone reaches the target topology.
-function _is_fuse_only(current_sets::Vector{Set{UInt64}}, target_sets::Vector{Set{UInt64}})
+function _is_fuse_only(current_sets::Vector{Set{Index}}, target_sets::Vector{Set{Index}})
     for current_set in current_sets
         any(target_set -> issubset(current_set, target_set), target_sets) || return false
     end
@@ -155,7 +149,7 @@ end
 
 # Every target node's site indices must fit entirely into a single current node.
 # When that holds, split_to alone reaches the target topology.
-function _is_split_only(current_sets::Vector{Set{UInt64}}, target_sets::Vector{Set{UInt64}})
+function _is_split_only(current_sets::Vector{Set{Index}}, target_sets::Vector{Set{Index}})
     for target_set in target_sets
         any(current_set -> issubset(target_set, current_set), current_sets) || return false
     end
@@ -191,10 +185,10 @@ function _mixed_restructure_to(
     )
 
     result_singletons = _siteinds_by_tensor(result)
-    result_id_sets = [Set(id(index) for index in group) for group in result_singletons]
-    target_singleton_id_sets = [Set(id(index) for index in group) for group in target_singletons]
+    result_sets = [Set(group) for group in result_singletons]
+    target_singleton_sets = [Set(group) for group in target_singletons]
 
-    if !_groups_equal_as_ordered_sets(result_id_sets, target_singleton_id_sets)
+    if !_groups_equal_as_ordered_sets(result_sets, target_singleton_sets)
         assignment = _build_swap_assignment(result_singletons, target_singletons)
         result = swap_site_indices(result, assignment; rtol=swap_rtol, maxdim=swap_maxdim)
     end
@@ -224,18 +218,18 @@ function _validate_target_groups_coverage(
     target_groups::AbstractVector{<:AbstractVector{<:Index}},
 )
     isempty(target_groups) && throw(ArgumentError("target_groups must not be empty"))
-    target_id_set = Set{UInt64}()
+    target_set = Set{Index}()
     for group in target_groups
         isempty(group) && throw(ArgumentError("target_groups entries must not be empty"))
         for index in group
-            id(index) in target_id_set && throw(ArgumentError(
+            index in target_set && throw(ArgumentError(
                 "target_groups: site index $index appears more than once",
             ))
-            push!(target_id_set, id(index))
+            push!(target_set, index)
         end
     end
-    current_id_set = Set(id(index) for group in _siteinds_by_tensor(tt) for index in group)
-    target_id_set == current_id_set || throw(ArgumentError(
+    current_set = Set(index for group in _siteinds_by_tensor(tt) for index in group)
+    target_set == current_set || throw(ArgumentError(
         "target_groups must cover exactly the current site indices of tt; mismatch detected.",
     ))
     return nothing
