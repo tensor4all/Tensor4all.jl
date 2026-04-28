@@ -19,6 +19,12 @@ mutable struct TensorHandle
     end
 end
 
+function Base.deepcopy_internal(::TensorHandle, ::IdDict)
+    throw(ArgumentError(
+        "TensorHandle cannot be deep-copied directly because it owns a backend pointer. Deep-copy the containing Tensor instead.",
+    ))
+end
+
 function _release_owned_tensor_handle(handle::TensorHandle)
     ptr = handle.ptr
     ptr == C_NULL && return nothing
@@ -920,6 +926,25 @@ function Base.isapprox(
 end
 
 Base.Array(t::Tensor, requested_inds::Index...) = copy_data(t, requested_inds...)
+
+function Base.copy(t::Tensor)
+    return Tensor(
+        copy_data(t),
+        inds(t);
+        structured_storage=_structured_storage_from_tensor(t),
+    )
+end
+
+function Base.deepcopy_internal(t::Tensor, stackdict::IdDict)
+    haskey(stackdict, t) && return stackdict[t]
+    result = Tensor(
+        copy_data(t),
+        Base.deepcopy_internal(getfield(t, :inds), stackdict);
+        structured_storage=_structured_storage_from_tensor(t),
+    )
+    stackdict[t] = result
+    return result
+end
 
 function _copy_structured_storage(storage::Nothing)
     return nothing

@@ -65,6 +65,74 @@ end
     @test Tensor4all.copy_data(tensor, [j, i]) == permutedims(data, (2, 1))
 end
 
+@testset "Tensor copy ownership" begin
+    i = Index(2; tags=["i"])
+    j = Index(3; tags=["j"])
+    data = reshape(collect(1.0:6.0), 2, 3)
+    tensor = Tensor(data, [i, j])
+
+    ptr(t) = getfield(getfield(t, :handle), :ptr)
+
+    copied = copy(tensor)
+    @test copied !== tensor
+    @test ptr(copied) != ptr(tensor)
+    @test inds(copied) == inds(tensor)
+    @test copy_data(copied) == data
+
+    deepcopied = deepcopy(tensor)
+    @test deepcopied !== tensor
+    @test ptr(deepcopied) != ptr(tensor)
+    @test inds(deepcopied) == inds(tensor)
+    @test copy_data(deepcopied) == data
+
+    tt = Tensor4all.TensorNetworks.TensorTrain([tensor])
+    deep_tt = deepcopy(tt)
+    @test deep_tt !== tt
+    @test deep_tt.data[1] !== tt.data[1]
+    @test ptr(deep_tt.data[1]) != ptr(tt.data[1])
+    @test copy_data(deep_tt.data[1]) == data
+
+    shared_tt = Tensor4all.TensorNetworks.TensorTrain([tensor, tensor])
+    deep_shared_tt = deepcopy(shared_tt)
+    @test deep_shared_tt.data[1] === deep_shared_tt.data[2]
+    @test deep_shared_tt.data[1] !== tensor
+    @test ptr(deep_shared_tt.data[1]) != ptr(tensor)
+
+    op = Tensor4all.TensorNetworks.LinearOperator(;
+        mpo=tt,
+        input_indices=[i],
+        output_indices=[j],
+    )
+    deep_op = deepcopy(op)
+    @test deep_op !== op
+    @test deep_op.mpo !== op.mpo
+    @test ptr(deep_op.mpo.data[1]) != ptr(op.mpo.data[1])
+    @test copy_data(deep_op.mpo.data[1]) == data
+
+    scalar_mps = Tensor4all.ITensorCompat.MPS(
+        Tensor4all.TensorNetworks.TensorTrain([Tensor(2.0)]),
+    )
+    deep_mps = deepcopy(scalar_mps)
+    @test deep_mps !== scalar_mps
+    @test deep_mps.tt !== scalar_mps.tt
+    @test ptr(deep_mps.tt.data[1]) != ptr(scalar_mps.tt.data[1])
+    @test copy_data(deep_mps.tt.data[1])[] == 2.0
+
+    diag_tensor = delta(i, sim(i))
+    copied_diag = copy(diag_tensor)
+    deep_diag = deepcopy(diag_tensor)
+    @test isdiag(copied_diag)
+    @test isdiag(deep_diag)
+    @test ptr(copied_diag) != ptr(diag_tensor)
+    @test ptr(deep_diag) != ptr(diag_tensor)
+    @test structured_storage_info(copied_diag) == structured_storage_info(diag_tensor)
+    @test structured_storage_info(deep_diag) == structured_storage_info(diag_tensor)
+    @test structured_payload(copied_diag) == structured_payload(diag_tensor)
+    @test structured_payload(deep_diag) == structured_payload(diag_tensor)
+
+    @test_throws ArgumentError deepcopy(getfield(tensor, :handle))
+end
+
 @testset "Tensor replaceind compatibility" begin
     i = Tensor4all.Index(2; tags=["i"])
     j = Tensor4all.Index(3; tags=["j"])
