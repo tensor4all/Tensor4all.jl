@@ -9,14 +9,46 @@ struct StructuredTensorStorage{T}
     axis_classes::Vector{Int}
 end
 
+mutable struct TensorHandle
+    ptr::Ptr{Cvoid}
+    function TensorHandle(ptr::Ptr{Cvoid}; owned::Bool=true)
+        ptr == C_NULL && throw(ArgumentError("TensorHandle cannot wrap C_NULL"))
+        handle = new(ptr)
+        owned && finalizer(_release_owned_tensor_handle, handle)
+        return handle
+    end
+end
+
+function _release_owned_tensor_handle(handle::TensorHandle)
+    ptr = handle.ptr
+    ptr == C_NULL && return nothing
+    handle.ptr = C_NULL
+    try
+        ccall(Libdl.dlsym(require_backend(), :t4a_tensor_release), Cvoid, (Ptr{Cvoid},), ptr)
+    catch
+        return nothing
+    end
+    return nothing
+end
+
+_backend_handle_ptr(handle::Nothing) = C_NULL
+_backend_handle_ptr(handle::Ptr{Cvoid}) = handle
+_backend_handle_ptr(handle::TensorHandle) = handle.ptr
+
+const _CORE_T4A_SUCCESS = Cint(0)
+const _CORE_T4A_SCALAR_KIND_F64 = Cint(0)
+const _CORE_T4A_SCALAR_KIND_C64 = Cint(1)
+
 """
     Tensor(data, inds; backend_handle=nothing)
 
 Create a tensor from Julia-owned dense array data and index metadata.
 
 This constructor validates metadata and shape consistency. Tensors keep a dense
-Julia snapshot for indexing and `Array` extraction; selected constructors may
-also attach compact storage metadata used by backend calls.
+Julia snapshot when constructed from arrays. Backend operations may return
+handle-backed tensors that materialize dense Julia data lazily for indexing and
+`Array` extraction; selected constructors may also attach compact storage
+metadata used by backend calls.
 
 # Examples
 ```jldoctest
@@ -32,10 +64,10 @@ julia> (rank(t), dims(t))
 (2, (2, 3))
 ```
 """
-struct Tensor{T,N}
-    data::Array{T,N}
+mutable struct Tensor{T,N}
+    data::Union{Nothing,Array{T,N}}
     inds::Vector{Index}
-    backend_handle::Union{Nothing,Ptr{Cvoid}}
+    backend_handle::Union{Nothing,Ptr{Cvoid},TensorHandle}
     structured_storage::Union{Nothing,StructuredTensorStorage{T}}
 end
 
@@ -50,7 +82,7 @@ const ITensor = Tensor
 function Tensor(
     data::Array{T,N},
     inds::AbstractVector{Index};
-    backend_handle::Union{Nothing,Ptr{Cvoid}}=nothing,
+    backend_handle::Union{Nothing,Ptr{Cvoid},TensorHandle}=nothing,
     structured_storage::Union{Nothing,StructuredTensorStorage{T}}=nothing,
 ) where {T,N}
     length(inds) == N || throw(DimensionMismatch(
@@ -62,6 +94,19 @@ function Tensor(
     ))
     _validate_structured_storage(structured_storage, expected_dims)
     return Tensor{T,N}(copy(data), collect(inds), backend_handle, structured_storage)
+end
+
+function _tensor_from_backend_handle(
+    handle::TensorHandle,
+    indices::AbstractVector{Index},
+    ::Type{T},
+    ::Val{N};
+    structured_storage::Union{Nothing,StructuredTensorStorage{T}}=nothing,
+) where {T,N}
+    length(indices) == N || throw(DimensionMismatch(
+        "Tensor rank $N requires $N indices, got $(length(indices))",
+    ))
+    return Tensor{T,N}(nothing, collect(indices), handle, structured_storage)
 end
 
 function Tensor(
@@ -91,7 +136,139 @@ function Tensor(value::Number, first_index::Index, rest_indices::Index...)
     return Tensor(fill(value, dim.(indices)...), indices)
 end
 
-Base.eltype(t::Tensor) = eltype(t.data)
+Base.eltype(::Tensor{T}) where {T} = T
+
+function _read_core_csize_vector_from_handle(ptr::Ptr{Cvoid}, symbol::Symbol, context::AbstractString)
+    out_len = Ref{Csize_t}(0)
+    status = ccall(
+        Libdl.dlsym(require_backend(), symbol),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t, Ref{Csize_t}),
+        ptr,
+        C_NULL,
+        0,
+        out_len,
+    )
+    status == _CORE_T4A_SUCCESS || throw(ArgumentError("querying backend tensor $context failed"))
+
+    values = Vector{Csize_t}(undef, Int(out_len[]))
+    status = ccall(
+        Libdl.dlsym(require_backend(), symbol),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Csize_t}, Csize_t, Ref{Csize_t}),
+        ptr,
+        values,
+        length(values),
+        out_len,
+    )
+    status == _CORE_T4A_SUCCESS || throw(ArgumentError("copying backend tensor $context failed"))
+    return Int.(values)
+end
+
+function _tensor_dims_from_owned_handle(handle)
+    ptr = _backend_handle_ptr(handle)
+    ptr == C_NULL && throw(ArgumentError("Tensor has no backend handle"))
+    return Tuple(_read_core_csize_vector_from_handle(ptr, :t4a_tensor_dims, "dimensions"))
+end
+
+function _tensor_scalar_kind_from_owned_handle(handle)
+    ptr = _backend_handle_ptr(handle)
+    ptr == C_NULL && throw(ArgumentError("Tensor has no backend handle"))
+    out_kind = Ref{Cint}(0)
+    status = ccall(
+        Libdl.dlsym(require_backend(), :t4a_tensor_scalar_kind),
+        Cint,
+        (Ptr{Cvoid}, Ref{Cint}),
+        ptr,
+        out_kind,
+    )
+    status == _CORE_T4A_SUCCESS || throw(ArgumentError("querying backend tensor scalar kind failed"))
+    return out_kind[]
+end
+
+function _read_dense_f64_from_owned_handle(handle)
+    ptr = _backend_handle_ptr(handle)
+    out_len = Ref{Csize_t}(0)
+    status = ccall(
+        Libdl.dlsym(require_backend(), :t4a_tensor_copy_dense_f64),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Float64}, Csize_t, Ref{Csize_t}),
+        ptr,
+        C_NULL,
+        0,
+        out_len,
+    )
+    status == _CORE_T4A_SUCCESS || throw(ArgumentError("querying backend dense tensor data failed"))
+
+    dense = Vector{Float64}(undef, Int(out_len[]))
+    status = ccall(
+        Libdl.dlsym(require_backend(), :t4a_tensor_copy_dense_f64),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Float64}, Csize_t, Ref{Csize_t}),
+        ptr,
+        dense,
+        length(dense),
+        out_len,
+    )
+    status == _CORE_T4A_SUCCESS || throw(ArgumentError("copying backend dense tensor data failed"))
+    return dense
+end
+
+function _read_dense_c64_from_owned_handle(handle)
+    ptr = _backend_handle_ptr(handle)
+    out_len = Ref{Csize_t}(0)
+    status = ccall(
+        Libdl.dlsym(require_backend(), :t4a_tensor_copy_dense_c64),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Float64}, Csize_t, Ref{Csize_t}),
+        ptr,
+        C_NULL,
+        0,
+        out_len,
+    )
+    status == _CORE_T4A_SUCCESS || throw(ArgumentError("querying backend dense tensor data failed"))
+
+    raw = Vector{Float64}(undef, 2 * Int(out_len[]))
+    status = ccall(
+        Libdl.dlsym(require_backend(), :t4a_tensor_copy_dense_c64),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Float64}, Csize_t, Ref{Csize_t}),
+        ptr,
+        raw,
+        Int(out_len[]),
+        out_len,
+    )
+    status == _CORE_T4A_SUCCESS || throw(ArgumentError("copying backend dense tensor data failed"))
+
+    dense = Vector{ComplexF64}(undef, Int(out_len[]))
+    for n in eachindex(dense)
+        dense[n] = ComplexF64(raw[2n-1], raw[2n])
+    end
+    return dense
+end
+
+function _materialize_tensor_data!(t::Tensor{T,N}) where {T,N}
+    data = getfield(t, :data)
+    data !== nothing && return data
+    handle = getfield(t, :backend_handle)
+    handle === nothing && throw(ArgumentError("Tensor has neither dense data nor backend handle"))
+    scalar_kind = _tensor_scalar_kind_from_owned_handle(handle)
+    dense = if scalar_kind == _CORE_T4A_SCALAR_KIND_F64
+        _read_dense_f64_from_owned_handle(handle)
+    elseif scalar_kind == _CORE_T4A_SCALAR_KIND_C64
+        _read_dense_c64_from_owned_handle(handle)
+    else
+        throw(ArgumentError("Unsupported backend tensor scalar kind $scalar_kind"))
+    end
+    materialized = convert(Array{T,N}, reshape(dense, dims(t)))
+    setfield!(t, :data, materialized)
+    return materialized
+end
+
+function Base.getproperty(t::Tensor, name::Symbol)
+    name === :data && return _materialize_tensor_data!(t)
+    return getfield(t, name)
+end
 
 function _validate_structured_storage(
     storage::Union{Nothing,StructuredTensorStorage},
@@ -158,9 +335,9 @@ rank(t::Tensor) = length(t.inds)
 """
     dims(t)
 
-Return the dense array dimensions of `t`.
+Return the logical dimensions of `t`.
 """
-dims(t::Tensor) = size(t.data)
+dims(t::Tensor) = getfield(t, :data) === nothing ? _tensor_dims_from_owned_handle(getfield(t, :backend_handle)) : size(getfield(t, :data))
 
 """
     prime(t, n=1)
@@ -557,13 +734,81 @@ function Tensor(oh::OneHotTensor{T}) where {T}
     return Tensor(data, [oh.index])
 end
 
+"""
+    selectinds(t, selections...)
+    selectinds(t, indices, values)
+
+Fix one or more indices of `t` at 1-based coordinates and return the remaining
+tensor. The selection is performed by the backend and materializes dense Julia
+data only when the result is inspected as an array.
+"""
+function selectinds(
+    t::Tensor,
+    selected_indices::AbstractVector{<:Index},
+    values::AbstractVector{<:Integer},
+)
+    length(selected_indices) == length(values) || throw(DimensionMismatch(
+        "selectinds expected the same number of indices and values, got $(length(selected_indices)) and $(length(values))",
+    ))
+    isempty(selected_indices) && return t
+    length(unique(selected_indices)) == length(selected_indices) || throw(
+        ArgumentError("selectinds selected indices must not contain duplicates, got $selected_indices"),
+    )
+
+    tensor_indices = inds(t)
+    for (index, value) in zip(selected_indices, values)
+        axis = findfirst(==(index), tensor_indices)
+        axis === nothing && throw(ArgumentError("selectinds index $index is not attached to tensor indices $tensor_indices"))
+        1 <= value <= dim(index) || throw(ArgumentError(
+            "selectinds value for index $index must be in 1:$(dim(index)), got $value",
+        ))
+    end
+
+    scalar_kind = _tensor_scalar_kind(t)
+    tn = _tensor_networks_module()
+    t_handle = C_NULL
+    selected_handles = Ptr{Cvoid}[]
+    result_handle = C_NULL
+    try
+        t_handle = tn._new_tensor_handle(t, scalar_kind)
+        for index in selected_indices
+            push!(selected_handles, tn._new_index_handle(index))
+        end
+        positions = Csize_t.(values .- 1)
+
+        out = Ref{Ptr{Cvoid}}(C_NULL)
+        status = ccall(
+            tn._t4a(:t4a_tensor_select_indices),
+            Cint,
+            (Ptr{Cvoid}, Csize_t, Ptr{Ptr{Cvoid}}, Ptr{Csize_t}, Ref{Ptr{Cvoid}}),
+            t_handle,
+            Csize_t(length(selected_handles)),
+            selected_handles,
+            positions,
+            out,
+        )
+        tn._check_backend_status(status, "selecting tensor indices")
+        result_handle = out[]
+        result = tn._lazy_tensor_from_owned_handle(result_handle)
+        result_handle = C_NULL
+        return result
+    finally
+        tn._release_tensor_handle(result_handle)
+        for handle in reverse(selected_handles)
+            tn._release_index_handle(handle)
+        end
+        tn._release_tensor_handle(t_handle)
+    end
+end
+
+function selectinds(t::Tensor, selections::Pair{Index,<:Integer}...)
+    return selectinds(t, Index[first(selection) for selection in selections], Int[last(selection) for selection in selections])
+end
+
 function _contract_tensor_onehot(t::Tensor, oh::OneHotTensor)
     axis = findfirst(==(oh.index), t.inds)
     axis === nothing && return contract(t, Tensor(oh))
-
-    out_inds = inds(t)
-    deleteat!(out_inds, axis)
-    return Tensor(collect(selectdim(t.data, axis, oh.value)), out_inds)
+    return selectinds(t, oh.index => oh.value)
 end
 
 contract(t::Tensor, oh::OneHotTensor) = _contract_tensor_onehot(t, oh)
@@ -574,7 +819,7 @@ Base.:*(oh::OneHotTensor, t::Tensor) = contract(oh, t)
 function _tensor_scalar_kind(tensors::Tensor...)
     any_complex = false
     for tensor in tensors
-        T = eltype(tensor.data)
+        T = eltype(tensor)
         if T <: Real
             continue
         elseif T <: Complex
@@ -640,7 +885,9 @@ function contract(a::Tensor, b::Tensor)
         )
         tn._check_backend_status(status, "contracting tensors")
         result_handle = out[]
-        return tn._tensor_from_handle(result_handle)
+        result = tn._lazy_tensor_from_owned_handle(result_handle)
+        result_handle = C_NULL
+        return result
     finally
         tn._release_tensor_handle(result_handle)
         tn._release_tensor_handle(b_handle)

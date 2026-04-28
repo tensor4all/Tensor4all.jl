@@ -48,7 +48,7 @@ export norm
 export orthogonalize, truncate
 export Tensor, ITensor, inds, rank, dims, swapinds, contract
 export delta, isdiag, structured_storage_info, structured_payload
-export onehot, fixinds, suminds, projectinds
+export selectinds, onehot, fixinds, suminds, projectinds
 export svd, qr
 export random_itensor, random_mps
 export TensorNetworks, ITensorCompat, SimpleTT, TensorCI, QuanticsGrids, QuanticsTCI, QuanticsTransform

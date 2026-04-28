@@ -181,6 +181,20 @@ function _new_structured_tensor_handle(
 end
 
 function _new_tensor_handle(tensor::Tensor, scalar_kind::Symbol)
+    existing_handle = _backend_handle_ptr(tensor.backend_handle)
+    if existing_handle != C_NULL
+        out = Ref{Ptr{Cvoid}}(C_NULL)
+        status = ccall(
+            _t4a(:t4a_tensor_clone),
+            Cint,
+            (Ptr{Cvoid}, Ref{Ptr{Cvoid}}),
+            existing_handle,
+            out,
+        )
+        _check_backend_status(status, "cloning backend tensor")
+        return out[]
+    end
+
     index_handles = Ptr{Cvoid}[]
     try
         for index in inds(tensor)
@@ -509,4 +523,24 @@ function _tensor_from_handle(ptr::Ptr{Cvoid})
 
     data = copy(reshape(dense, Tuple(dims)))
     return Tensor(data, indices; structured_storage=_structured_storage_from_handle(ptr, scalar_kind))
+end
+
+function _lazy_tensor_from_owned_handle(ptr::Ptr{Cvoid})
+    dims = _tensor_dims_from_handle(ptr)
+    indices = _tensor_indices_from_handle(ptr)
+    scalar_kind = _tensor_scalar_kind_from_handle(ptr)
+    T = if scalar_kind == _T4A_SCALAR_KIND_F64
+        Float64
+    elseif scalar_kind == _T4A_SCALAR_KIND_C64
+        ComplexF64
+    else
+        throw(ArgumentError("Unsupported backend scalar kind $scalar_kind"))
+    end
+    return _tensor_from_backend_handle(
+        TensorHandle(ptr),
+        indices,
+        T,
+        Val(length(dims));
+        structured_storage=_structured_storage_from_handle(ptr, scalar_kind),
+    )
 end
