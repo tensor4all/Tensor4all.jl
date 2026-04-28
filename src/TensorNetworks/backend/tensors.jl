@@ -182,9 +182,16 @@ function _new_structured_tensor_handle(
     throw(ArgumentError("Unknown structured storage kind $(storage.kind)"))
 end
 
+function _scalar_kind_code(scalar_kind::Symbol)
+    scalar_kind === :f64 && return _T4A_SCALAR_KIND_F64
+    scalar_kind === :c64 && return _T4A_SCALAR_KIND_C64
+    throw(ArgumentError("Unknown scalar kind $scalar_kind"))
+end
+
 function _new_tensor_handle(tensor::Tensor, scalar_kind::Symbol)
     existing_handle = _backend_handle_ptr(tensor.backend_handle)
-    if existing_handle != C_NULL
+    if existing_handle != C_NULL &&
+            _tensor_scalar_kind_from_handle(existing_handle) == _scalar_kind_code(scalar_kind)
         out = Ref{Ptr{Cvoid}}(C_NULL)
         status = ccall(
             _t4a(:t4a_tensor_clone),

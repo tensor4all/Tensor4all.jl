@@ -133,6 +133,20 @@ end
     @test_throws ArgumentError deepcopy(getfield(tensor, :handle))
 end
 
+@testset "Tensor backend handle scalar promotion" begin
+    i = Index(2; tags=["i"])
+    tensor = Tensor([1.0, 2.0], [i])
+
+    handle = Tensor4all.TensorNetworks._new_tensor_handle(tensor, :c64)
+    try
+        promoted = Tensor4all.TensorNetworks._tensor_from_handle(handle)
+        @test eltype(promoted) == ComplexF64
+        @test copy_data(promoted) == ComplexF64[1.0, 2.0]
+    finally
+        Tensor4all.TensorNetworks._release_tensor_handle(handle)
+    end
+end
+
 @testset "Tensor replaceind compatibility" begin
     i = Tensor4all.Index(2; tags=["i"])
     j = Tensor4all.Index(3; tags=["j"])

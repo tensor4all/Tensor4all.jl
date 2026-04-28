@@ -36,6 +36,11 @@ function single_site_operator(internal_input::Index, internal_output::Index, mat
     return TN.LinearOperator(; mpo, input_indices=[internal_input], output_indices=[internal_output])
 end
 
+function single_site_operator(internal_input::Index, internal_output::Index, matrix::Matrix{ComplexF64})
+    mpo = TN.TensorTrain([Tensor(matrix, [internal_output, internal_input])], 0, 2)
+    return TN.LinearOperator(; mpo, input_indices=[internal_input], output_indices=[internal_output])
+end
+
 function apply_matrix_on_last_axis(data::AbstractMatrix, matrix::AbstractMatrix)
     expected = similar(data)
     for row in axes(data, 1), out in axes(matrix, 1)
@@ -77,4 +82,18 @@ end
     pol = TN.SvdTruncationPolicy()
     result_pol = TN.apply(op, state; threshold=1e-12, svd_policy=pol)
     @test tn_test_dense_tensor(result_pol, output_true) ≈ tn_test_dense_tensor(state, input_sites)
+
+    complex_matrix = ComplexF64[0.0 1.0 + 0.5im; 2.0 - 1.0im 0.0]
+    complex_partial = single_site_operator(internal_in, internal_out, complex_matrix)
+    complex_output = Index(2; tags=["zcomplex", "zcomplex=2"])
+    TN.set_iospaces!(complex_partial, [input_sites[2]], [complex_output])
+
+    complex_result = TN.apply(complex_partial, state)
+    expected_complex = apply_matrix_on_last_axis(
+        ComplexF64.(tn_test_dense_tensor(state, input_sites)),
+        complex_matrix,
+    )
+
+    @test eltype(complex_result.data[1]) == ComplexF64
+    @test tn_test_dense_tensor(complex_result, [input_sites[1], complex_output]) ≈ expected_complex
 end
