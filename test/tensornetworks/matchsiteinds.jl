@@ -4,7 +4,7 @@ using Tensor4all
 const TN = Tensor4all.TensorNetworks
 
 function canonical_mps_tensor(tensor::Tensor, position::Int, length_tt::Int)
-    data = tensor.data
+    data = copy_data(tensor)
     if ndims(data) == 1
         return Array(reshape(copy(data), 1, size(data, 1), 1))
     elseif ndims(data) == 2
@@ -20,7 +20,7 @@ function canonical_mps_tensor(tensor::Tensor, position::Int, length_tt::Int)
 end
 
 function canonical_mpo_tensor(tensor::Tensor, position::Int, length_tt::Int)
-    data = tensor.data
+    data = copy_data(tensor)
     if ndims(data) == 2
         return Array(reshape(copy(data), 1, size(data, 1), size(data, 2), 1))
     elseif ndims(data) == 3

@@ -46,7 +46,7 @@ function simple_mps(sites::Vector{Index})
             data = reshape(collect(cursor:(cursor + elements - 1)), dim(links[i - 1]), dim(sites[i]), dim(links[i]))
             push!(tensors, Tensor(data, [links[i - 1], sites[i], links[i]]))
         end
-        cursor += length(tensors[end].data)
+        cursor += length(copy_data(tensors[end]))
     end
     return TN.TensorTrain(tensors, 0, n + 1)
 end

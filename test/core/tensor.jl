@@ -8,13 +8,21 @@ using LinearAlgebra: I
     data = reshape(collect(1.0:6.0), 2, 3)
     tensor = Tensor4all.Tensor(data, [i, j])
 
+    @test fieldnames(typeof(tensor)) == (:handle, :inds)
+    @test tensor.backend_handle !== nothing
     @test Tensor4all.rank(tensor) == 2
     @test Tensor4all.dims(tensor) == (2, 3)
     @test Tensor4all.inds(tensor) == [i, j]
     @test Tensor4all.inds(Tensor4all.prime(tensor)) == [Tensor4all.prime(i), Tensor4all.prime(j)]
     filled = Tensor4all.Tensor(4.0, i, j)
     @test Tensor4all.inds(filled) == [i, j]
-    @test filled.data == fill(4.0, 2, 3)
+    @test fieldnames(typeof(filled)) == (:handle, :inds)
+    @test filled.backend_handle !== nothing
+    @test Tensor4all.copy_data(filled) == fill(4.0, 2, 3)
+    filled_copy = Tensor4all.copy_data(filled)
+    @test filled_copy == fill(4.0, 2, 3)
+    filled_copy[1, 1] = -1.0
+    @test Tensor4all.copy_data(filled) == fill(4.0, 2, 3)
 
     bad = PermutedDimsArray(reshape(collect(1.0:8.0), 2, 2, 2), (2, 1, 3))
     k = Tensor4all.Index(2; tags=["k"])
@@ -23,8 +31,9 @@ using LinearAlgebra: I
     contracted = Tensor4all.contract(tensor, tensor)
     @test Tensor4all.rank(contracted) == 0
     @test Tensor4all.dims(contracted) == ()
-    @test contracted.data[] == 91.0
+    @test Tensor4all.copy_data(contracted)[] == 91.0
     @test only(Array(contracted)) == sum(data .* data)
+    @test only(Tensor4all.copy_data(contracted)) == sum(data .* data)
 end
 
 @testset "Tensor scalar and ITensor conveniences" begin
@@ -37,6 +46,25 @@ end
     @test_throws ArgumentError Tensor4all.scalar(t)
 end
 
+@testset "Tensor explicit materialization copies" begin
+    i = Index(2; tags=["i"])
+    j = Index(3; tags=["j"])
+    data = reshape(collect(1.0:6.0), 2, 3)
+    tensor = Tensor(data, [i, j])
+
+    copied = Tensor4all.copy_data(tensor)
+    @test copied == data
+    copied[1, 1] = -100.0
+    @test Tensor4all.copy_data(tensor) == data
+    @test Array(tensor) == data
+
+    reordered = Tensor4all.copy_data(tensor, j, i)
+    @test reordered == permutedims(data, (2, 1))
+    reordered[1, 1] = -200.0
+    @test Tensor4all.copy_data(tensor, j, i) == permutedims(data, (2, 1))
+    @test Tensor4all.copy_data(tensor, [j, i]) == permutedims(data, (2, 1))
+end
+
 @testset "Tensor replaceind compatibility" begin
     i = Tensor4all.Index(2; tags=["i"])
     j = Tensor4all.Index(3; tags=["j"])
@@ -46,14 +74,15 @@ end
     missing = Tensor4all.Index(2; tags=["missing"])
 
     data = reshape(collect(1.0:6.0), 2, 3)
-    handle = Ptr{Cvoid}(1)
-    tensor = Tensor4all.Tensor(data, [i, j]; backend_handle=handle)
+    tensor = Tensor4all.Tensor(data, [i, j])
+    handle = tensor.backend_handle
 
     replaced = Tensor4all.replaceind(tensor, i, ip)
     @test Tensor4all.inds(replaced) == [ip, j]
     @test Tensor4all.inds(tensor) == [i, j]
-    @test replaced.data == tensor.data
-    @test replaced.backend_handle == handle
+    @test Tensor4all.copy_data(replaced) == Tensor4all.copy_data(tensor)
+    @test replaced.backend_handle !== nothing
+    @test replaced.backend_handle != handle
 
     @test Tensor4all.inds(Tensor4all.replaceind(tensor, i => ip)) == [ip, j]
     @test Tensor4all.inds(Tensor4all.replaceinds(tensor, (i, j), (ip, jp))) == [ip, jp]
@@ -63,17 +92,21 @@ end
     @test_throws ArgumentError Tensor4all.replaceind(tensor, i, bad)
     @test_throws ArgumentError Tensor4all.replaceinds(tensor, (i,), (bad,))
 
-    mut = Tensor4all.Tensor(data, [i, j]; backend_handle=handle)
+    mut = Tensor4all.Tensor(data, [i, j])
+    mut_handle = mut.backend_handle
     @test Tensor4all.replaceind!(mut, i, ip) === mut
     @test Tensor4all.inds(mut) == [ip, j]
-    @test mut.data == data
-    @test mut.backend_handle == handle
+    @test Tensor4all.copy_data(mut) == data
+    @test mut.backend_handle !== nothing
+    @test mut.backend_handle != mut_handle
 
-    mut2 = Tensor4all.Tensor(data, [i, j]; backend_handle=handle)
+    mut2 = Tensor4all.Tensor(data, [i, j])
+    mut2_handle = mut2.backend_handle
     @test Tensor4all.replaceinds!(mut2, (i, j), (ip, jp)) === mut2
     @test Tensor4all.inds(mut2) == [ip, jp]
-    @test mut2.data == data
-    @test mut2.backend_handle == handle
+    @test Tensor4all.copy_data(mut2) == data
+    @test mut2.backend_handle !== nothing
+    @test mut2.backend_handle != mut2_handle
 end
 
 @testset "structured diagonal tensor payload metadata" begin
@@ -82,6 +115,8 @@ end
 
     d = Tensor4all.delta(i, j)
     @test Tensor4all.isdiag(d)
+    @test fieldnames(typeof(d)) == (:handle, :inds)
+    @test d.backend_handle !== nothing
 
     info = Tensor4all.structured_storage_info(d)
     @test info.kind == :diagonal

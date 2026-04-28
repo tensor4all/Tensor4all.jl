@@ -2,7 +2,7 @@ function _promoted_scalar_kind(tts::TensorTrain...)
     any_complex = false
     for tt in tts
         for tensor in tt.data
-            T = eltype(tensor.data)
+            T = eltype(tensor)
             if T <: Real
                 continue
             elseif T <: Complex
@@ -29,7 +29,8 @@ function _new_dense_tensor_handle(tensor::Tensor, scalar_kind::Symbol, index_han
     if scalar_kind === :f64
         # convert preserves array shape; broadcasting Float64.(arr) collapses
         # rank-0 arrays to a scalar, which then breaks the Ptr{Float64} ccall.
-        dense = convert(Array{Float64,ndims(tensor.data)}, tensor.data)
+        tensor_data = copy_data(tensor)
+        dense = convert(Array{Float64,ndims(tensor_data)}, tensor_data)
         return ccall(
             _t4a(:t4a_tensor_new_dense_f64),
             Cint,
@@ -41,7 +42,8 @@ function _new_dense_tensor_handle(tensor::Tensor, scalar_kind::Symbol, index_han
             out,
         )
     elseif scalar_kind === :c64
-        dense = _interleaved_complex_data(tensor.data)
+        tensor_data = copy_data(tensor)
+        dense = _interleaved_complex_data(tensor_data)
         return ccall(
             _t4a(:t4a_tensor_new_dense_c64),
             Cint,
@@ -49,7 +51,7 @@ function _new_dense_tensor_handle(tensor::Tensor, scalar_kind::Symbol, index_han
             rank(tensor),
             index_handles,
             dense,
-            length(tensor.data),
+            length(tensor_data),
             out,
         )
     end
@@ -202,7 +204,7 @@ function _new_tensor_handle(tensor::Tensor, scalar_kind::Symbol)
         end
 
         out = Ref{Ptr{Cvoid}}(C_NULL)
-        storage = tensor.structured_storage
+        storage = _structured_storage_from_tensor(tensor)
         if storage === nothing
             status = _new_dense_tensor_handle(tensor, scalar_kind, index_handles, out)
         else

@@ -41,7 +41,7 @@ const TN_RANDOM = Tensor4all.TensorNetworks
     @testset "complex eltype" begin
         sites = [Index(2; tags=["s", "s=$i"]) for i in 1:4]
         tt = TN_RANDOM.random_tt(ComplexF64, sites; linkdims=3)
-        @test eltype(tt[2].data) == ComplexF64
+        @test eltype(Tensor4all.copy_data(tt[2])) == ComplexF64
         @test TN_RANDOM.norm(tt) ≈ 1.0
     end
 
@@ -50,7 +50,7 @@ const TN_RANDOM = Tensor4all.TensorNetworks
         tt1 = TN_RANDOM.random_tt(MersenneTwister(42), sites; linkdims=2)
         tt2 = TN_RANDOM.random_tt(MersenneTwister(42), sites; linkdims=2)
         for j in 1:length(tt1)
-            @test tt1[j].data == tt2[j].data
+            @test Tensor4all.copy_data(tt1[j]) == Tensor4all.copy_data(tt2[j])
         end
     end
 

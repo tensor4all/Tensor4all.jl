@@ -13,7 +13,7 @@ using Tensor4all
         @test rank(result) == 1
         @test dims(result) == (2,)
         expected = reshape(collect(1.0:6.0), 2, 3) * collect(1.0:3.0)
-        @test result.data ≈ expected
+        @test copy_data(result) ≈ expected
     end
 
     @testset "matrix-matrix contraction" begin
@@ -22,7 +22,7 @@ using Tensor4all
         result = contract(A, B)
         @test rank(result) == 2
         expected = reshape(collect(1.0:6.0), 2, 3) * reshape(collect(1.0:12.0), 3, 4)
-        @test result.data ≈ expected
+        @test copy_data(result) ≈ expected
     end
 
     @testset "backend contraction result materializes lazily" begin
@@ -31,11 +31,16 @@ using Tensor4all
 
         result = contract(A, B)
 
-        @test getfield(result, :data) === nothing
+        @test fieldnames(typeof(result)) == (:handle, :inds)
         @test result.backend_handle !== nothing
         @test dims(result) == (2, 4)
+        materialized = Array(result, i, k)
+        @test materialized ≈ reshape(collect(1.0:6.0), 2, 3) * reshape(collect(1.0:12.0), 3, 4)
+        materialized[1, 1] = -1.0
         @test Array(result, i, k) ≈ reshape(collect(1.0:6.0), 2, 3) * reshape(collect(1.0:12.0), 3, 4)
-        @test getfield(result, :data) !== nothing
+        @test fieldnames(typeof(result)) == (:handle, :inds)
+        @test structured_storage_info(result).kind == :dense
+        @test fieldnames(typeof(result)) == (:handle, :inds)
     end
 
     @testset "selectinds fixes multiple indices lazily" begin
@@ -44,12 +49,15 @@ using Tensor4all
 
         selected = selectinds(t, j => 2, k => 3)
 
-        @test getfield(selected, :data) === nothing
+        @test fieldnames(typeof(selected)) == (:handle, :inds)
         @test selected.backend_handle !== nothing
         @test inds(selected) == [i]
         @test dims(selected) == (2,)
-        @test Array(selected, i) ≈ data[:, 2, 3]
-        @test getfield(selected, :data) !== nothing
+        selected_data = copy_data(selected, i)
+        @test selected_data ≈ data[:, 2, 3]
+        selected_data[1] = -1.0
+        @test copy_data(selected, i) ≈ data[:, 2, 3]
+        @test fieldnames(typeof(selected)) == (:handle, :inds)
     end
 
     @testset "outer product (no shared indices)" begin
@@ -58,7 +66,7 @@ using Tensor4all
         result = contract(a, b)
         @test rank(result) == 2
         @test inds(result) == [i, j]
-        @test result.data ≈ collect(1.0:2.0) * transpose(collect(1.0:3.0))
+        @test copy_data(result) ≈ collect(1.0:2.0) * transpose(collect(1.0:3.0))
     end
 
     @testset "index tags round-trip through backend with ITensors rules" begin

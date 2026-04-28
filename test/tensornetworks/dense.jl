@@ -66,13 +66,13 @@ end
         tt = TN_DENSE.TensorTrain([Tensor(fill(3.5), Index[])])
         dense = TN_DENSE.to_dense(tt)
         @test rank(dense) == 0
-        @test dense.data[] ≈ 3.5
+        @test Tensor4all.copy_data(dense)[] ≈ 3.5
 
         # Complex scalar
         tt_c = TN_DENSE.TensorTrain([Tensor(fill(ComplexF64(3.5 + 1.0im)), Index[])])
         dense_c = TN_DENSE.to_dense(tt_c)
         @test rank(dense_c) == 0
-        @test dense_c.data[] ≈ 3.5 + 1.0im
+        @test Tensor4all.copy_data(dense_c)[] ≈ 3.5 + 1.0im
     end
 
     @testset "rank-0 result from full MPS contraction (regression for #47)" begin
@@ -92,7 +92,7 @@ end
         @test rank(dense) == 0
         # Compare to direct tensor-tensor contraction of the dense forms.
         expected = Tensor4all.contract(TN_DENSE.to_dense(a), TN_DENSE.to_dense(b))
-        @test dense.data[] ≈ expected.data[]
+        @test Tensor4all.copy_data(dense)[] ≈ Tensor4all.copy_data(expected)[]
     end
 
     @testset "three-site MPO" begin

@@ -38,17 +38,90 @@ _backend_handle_ptr(handle::TensorHandle) = handle.ptr
 const _CORE_T4A_SUCCESS = Cint(0)
 const _CORE_T4A_SCALAR_KIND_F64 = Cint(0)
 const _CORE_T4A_SCALAR_KIND_C64 = Cint(1)
+const _CORE_T4A_STORAGE_KIND_DENSE = Cint(0)
+const _CORE_T4A_STORAGE_KIND_DIAGONAL = Cint(1)
+const _CORE_T4A_STORAGE_KIND_STRUCTURED = Cint(2)
+
+_core_t4a(symbol::Symbol) = Libdl.dlsym(require_backend(), symbol)
+
+function _core_last_backend_error_message()
+    out_len = Ref{Csize_t}(0)
+    status = ccall(
+        _core_t4a(:t4a_last_error_message),
+        Cint,
+        (Ptr{UInt8}, Csize_t, Ref{Csize_t}),
+        C_NULL,
+        0,
+        out_len,
+    )
+    status == _CORE_T4A_SUCCESS || return "backend error (status $status)"
+    out_len[] == 0 && return "backend error"
+
+    buffer = Vector{UInt8}(undef, Int(out_len[]))
+    status = ccall(
+        _core_t4a(:t4a_last_error_message),
+        Cint,
+        (Ptr{UInt8}, Csize_t, Ref{Csize_t}),
+        buffer,
+        length(buffer),
+        out_len,
+    )
+    status == _CORE_T4A_SUCCESS || return "backend error (status $status)"
+    nul = findfirst(==(0x00), buffer)
+    return nul === nothing ? String(buffer) : String(buffer[1:(nul - 1)])
+end
+
+function _core_check_backend_status(status::Integer, context::AbstractString)
+    status == _CORE_T4A_SUCCESS && return nothing
+    message = _core_last_backend_error_message()
+    lowered = lowercase(message)
+    if occursin("dimension", lowered) || occursin("mismatch", lowered)
+        throw(DimensionMismatch("$context failed: $message"))
+    end
+    throw(ArgumentError("$context failed: $message"))
+end
+
+function _core_release_index_handle(ptr::Ptr{Cvoid})
+    ptr == C_NULL && return nothing
+    ccall(_core_t4a(:t4a_index_release), Cvoid, (Ptr{Cvoid},), ptr)
+    return nothing
+end
+
+function _core_new_index_handle(index::Index)
+    out = Ref{Ptr{Cvoid}}(C_NULL)
+    status = ccall(
+        _core_t4a(:t4a_index_new_with_id),
+        Cint,
+        (Csize_t, UInt64, Cstring, Int64, Ref{Ptr{Cvoid}}),
+        dim(index),
+        id(index),
+        join(tags(index), ","),
+        plev(index),
+        out,
+    )
+    _core_check_backend_status(status, "creating backend index $index")
+    return out[]
+end
+
+function _core_interleaved_complex_data(data)
+    raw = Vector{Float64}(undef, 2 * length(data))
+    for (n, value) in enumerate(data)
+        z = ComplexF64(value)
+        raw[2n-1] = real(z)
+        raw[2n] = imag(z)
+    end
+    return raw
+end
 
 """
     Tensor(data, inds; backend_handle=nothing)
 
-Create a tensor from Julia-owned dense array data and index metadata.
+Create a tensor from dense array data and index metadata.
 
-This constructor validates metadata and shape consistency. Tensors keep a dense
-Julia snapshot when constructed from arrays. Backend operations may return
-handle-backed tensors that materialize dense Julia data lazily for indexing and
-`Array` extraction; selected constructors may also attach compact storage
-metadata used by backend calls.
+This constructor validates metadata and shape consistency, then immediately
+creates a backend tensor handle. `Tensor` stores the handle and Julia-side
+index metadata only; use [`copy_data`](@ref) or `Array(t, inds...)` to
+explicitly materialize a fresh dense Julia copy.
 
 # Examples
 ```jldoctest
@@ -65,10 +138,8 @@ julia> (rank(t), dims(t))
 ```
 """
 mutable struct Tensor{T,N}
-    data::Union{Nothing,Array{T,N}}
+    handle::TensorHandle
     inds::Vector{Index}
-    backend_handle::Union{Nothing,Ptr{Cvoid},TensorHandle}
-    structured_storage::Union{Nothing,StructuredTensorStorage{T}}
 end
 
 """
@@ -93,7 +164,156 @@ function Tensor(
         "Tensor dimensions $expected_dims do not match data size $(size(data))",
     ))
     _validate_structured_storage(structured_storage, expected_dims)
-    return Tensor{T,N}(copy(data), collect(inds), backend_handle, structured_storage)
+    indices = collect(inds)
+    if backend_handle === nothing
+        handle = TensorHandle(_core_new_tensor_handle_from_array(data, indices, structured_storage))
+        return Tensor{T,N}(handle, indices)
+    end
+    handle = backend_handle isa TensorHandle ? backend_handle : TensorHandle(backend_handle; owned=false)
+    return Tensor{T,N}(handle, indices)
+end
+
+function _core_new_dense_tensor_handle_from_array(data::Array, indices::Vector{Index}, scalar_kind::Symbol, index_handles)
+    out = Ref{Ptr{Cvoid}}(C_NULL)
+    if scalar_kind === :f64
+        dense = convert(Array{Float64,ndims(data)}, data)
+        status = ccall(
+            _core_t4a(:t4a_tensor_new_dense_f64),
+            Cint,
+            (Csize_t, Ptr{Ptr{Cvoid}}, Ptr{Float64}, Csize_t, Ref{Ptr{Cvoid}}),
+            length(indices),
+            index_handles,
+            dense,
+            length(dense),
+            out,
+        )
+        _core_check_backend_status(status, "creating dense backend tensor")
+        return out[]
+    elseif scalar_kind === :c64
+        dense = _core_interleaved_complex_data(data)
+        status = ccall(
+            _core_t4a(:t4a_tensor_new_dense_c64),
+            Cint,
+            (Csize_t, Ptr{Ptr{Cvoid}}, Ptr{Float64}, Csize_t, Ref{Ptr{Cvoid}}),
+            length(indices),
+            index_handles,
+            dense,
+            length(data),
+            out,
+        )
+        _core_check_backend_status(status, "creating dense backend tensor")
+        return out[]
+    end
+    throw(ArgumentError("Tensor supports only real or complex dense arrays for backend construction, got eltype $(eltype(data))"))
+end
+
+function _core_new_structured_tensor_handle_from_storage(
+    storage::StructuredTensorStorage,
+    tensor_rank::Int,
+    scalar_kind::Symbol,
+    index_handles,
+)
+    out = Ref{Ptr{Cvoid}}(C_NULL)
+    if storage.kind === :diagonal
+        if scalar_kind === :f64
+            payload = Float64.(storage.payload)
+            status = ccall(
+                _core_t4a(:t4a_tensor_new_diag_f64),
+                Cint,
+                (Csize_t, Ptr{Ptr{Cvoid}}, Ptr{Float64}, Csize_t, Ref{Ptr{Cvoid}}),
+                tensor_rank,
+                index_handles,
+                payload,
+                length(payload),
+                out,
+            )
+        elseif scalar_kind === :c64
+            payload = _core_interleaved_complex_data(storage.payload)
+            status = ccall(
+                _core_t4a(:t4a_tensor_new_diag_c64),
+                Cint,
+                (Csize_t, Ptr{Ptr{Cvoid}}, Ptr{Float64}, Csize_t, Ref{Ptr{Cvoid}}),
+                tensor_rank,
+                index_handles,
+                payload,
+                length(storage.payload),
+                out,
+            )
+        else
+            throw(ArgumentError("Unknown scalar kind $scalar_kind"))
+        end
+        _core_check_backend_status(status, "creating diagonal backend tensor")
+        return out[]
+    elseif storage.kind === :structured
+        payload_dims = Csize_t.(storage.payload_dims)
+        payload_strides = Cptrdiff_t.(storage.payload_strides)
+        axis_classes = Csize_t.(storage.axis_classes .- 1)
+        if scalar_kind === :f64
+            payload = Float64.(storage.payload)
+            status = ccall(
+                _core_t4a(:t4a_tensor_new_structured_f64),
+                Cint,
+                (Csize_t, Ptr{Ptr{Cvoid}}, Ptr{Float64}, Csize_t, Ptr{Csize_t}, Csize_t, Ptr{Cptrdiff_t}, Csize_t, Ptr{Csize_t}, Csize_t, Ref{Ptr{Cvoid}}),
+                tensor_rank,
+                index_handles,
+                payload,
+                length(payload),
+                payload_dims,
+                length(payload_dims),
+                payload_strides,
+                length(payload_strides),
+                axis_classes,
+                length(axis_classes),
+                out,
+            )
+        elseif scalar_kind === :c64
+            payload = _core_interleaved_complex_data(storage.payload)
+            status = ccall(
+                _core_t4a(:t4a_tensor_new_structured_c64),
+                Cint,
+                (Csize_t, Ptr{Ptr{Cvoid}}, Ptr{Float64}, Csize_t, Ptr{Csize_t}, Csize_t, Ptr{Cptrdiff_t}, Csize_t, Ptr{Csize_t}, Csize_t, Ref{Ptr{Cvoid}}),
+                tensor_rank,
+                index_handles,
+                payload,
+                length(storage.payload),
+                payload_dims,
+                length(payload_dims),
+                payload_strides,
+                length(payload_strides),
+                axis_classes,
+                length(axis_classes),
+                out,
+            )
+        else
+            throw(ArgumentError("Unknown scalar kind $scalar_kind"))
+        end
+        _core_check_backend_status(status, "creating structured backend tensor")
+        return out[]
+    end
+    throw(ArgumentError("Unknown structured storage kind $(storage.kind)"))
+end
+
+function _core_new_tensor_handle_from_array(
+    data::Array,
+    indices::Vector{Index},
+    structured_storage::Union{Nothing,StructuredTensorStorage},
+)
+    scalar_kind = eltype(data) <: Real ? :f64 : eltype(data) <: Complex ? :c64 :
+        throw(ArgumentError("Tensor supports only real or complex arrays, got eltype $(eltype(data))"))
+    index_handles = Ptr{Cvoid}[]
+    try
+        for index in indices
+            push!(index_handles, _core_new_index_handle(index))
+        end
+        if structured_storage === nothing
+            return _core_new_dense_tensor_handle_from_array(data, indices, scalar_kind, index_handles)
+        end
+        return _core_new_structured_tensor_handle_from_storage(structured_storage, length(indices), scalar_kind, index_handles)
+    finally
+        for handle in index_handles
+            _core_release_index_handle(handle)
+        end
+    end
 end
 
 function _tensor_from_backend_handle(
@@ -106,7 +326,7 @@ function _tensor_from_backend_handle(
     length(indices) == N || throw(DimensionMismatch(
         "Tensor rank $N requires $N indices, got $(length(indices))",
     ))
-    return Tensor{T,N}(nothing, collect(indices), handle, structured_storage)
+    return Tensor{T,N}(handle, collect(indices))
 end
 
 function Tensor(
@@ -186,6 +406,28 @@ function _tensor_scalar_kind_from_owned_handle(handle)
     return out_kind[]
 end
 
+function _tensor_storage_kind_from_owned_handle(handle)
+    ptr = _backend_handle_ptr(handle)
+    ptr == C_NULL && throw(ArgumentError("Tensor has no backend handle"))
+    out_kind = Ref{Cint}(0)
+    status = ccall(
+        Libdl.dlsym(require_backend(), :t4a_tensor_storage_kind),
+        Cint,
+        (Ptr{Cvoid}, Ref{Cint}),
+        ptr,
+        out_kind,
+    )
+    _core_check_backend_status(status, "querying backend tensor storage kind")
+    return out_kind[]
+end
+
+function _core_storage_kind_symbol(kind::Cint)
+    kind == _CORE_T4A_STORAGE_KIND_DENSE && return :dense
+    kind == _CORE_T4A_STORAGE_KIND_DIAGONAL && return :diagonal
+    kind == _CORE_T4A_STORAGE_KIND_STRUCTURED && return :structured
+    throw(ArgumentError("Unsupported backend storage kind $kind"))
+end
+
 function _read_dense_f64_from_owned_handle(handle)
     ptr = _backend_handle_ptr(handle)
     out_len = Ref{Csize_t}(0)
@@ -212,6 +454,94 @@ function _read_dense_f64_from_owned_handle(handle)
     )
     status == _CORE_T4A_SUCCESS || throw(ArgumentError("copying backend dense tensor data failed"))
     return dense
+end
+
+function _read_core_cptrdiff_vector_from_handle(ptr::Ptr{Cvoid}, symbol::Symbol, context::AbstractString)
+    out_len = Ref{Csize_t}(0)
+    status = ccall(
+        Libdl.dlsym(require_backend(), symbol),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cptrdiff_t}, Csize_t, Ref{Csize_t}),
+        ptr,
+        C_NULL,
+        0,
+        out_len,
+    )
+    _core_check_backend_status(status, "querying backend tensor $context")
+
+    values = Vector{Cptrdiff_t}(undef, Int(out_len[]))
+    status = ccall(
+        Libdl.dlsym(require_backend(), symbol),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Cptrdiff_t}, Csize_t, Ref{Csize_t}),
+        ptr,
+        values,
+        length(values),
+        out_len,
+    )
+    _core_check_backend_status(status, "copying backend tensor $context")
+    return Int.(values)
+end
+
+function _read_payload_f64_from_owned_handle(handle)
+    ptr = _backend_handle_ptr(handle)
+    out_len = Ref{Csize_t}(0)
+    status = ccall(
+        Libdl.dlsym(require_backend(), :t4a_tensor_copy_payload_f64),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Float64}, Csize_t, Ref{Csize_t}),
+        ptr,
+        C_NULL,
+        0,
+        out_len,
+    )
+    _core_check_backend_status(status, "querying backend tensor payload data")
+
+    payload = Vector{Float64}(undef, Int(out_len[]))
+    status = ccall(
+        Libdl.dlsym(require_backend(), :t4a_tensor_copy_payload_f64),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Float64}, Csize_t, Ref{Csize_t}),
+        ptr,
+        payload,
+        length(payload),
+        out_len,
+    )
+    _core_check_backend_status(status, "copying backend tensor payload data")
+    return payload
+end
+
+function _read_payload_c64_from_owned_handle(handle)
+    ptr = _backend_handle_ptr(handle)
+    out_len = Ref{Csize_t}(0)
+    status = ccall(
+        Libdl.dlsym(require_backend(), :t4a_tensor_copy_payload_c64),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Float64}, Csize_t, Ref{Csize_t}),
+        ptr,
+        C_NULL,
+        0,
+        out_len,
+    )
+    _core_check_backend_status(status, "querying backend tensor payload data")
+
+    raw = Vector{Float64}(undef, 2 * Int(out_len[]))
+    status = ccall(
+        Libdl.dlsym(require_backend(), :t4a_tensor_copy_payload_c64),
+        Cint,
+        (Ptr{Cvoid}, Ptr{Float64}, Csize_t, Ref{Csize_t}),
+        ptr,
+        raw,
+        Int(out_len[]),
+        out_len,
+    )
+    _core_check_backend_status(status, "copying backend tensor payload data")
+
+    payload = Vector{ComplexF64}(undef, Int(out_len[]))
+    for n in eachindex(payload)
+        payload[n] = ComplexF64(raw[2n-1], raw[2n])
+    end
+    return payload
 end
 
 function _read_dense_c64_from_owned_handle(handle)
@@ -247,26 +577,14 @@ function _read_dense_c64_from_owned_handle(handle)
     return dense
 end
 
-function _materialize_tensor_data!(t::Tensor{T,N}) where {T,N}
-    data = getfield(t, :data)
-    data !== nothing && return data
-    handle = getfield(t, :backend_handle)
-    handle === nothing && throw(ArgumentError("Tensor has neither dense data nor backend handle"))
-    scalar_kind = _tensor_scalar_kind_from_owned_handle(handle)
-    dense = if scalar_kind == _CORE_T4A_SCALAR_KIND_F64
-        _read_dense_f64_from_owned_handle(handle)
-    elseif scalar_kind == _CORE_T4A_SCALAR_KIND_C64
-        _read_dense_c64_from_owned_handle(handle)
-    else
-        throw(ArgumentError("Unsupported backend tensor scalar kind $scalar_kind"))
-    end
-    materialized = convert(Array{T,N}, reshape(dense, dims(t)))
-    setfield!(t, :data, materialized)
-    return materialized
-end
-
 function Base.getproperty(t::Tensor, name::Symbol)
-    name === :data && return _materialize_tensor_data!(t)
+    name === :backend_handle && return getfield(t, :handle)
+    name === :data && throw(
+        ArgumentError("Tensor.data has been removed. Use copy_data(t) or Array(t) to materialize a fresh dense copy."),
+    )
+    name === :structured_storage && throw(
+        ArgumentError("Tensor.structured_storage has been removed. Use structured_storage_info(t) or structured_payload(t)."),
+    )
     return getfield(t, name)
 end
 
@@ -337,7 +655,40 @@ rank(t::Tensor) = length(t.inds)
 
 Return the logical dimensions of `t`.
 """
-dims(t::Tensor) = getfield(t, :data) === nothing ? _tensor_dims_from_owned_handle(getfield(t, :backend_handle)) : size(getfield(t, :data))
+dims(t::Tensor) = _tensor_dims_from_owned_handle(getfield(t, :handle))
+
+function _copy_data_from_handle(handle, ::Type{T}, ::Val{N}, tensor_dims::Tuple) where {T,N}
+    scalar_kind = _tensor_scalar_kind_from_owned_handle(handle)
+    dense = if scalar_kind == _CORE_T4A_SCALAR_KIND_F64
+        _read_dense_f64_from_owned_handle(handle)
+    elseif scalar_kind == _CORE_T4A_SCALAR_KIND_C64
+        _read_dense_c64_from_owned_handle(handle)
+    else
+        throw(ArgumentError("Unsupported backend tensor scalar kind $scalar_kind"))
+    end
+    return convert(Array{T,N}, reshape(dense, tensor_dims))
+end
+
+"""
+    copy_data(t::Tensor)
+    copy_data(t::Tensor, inds::Index...)
+
+Materialize `t` as a fresh dense Julia `Array`. Mutating the returned array
+does not mutate `t`. When indices are provided, the copy is returned in the
+requested index order.
+"""
+function copy_data(t::Tensor{T,N}) where {T,N}
+    return _copy_data_from_handle(getfield(t, :handle), T, Val(N), dims(t))
+end
+
+function copy_data(t::Tensor, requested_inds::Index...)
+    isempty(requested_inds) && return copy_data(t)
+    perm = _match_index_permutation(inds(t), collect(requested_inds))
+    data = copy_data(t)
+    return perm == Tuple(1:rank(t)) ? data : permutedims(data, perm)
+end
+
+copy_data(t::Tensor, requested_inds::AbstractVector{<:Index}) = copy_data(t, requested_inds...)
 
 """
     prime(t, n=1)
@@ -346,10 +697,9 @@ Return `t` with all attached indices primed by `n`.
 """
 function prime(t::Tensor, n::Integer=1)
     return Tensor(
-        copy(t.data),
+        copy_data(t),
         prime.(inds(t), Ref(n));
-        backend_handle=t.backend_handle,
-        structured_storage=_copy_structured_storage(t.structured_storage),
+        structured_storage=_structured_storage_from_tensor(t),
     )
 end
 
@@ -359,10 +709,9 @@ end
 Return the elementwise complex-conjugated tensor with the same index metadata.
 """
 dag(t::Tensor) = Tensor(
-    conj(t.data),
+    conj(copy_data(t)),
     inds(t);
-    backend_handle=nothing,
-    structured_storage=_map_structured_payload(conj, t.structured_storage),
+    structured_storage=_map_structured_payload(conj, _structured_storage_from_tensor(t)),
 )
 
 """
@@ -375,10 +724,9 @@ function swapinds(t::Tensor, a::Index, b::Index)
         idx == a ? b : idx == b ? a : idx
     end
     return Tensor(
-        copy(t.data),
+        copy_data(t),
         swapped;
-        backend_handle=t.backend_handle,
-        structured_storage=_copy_structured_storage(t.structured_storage),
+        structured_storage=_structured_storage_from_tensor(t),
     )
 end
 
@@ -389,10 +737,9 @@ Return a copy of `t` with index metadata `old` replaced by `new`.
 """
 function replaceind(t::Tensor, old::Index, new::Index)
     return Tensor(
-        t.data,
+        copy_data(t),
         replaceind(inds(t), old, new);
-        backend_handle=t.backend_handle,
-        structured_storage=_copy_structured_storage(t.structured_storage),
+        structured_storage=_structured_storage_from_tensor(t),
     )
 end
 
@@ -409,10 +756,9 @@ Return a copy of `t` with multiple index metadata replacements applied.
 """
 function replaceinds(t::Tensor, replacements::Pair{Index,Index}...)
     return Tensor(
-        t.data,
+        copy_data(t),
         replaceinds(inds(t), replacements...);
-        backend_handle=t.backend_handle,
-        structured_storage=_copy_structured_storage(t.structured_storage),
+        structured_storage=_structured_storage_from_tensor(t),
     )
 end
 
@@ -422,10 +768,9 @@ function replaceinds(
     newinds::AbstractVector{Index},
 )
     return Tensor(
-        t.data,
+        copy_data(t),
         replaceinds(inds(t), oldinds, newinds);
-        backend_handle=t.backend_handle,
-        structured_storage=_copy_structured_storage(t.structured_storage),
+        structured_storage=_structured_storage_from_tensor(t),
     )
 end
 
@@ -435,10 +780,9 @@ function replaceinds(
     newinds::Tuple{Vararg{Index}},
 )
     return Tensor(
-        t.data,
+        copy_data(t),
         replaceinds(inds(t), oldinds, newinds);
-        backend_handle=t.backend_handle,
-        structured_storage=_copy_structured_storage(t.structured_storage),
+        structured_storage=_structured_storage_from_tensor(t),
     )
 end
 
@@ -448,7 +792,7 @@ end
 Replace index metadata `old` by `new` in `t`.
 """
 function replaceind!(t::Tensor, old::Index, new::Index)
-    t.inds .= replaceind(t.inds, old, new)
+    _replace_tensor_indices_and_rebuild_handle!(t, replaceind(t.inds, old, new))
     return t
 end
 
@@ -464,7 +808,7 @@ replaceind!(t::Tensor, replacement::Pair{Index,Index}) = replaceind!(
 Apply multiple index metadata replacements in place to `t`.
 """
 function replaceinds!(t::Tensor, replacements::Pair{Index,Index}...)
-    t.inds .= replaceinds(t.inds, replacements...)
+    _replace_tensor_indices_and_rebuild_handle!(t, replaceinds(t.inds, replacements...))
     return t
 end
 
@@ -473,7 +817,7 @@ function replaceinds!(
     oldinds::AbstractVector{Index},
     newinds::AbstractVector{Index},
 )
-    t.inds .= replaceinds(t.inds, oldinds, newinds)
+    _replace_tensor_indices_and_rebuild_handle!(t, replaceinds(t.inds, oldinds, newinds))
     return t
 end
 
@@ -482,7 +826,17 @@ function replaceinds!(
     oldinds::Tuple{Vararg{Index}},
     newinds::Tuple{Vararg{Index}},
 )
-    t.inds .= replaceinds(t.inds, oldinds, newinds)
+    _replace_tensor_indices_and_rebuild_handle!(t, replaceinds(t.inds, oldinds, newinds))
+    return t
+end
+
+function _replace_tensor_indices_and_rebuild_handle!(t::Tensor{T,N}, newinds::AbstractVector{Index}) where {T,N}
+    data = copy_data(t)
+    storage = _structured_storage_from_tensor(t)
+    _validate_structured_storage(storage, size(data))
+    handle = TensorHandle(_core_new_tensor_handle_from_array(data, collect(newinds), storage))
+    t.inds .= newinds
+    t.handle = handle
     return t
 end
 
@@ -514,32 +868,31 @@ end
 
 function _permute_to_match(a::Tensor, b::Tensor)
     perm = _match_index_permutation(inds(b), inds(a))
-    return perm == Tuple(1:rank(a)) ? b.data : permutedims(b.data, perm)
+    data = copy_data(b)
+    return perm == Tuple(1:rank(a)) ? data : permutedims(data, perm)
 end
 
 function Base.:+(a::Tensor, b::Tensor)
     b_data = _permute_to_match(a, b)
-    return Tensor(a.data .+ b_data, inds(a); backend_handle=nothing)
+    return Tensor(copy_data(a) .+ b_data, inds(a))
 end
 
 function Base.:-(a::Tensor, b::Tensor)
     b_data = _permute_to_match(a, b)
-    return Tensor(a.data .- b_data, inds(a); backend_handle=nothing)
+    return Tensor(copy_data(a) .- b_data, inds(a))
 end
 
 Base.:-(t::Tensor) = Tensor(
-    -t.data,
+    -copy_data(t),
     inds(t);
-    backend_handle=nothing,
-    structured_storage=_map_structured_payload(-, t.structured_storage),
+    structured_storage=_map_structured_payload(-, _structured_storage_from_tensor(t)),
 )
 
 function Base.:*(α::Number, t::Tensor)
     return Tensor(
-        α .* t.data,
+        α .* copy_data(t),
         inds(t);
-        backend_handle=nothing,
-        structured_storage=_map_structured_payload(x -> α * x, t.structured_storage),
+        structured_storage=_map_structured_payload(x -> α * x, _structured_storage_from_tensor(t)),
     )
 end
 
@@ -548,30 +901,25 @@ Base.:*(a::Tensor, b::Tensor) = contract(a, b)
 
 function Base.:/(t::Tensor, α::Number)
     return Tensor(
-        t.data ./ α,
+        copy_data(t) ./ α,
         inds(t);
-        backend_handle=nothing,
-        structured_storage=_map_structured_payload(x -> x / α, t.structured_storage),
+        structured_storage=_map_structured_payload(x -> x / α, _structured_storage_from_tensor(t)),
     )
 end
 
-norm(t::Tensor) = norm(t.data)
+norm(t::Tensor) = norm(copy_data(t))
 
 function Base.isapprox(
     a::Tensor,
     b::Tensor;
     atol::Real=0,
-    rtol::Real=Base.rtoldefault(eltype(a.data), eltype(b.data), atol),
+    rtol::Real=Base.rtoldefault(eltype(a), eltype(b), atol),
 )
     b_data = _permute_to_match(a, b)
-    return isapprox(a.data, b_data; atol=atol, rtol=rtol)
+    return isapprox(copy_data(a), b_data; atol=atol, rtol=rtol)
 end
 
-function Base.Array(t::Tensor, requested_inds::Index...)
-    isempty(requested_inds) && rank(t) == 0 && return copy(t.data)
-    perm = _match_index_permutation(inds(t), collect(requested_inds))
-    return perm == Tuple(1:rank(t)) ? copy(t.data) : permutedims(t.data, perm)
-end
+Base.Array(t::Tensor, requested_inds::Index...) = copy_data(t, requested_inds...)
 
 function _copy_structured_storage(storage::Nothing)
     return nothing
@@ -584,6 +932,30 @@ function _copy_structured_storage(storage::StructuredTensorStorage{T}) where {T}
         copy(storage.payload_dims),
         copy(storage.payload_strides),
         copy(storage.axis_classes),
+    )
+end
+
+function _structured_storage_from_tensor(t::Tensor)
+    handle = getfield(t, :handle)
+    ptr = _backend_handle_ptr(handle)
+    storage_kind = _tensor_storage_kind_from_owned_handle(handle)
+    storage_kind == _CORE_T4A_STORAGE_KIND_DENSE && return nothing
+
+    scalar_kind = _tensor_scalar_kind_from_owned_handle(handle)
+    payload = if scalar_kind == _CORE_T4A_SCALAR_KIND_F64
+        _read_payload_f64_from_owned_handle(handle)
+    elseif scalar_kind == _CORE_T4A_SCALAR_KIND_C64
+        _read_payload_c64_from_owned_handle(handle)
+    else
+        throw(ArgumentError("Unsupported backend tensor scalar kind $scalar_kind"))
+    end
+
+    return StructuredTensorStorage{eltype(payload)}(
+        _core_storage_kind_symbol(storage_kind),
+        payload,
+        _read_core_csize_vector_from_handle(ptr, :t4a_tensor_payload_dims, "payload dimensions"),
+        _read_core_cptrdiff_vector_from_handle(ptr, :t4a_tensor_payload_strides, "payload strides"),
+        _read_core_csize_vector_from_handle(ptr, :t4a_tensor_axis_classes, "axis classes") .+ 1,
     )
 end
 
@@ -638,7 +1010,7 @@ end
 
 Return `true` when `t` is backed by compact diagonal storage metadata.
 """
-isdiag(t::Tensor) = t.structured_storage !== nothing && t.structured_storage.kind === :diagonal
+isdiag(t::Tensor) = _tensor_storage_kind_from_owned_handle(getfield(t, :handle)) == _CORE_T4A_STORAGE_KIND_DIAGONAL
 
 """
     structured_storage_info(t)
@@ -647,21 +1019,22 @@ Return storage metadata for `t` as a named tuple. `axis_classes` are reported
 with Julia's 1-based axis numbering.
 """
 function structured_storage_info(t::Tensor)
-    storage = t.structured_storage
+    storage = _structured_storage_from_tensor(t)
     if storage === nothing
+        data = copy_data(t)
         return (;
             kind=:dense,
-            dtype=eltype(t.data),
+            dtype=eltype(t),
             logical_dims=dims(t),
             payload_dims=dims(t),
-            payload_strides=Tuple(strides(t.data)),
-            payload_length=length(t.data),
+            payload_strides=Tuple(strides(data)),
+            payload_length=length(data),
             axis_classes=Tuple(1:rank(t)),
         )
     end
     return (;
         kind=storage.kind,
-        dtype=eltype(t.data),
+        dtype=eltype(t),
         logical_dims=dims(t),
         payload_dims=Tuple(storage.payload_dims),
         payload_strides=Tuple(storage.payload_strides),
@@ -677,8 +1050,8 @@ Return a copy of the compact storage payload for `t`. Dense tensors return
 their column-major dense payload.
 """
 function structured_payload(t::Tensor)
-    storage = t.structured_storage
-    storage === nothing && return vec(copy(t.data))
+    storage = _structured_storage_from_tensor(t)
+    storage === nothing && return vec(copy_data(t))
     return copy(storage.payload)
 end
 
@@ -699,7 +1072,7 @@ Return the scalar value stored in a rank-0 tensor.
 """
 function scalar(t::Tensor)
     rank(t) == 0 || throw(ArgumentError("scalar requires a rank-0 Tensor, got rank $(rank(t))"))
-    return only(t.data)
+    return only(copy_data(t))
 end
 
 struct OneHotTensor{T}
@@ -970,9 +1343,8 @@ function svd(
         v_inds = inds(v)
         s_inds = inds(s)
         v = Tensor(
-            copy(v.data),
-            replaceind(v_inds, last(v_inds), last(s_inds));
-            backend_handle=v.backend_handle,
+            copy_data(v),
+            replaceind(v_inds, last(v_inds), last(s_inds)),
         )
         return (u, s, v)
     finally

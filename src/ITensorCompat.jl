@@ -87,7 +87,7 @@ Base.getindex(m::MPS, i::Int) = m.tt[i]
 Base.getindex(m::MPS, indices::AbstractVector{<:Integer}) = [m[Int(i)] for i in indices]
 Base.getindex(m::MPS, ::Colon) = [m[i] for i in eachindex(m)]
 Base.setindex!(m::MPS, tensor::Tensor, i::Int) = setindex!(m.tt, tensor, i)
-Base.eltype(m::MPS) = eltype(first(m.tt).data)
+Base.eltype(m::MPS) = eltype(first(m.tt))
 Base.IteratorEltype(::Type{MPS}) = Base.EltypeUnknown()
 
 siteinds(m::MPS) = _is_scalar_mps_train(m.tt) ? Index[] : [only(group) for group in TensorNetworks.siteinds(m.tt)]
@@ -321,7 +321,7 @@ Base.getindex(W::MPO, i::Int) = W.tt[i]
 Base.getindex(W::MPO, indices::AbstractVector{<:Integer}) = [W[Int(i)] for i in indices]
 Base.getindex(W::MPO, ::Colon) = [W[i] for i in eachindex(W)]
 Base.setindex!(W::MPO, tensor::Tensor, i::Int) = setindex!(W.tt, tensor, i)
-Base.eltype(W::MPO) = eltype(first(W.tt).data)
+Base.eltype(W::MPO) = eltype(first(W.tt))
 Base.IteratorEltype(::Type{MPO}) = Base.EltypeUnknown()
 
 siteinds(W::MPO) = TensorNetworks.siteinds(W.tt)

@@ -69,10 +69,10 @@ function _tt_arith_dense_contract(
 end
 
 function tt_arith_dense_tensor(tt::TN.TensorTrain, target_inds::Vector{Index})
-    data = copy(tt[1].data)
+    data = Tensor4all.copy_data(tt[1])
     current_inds = inds(tt[1])
     for n in 2:length(tt)
-        data, current_inds = _tt_arith_dense_contract(data, current_inds, tt[n].data, inds(tt[n]))
+        data, current_inds = _tt_arith_dense_contract(data, current_inds, Tensor4all.copy_data(tt[n]), inds(tt[n]))
     end
 
     boundary_axes = [axis for (axis, index) in pairs(current_inds) if hastag(index, "Link")]

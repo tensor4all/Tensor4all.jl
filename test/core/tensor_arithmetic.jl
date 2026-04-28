@@ -13,37 +13,37 @@ using LinearAlgebra: norm
         b = Tensor(data_ij, [i, j])
         c = a + b
         @test inds(c) == [i, j]
-        @test c.data ≈ 2.0 .* data_ij
+        @test copy_data(c) ≈ 2.0 .* data_ij
     end
 
     @testset "addition permuted indices" begin
         b = Tensor(permutedims(data_ij, (2, 1)), [j, i])
         c = a + b
         @test inds(c) == [i, j]
-        @test c.data ≈ 2.0 .* data_ij
+        @test copy_data(c) ≈ 2.0 .* data_ij
     end
 
     @testset "subtraction" begin
         b = Tensor(data_ij, [i, j])
         c = a - b
-        @test c.data ≈ zeros(2, 3)
+        @test copy_data(c) ≈ zeros(2, 3)
     end
 
     @testset "unary negation" begin
         c = -a
-        @test c.data ≈ -data_ij
+        @test copy_data(c) ≈ -data_ij
     end
 
     @testset "scalar multiply" begin
         c = 3.0 * a
-        @test c.data ≈ 3.0 .* data_ij
+        @test copy_data(c) ≈ 3.0 .* data_ij
         c2 = a * 3.0
-        @test c2.data ≈ 3.0 .* data_ij
+        @test copy_data(c2) ≈ 3.0 .* data_ij
     end
 
     @testset "scalar divide" begin
         c = a / 2.0
-        @test c.data ≈ data_ij ./ 2.0
+        @test copy_data(c) ≈ data_ij ./ 2.0
     end
 
     @testset "norm" begin
@@ -74,6 +74,6 @@ using LinearAlgebra: norm
 
     @testset "complex scalars" begin
         c = (2.0 + 1.0im) * a
-        @test c.data ≈ (2.0 + 1.0im) .* data_ij
+        @test copy_data(c) ≈ (2.0 + 1.0im) .* data_ij
     end
 end

@@ -1,7 +1,7 @@
 module QuanticsTransform
 
 import ..TensorNetworks
-using ..Tensor4all: Index, Tensor, dim, id, inds
+using ..Tensor4all: Index, Tensor, copy_data, dim, id, inds
 
 export shift_operator, shift_operator_multivar
 export flip_operator, flip_operator_multivar

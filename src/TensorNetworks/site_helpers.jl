@@ -136,7 +136,7 @@ function _replace_tensor_indices(tensor::Tensor, replacements::Dict{Index, Index
         end
         return replacement
     end
-    return changed ? Tensor(tensor.data, new_indices; backend_handle=tensor.backend_handle) : tensor
+    return changed ? Tensor(copy_data(tensor), new_indices; structured_storage=_structured_storage_from_tensor(tensor)) : tensor
 end
 
 function _replace_tensor_indices!(tensor::Tensor, replacements::Dict{Index, Index})
@@ -165,12 +165,10 @@ function _replace_tensor_indices_keep_data(tensor::Tensor, replacements::Dict{In
     if !changed
         return tensor
     end
-    return Tensor{eltype(tensor.data),ndims(tensor.data)}(
-        tensor.data, new_indices, tensor.backend_handle, tensor.structured_storage
-    )
+    return Tensor(copy_data(tensor), new_indices; structured_storage=_structured_storage_from_tensor(tensor))
 end
 
-_copy_tensor(tensor::Tensor) = Tensor(tensor.data, inds(tensor); backend_handle=tensor.backend_handle)
+_copy_tensor(tensor::Tensor) = Tensor(copy_data(tensor), inds(tensor); structured_storage=_structured_storage_from_tensor(tensor))
 _copy_train(tt::TensorTrain) = TensorTrain([_copy_tensor(tensor) for tensor in tt.data], tt.llim, tt.rlim)
 
 """

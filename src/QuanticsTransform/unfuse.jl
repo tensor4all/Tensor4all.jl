@@ -75,7 +75,7 @@ function _unfuse_tensor_indices(tensor::Tensor, replacements::Dict{Index, Vector
             append!(new_dims, dim.(replacement))
         end
     end
-    return Tensor(reshape(tensor.data, Tuple(new_dims)), new_indices)
+    return Tensor(reshape(copy_data(tensor), Tuple(new_dims)), new_indices)
 end
 
 function _restore_requested_site_indices!(

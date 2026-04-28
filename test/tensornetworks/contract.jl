@@ -49,7 +49,7 @@ using Random: MersenneTwister
         # dense forms (this avoids the rank-0 to_dense path which currently
         # mishandles rank-0 inputs in _new_tensor_handle).
         expected = Tensor4all.contract(TN_CONTRACT.to_dense(a), TN_CONTRACT.to_dense(b))
-        @test result.data[1].data[] ≈ expected.data[]
+        @test Tensor4all.copy_data(result.data[1])[] ≈ Tensor4all.copy_data(expected)[]
     end
 
     @testset "MPS · MPO leaves output sites" begin

@@ -78,7 +78,7 @@ end
 
     filled = ITensor(2.5, sites[1], sites[2])
     @test Tensor4all.inds(filled) == sites[1:2]
-    @test filled.data == fill(2.5, 2, 2)
+    @test Tensor4all.copy_data(filled) == fill(2.5, 2, 2)
 
     rng = MersenneTwister(7)
     r = IC.random_itensor(rng, ComplexF64, sites[1], sites[2])
@@ -178,7 +178,7 @@ end
     mp = IC.prime(m)
     @test IC.siteinds(mp)[1].plev == 1
     @test IC.siteinds(m)[1].plev == 0  # original unchanged
-    @test mp[1].data === m[1].data     # tensor data shared
+    @test copy_data(mp[1]) == copy_data(m[1])
 
     IC.prime!(m)
     @test IC.siteinds(m)[1].plev == 1

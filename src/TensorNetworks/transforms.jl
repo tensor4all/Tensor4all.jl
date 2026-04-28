@@ -11,16 +11,17 @@ function _diagonalize_tensor_site(tensor::Tensor, site::Index)
     diagsite in tensor_indices && throw(
         ArgumentError("Tensor already contains diagonal partner $diagsite for site $site"),
     )
+    data = copy_data(tensor)
 
     new_dims = (
-        size(tensor.data)[1:site_axis-1]...,
+        size(data)[1:site_axis-1]...,
         dim(site),
         dim(site),
-        size(tensor.data)[site_axis+1:end]...,
+        size(data)[site_axis+1:end]...,
     )
-    diagonalized = zeros(eltype(tensor.data), new_dims...)
+    diagonalized = zeros(eltype(data), new_dims...)
 
-    for position in CartesianIndices(tensor.data)
+    for position in CartesianIndices(data)
         index_tuple = Tuple(position)
         diagonal_position = (
             index_tuple[1:site_axis-1]...,
@@ -28,14 +29,10 @@ function _diagonalize_tensor_site(tensor::Tensor, site::Index)
             index_tuple[site_axis],
             index_tuple[site_axis+1:end]...,
         )
-        diagonalized[diagonal_position...] = tensor.data[position]
+        diagonalized[diagonal_position...] = data[position]
     end
 
-    return Tensor(
-        diagonalized,
-        [tensor_indices[1:site_axis-1]..., diagsite, site, tensor_indices[site_axis+1:end]...];
-        backend_handle=tensor.backend_handle,
-    )
+    return Tensor(diagonalized, [tensor_indices[1:site_axis-1]..., diagsite, site, tensor_indices[site_axis+1:end]...])
 end
 
 function _extract_diagonal_tensor(tensor::Tensor, site::Index, diagsite::Index=prime(site))
@@ -49,10 +46,11 @@ function _extract_diagonal_tensor(tensor::Tensor, site::Index, diagsite::Index=p
 
     remaining_axes = [axis for axis in eachindex(tensor_indices) if axis != diag_axis]
     remaining_indices = tensor_indices[remaining_axes]
-    extracted = zeros(eltype(tensor.data), map(dim, remaining_indices)...)
+    data = copy_data(tensor)
+    extracted = zeros(eltype(data), map(dim, remaining_indices)...)
 
     for position in CartesianIndices(extracted)
-        old_position = Vector{Int}(undef, ndims(tensor.data))
+        old_position = Vector{Int}(undef, ndims(data))
         cursor = 1
         site_value = 0
         for axis in remaining_axes
@@ -63,10 +61,10 @@ function _extract_diagonal_tensor(tensor::Tensor, site::Index, diagsite::Index=p
             cursor += 1
         end
         old_position[diag_axis] = site_value
-        extracted[position] = tensor.data[Tuple(old_position)...]
+        extracted[position] = data[Tuple(old_position)...]
     end
 
-    return Tensor(extracted, remaining_indices; backend_handle=tensor.backend_handle)
+    return Tensor(extracted, remaining_indices)
 end
 
 """

@@ -48,5 +48,5 @@ function _restore_dense_site_metadata(tt::TensorTrain, tensor::Tensor)
         )
         return canonical
     end
-    return restored == inds(tensor) ? tensor : Tensor(tensor.data, restored)
+    return restored == inds(tensor) ? tensor : Tensor(copy_data(tensor), restored)
 end
