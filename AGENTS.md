@@ -1,5 +1,7 @@
 # AGENTS.md
 
+Read and follow `REPOSITORY_RULES.md`.
+
 ## API Design Principles
 
 Tensor4all.jl wraps `tensor4all-rs` through a C FFI, but the current Julia
@@ -119,6 +121,27 @@ Julia arrays passed to the C API must be contiguous in memory.
 
 - Never discard the Rust error message returned through `last_error_message()`.
 - Add Julia-side context around the Rust message when wrapping C API calls.
+
+## Resource Settings
+
+Commands that exercise the Tensor4all.jl / tensor4all-rs backend should use
+explicit one-CPU/thread settings by default, including targeted tests, full
+test runs, reproducers, profiling runs, and benchmarks. A default Julia, Rust,
+or BLAS launch can use all CPU cores on this machine, which makes timing and
+resource comparisons misleading. Only relax these settings for an intentional
+parallel-scaling experiment, and record the thread counts used.
+
+```bash
+env JULIA_NUM_THREADS=1 \
+    JULIA_NUM_GC_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    BLAS_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
+    OMP_NUM_THREADS=1 \
+    RAYON_NUM_THREADS=1 \
+    TENSOR4ALL_NUM_THREADS=1 \
+    <command>
+```
 
 ## Documentation Requirements
 

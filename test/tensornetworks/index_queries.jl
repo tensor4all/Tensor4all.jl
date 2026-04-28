@@ -372,7 +372,7 @@ end
             @test Tensor4all.structured_storage_info(tt[1]).axis_classes == (1, 1)
         end
 
-        @testset "replace_siteinds matches old indices by identity" begin
+        @testset "replace_siteinds requires exact old indices" begin
             fixture = mps_like_fixture()
             oldsite = fixture.sites[2]
             metadata_copy = Index(
@@ -383,8 +383,7 @@ end
             )
             newsite = Index(dim(oldsite); tags=["renamed", "renamed=2"])
 
-            TN.replace_siteinds!(fixture.tt, [metadata_copy], [newsite])
-            @test inds(fixture.tt[2]) == [fixture.links[1], newsite, fixture.links[2]]
+            @test_throws ArgumentError TN.replace_siteinds!(fixture.tt, [metadata_copy], [newsite])
         end
     end
 

@@ -111,4 +111,14 @@ end
         @test all(dim(i) == 2 for i in inds(dense))
         @test TN_DENSE.norm(tt) ≈ norm(dense)
     end
+
+    @testset "same-id primed site metadata stays distinct" begin
+        site = Index(2; tags=["site"])
+        primed = prime(site)
+        tt = TN_DENSE.TensorTrain([Tensor(randn(2, 2), [site, primed])])
+
+        dense = TN_DENSE.to_dense(tt)
+
+        @test inds(dense) == [site, primed]
+    end
 end

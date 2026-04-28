@@ -1,11 +1,11 @@
 _query_indices(index::Index) = Index[index]
 _query_indices(indices::AbstractVector{<:Index}) = collect(indices)
 
-_index_identity_key(index::Index) = (id(index), plev(index), dim(index))
-_same_index_identity(a::Index, b::Index) = _index_identity_key(a) == _index_identity_key(b)
+_index_identity_key(index::Index) = index
+_same_index_identity(a::Index, b::Index) = a == b
 
 function _index_counts(tt::TensorTrain)
-    counts = Dict{Tuple{UInt64, Int, Int}, Int}()
+    counts = Dict{Index, Int}()
     for tensor in tt
         for index in inds(tensor)
             key = _index_identity_key(index)
@@ -101,7 +101,7 @@ function _replacement_mapping(oldsites::AbstractVector{<:Index}, newsites::Abstr
 end
 
 function _ensure_replacement_targets_exist(tt::TensorTrain, oldsites::AbstractVector{<:Index})
-    present = Set{Tuple{UInt64, Int, Int}}()
+    present = Set{Index}()
     siteinds = _siteind_identity_set(tt)
     for tensor in tt
         union!(present, _index_identity_key.(inds(tensor)))
@@ -116,7 +116,7 @@ function _ensure_replacement_targets_exist(tt::TensorTrain, oldsites::AbstractVe
     return nothing
 end
 
-function _replacement_for_index(index::Index, replacements::Dict{Tuple{UInt64, Int, Int}, Index})
+function _replacement_for_index(index::Index, replacements::Dict{Index, Index})
     key = _index_identity_key(index)
     haskey(replacements, key) || return index
     replacement = replacements[key]
@@ -126,7 +126,7 @@ function _replacement_for_index(index::Index, replacements::Dict{Tuple{UInt64, I
     return replacement
 end
 
-function _replace_tensor_indices(tensor::Tensor, replacements::Dict{Tuple{UInt64, Int, Int}, Index})
+function _replace_tensor_indices(tensor::Tensor, replacements::Dict{Index, Index})
     current_indices = inds(tensor)
     changed = false
     new_indices = map(current_indices) do index
@@ -139,7 +139,7 @@ function _replace_tensor_indices(tensor::Tensor, replacements::Dict{Tuple{UInt64
     return changed ? Tensor(tensor.data, new_indices; backend_handle=tensor.backend_handle) : tensor
 end
 
-function _replace_tensor_indices!(tensor::Tensor, replacements::Dict{Tuple{UInt64, Int, Int}, Index})
+function _replace_tensor_indices!(tensor::Tensor, replacements::Dict{Index, Index})
     old = Index[]
     new = Index[]
     for index in inds(tensor)
@@ -152,7 +152,7 @@ function _replace_tensor_indices!(tensor::Tensor, replacements::Dict{Tuple{UInt6
     return replaceinds!(tensor, old, new)
 end
 
-function _replace_tensor_indices_keep_data(tensor::Tensor, replacements::Dict{Tuple{UInt64, Int, Int}, Index})
+function _replace_tensor_indices_keep_data(tensor::Tensor, replacements::Dict{Index, Index})
     current_indices = inds(tensor)
     changed = false
     new_indices = map(current_indices) do index
