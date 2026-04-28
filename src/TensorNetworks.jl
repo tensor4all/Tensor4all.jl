@@ -19,7 +19,8 @@ export add, dag, dot, inner, dist
 export linkind, linkinds, linkdims, siteinds
 export norm
 export orthogonalize, truncate
-export to_dense, evaluate, random_tt
+export to_dense, evaluate, evaluate!, random_tt
+export TensorTrainEvaluator, TensorTrainEvalWorkspace
 export fixinds, suminds, projectinds
 export identity_link_tensor, insert_identity!
 export set_input_space!, set_output_space!, set_iospaces!, apply, linsolve
@@ -49,6 +50,7 @@ include("TensorNetworks/backend/treetn_dense.jl")
 include("TensorNetworks/backend/apply.jl")
 include("TensorNetworks/backend/treetn_contract.jl")
 include("TensorNetworks/backend/treetn_evaluate.jl")
+include("TensorNetworks/evaluator.jl")
 include("TensorNetworks/backend/restructure/helpers.jl")
 include("TensorNetworks/backend/restructure/fuse_to.jl")
 include("TensorNetworks/backend/restructure/split_to.jl")

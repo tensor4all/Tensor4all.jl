@@ -110,6 +110,10 @@ Other chain-facing names in this layer include:
   single dense `Tensor` over its site indices
 - `Tensor4all.TensorNetworks.evaluate` — pointwise evaluation of a
   `TensorTrain` at one or more index value tuples
+- `Tensor4all.TensorNetworks.TensorTrainEvaluator` and
+  `Tensor4all.TensorNetworks.TensorTrainEvalWorkspace` — pure Julia dense
+  chain snapshots for repeated scalar point evaluation without per-call
+  Tensor/Index construction in the grouped hot path
 - `Tensor4all.TensorNetworks.random_tt` — pure-Julia random `TensorTrain`
   built from Haar-distributed partial isometries (mirrors
   `ITensorMPS.random_mps`)
@@ -134,9 +138,22 @@ when inserting identity operator sites, deleting/pruning operator sites,
 permuting sites, or renaming internal input/output site indices; callers
 should not update those metadata arrays manually.
 
+For repeated point evaluation of one fixed chain, prefer
+`TensorTrainEvaluator(tt)` plus `TensorTrainEvalWorkspace(ev)` and call
+`evaluate!(ws, ev, grouped_values)`. A small benchmark should warm up once,
+then measure the grouped hot path directly, for example:
+
+```julia
+ev = Tensor4all.TensorNetworks.TensorTrainEvaluator(tt)
+ws = Tensor4all.TensorNetworks.TensorTrainEvalWorkspace(ev)
+grouped_values = [[1], [2], [1]]
+Tensor4all.TensorNetworks.evaluate!(ws, ev, grouped_values)
+@btime Tensor4all.TensorNetworks.evaluate!($ws, $ev, $grouped_values)
+```
+
 ```@autodocs
 Modules = [Tensor4all.TensorNetworks]
-Pages = ["TensorNetworks/types.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/operator_mutations.jl", "TensorNetworks/transforms.jl", "TensorNetworks/index_ops.jl", "TensorNetworks/identity_helpers.jl", "TensorNetworks/truncation_policy.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/backend/treetn.jl", "TensorNetworks/backend/treetn_queries.jl", "TensorNetworks/backend/treetn_dense.jl", "TensorNetworks/backend/treetn_contract.jl", "TensorNetworks/backend/treetn_evaluate.jl", "TensorNetworks/backend/restructure/fuse_to.jl", "TensorNetworks/backend/restructure/split_to.jl", "TensorNetworks/backend/restructure/swap_site_indices.jl", "TensorNetworks/backend/restructure/restructure_to.jl", "TensorNetworks/backend/linsolve.jl", "TensorNetworks/random.jl", "TensorNetworks/bridge.jl", "TensorNetworks/deferred.jl"]
+Pages = ["TensorNetworks/types.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/operator_mutations.jl", "TensorNetworks/transforms.jl", "TensorNetworks/index_ops.jl", "TensorNetworks/identity_helpers.jl", "TensorNetworks/truncation_policy.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/backend/treetn.jl", "TensorNetworks/backend/treetn_queries.jl", "TensorNetworks/backend/treetn_dense.jl", "TensorNetworks/backend/treetn_contract.jl", "TensorNetworks/backend/treetn_evaluate.jl", "TensorNetworks/evaluator.jl", "TensorNetworks/backend/restructure/fuse_to.jl", "TensorNetworks/backend/restructure/split_to.jl", "TensorNetworks/backend/restructure/swap_site_indices.jl", "TensorNetworks/backend/restructure/restructure_to.jl", "TensorNetworks/backend/linsolve.jl", "TensorNetworks/random.jl", "TensorNetworks/bridge.jl", "TensorNetworks/deferred.jl"]
 Private = false
 Order = [:type, :function]
 ```
