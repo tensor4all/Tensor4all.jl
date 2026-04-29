@@ -53,9 +53,10 @@ function _write_itensor(parent::Union{HDF5.File,HDF5.Group}, name::AbstractStrin
     attributes(g)["version"] = _VERSION
     _write_indexset(g, "inds", Tensor4all.inds(t))
     storage = create_group(g, "storage")
-    attributes(storage)["type"] = _dense_typestr(eltype(t.data))
+    data = Tensor4all.copy_data(t)
+    attributes(storage)["type"] = _dense_typestr(eltype(data))
     attributes(storage)["version"] = _VERSION
-    write(storage, "data", vec(t.data))
+    write(storage, "data", vec(data))
     return g
 end
 
