@@ -75,6 +75,18 @@ function _to_c_policy(p::SvdTruncationPolicy, threshold::Real)
     )
 end
 
+function _normalize_threshold(threshold::Union{Nothing,Real})
+    threshold === nothing && return 0.0
+    threshold >= 0 || throw(ArgumentError("threshold must be nonnegative or nothing, got $threshold"))
+    return Float64(threshold)
+end
+
+function _normalize_maxdim(maxdim::Union{Nothing,Integer})
+    maxdim === nothing && return 0
+    maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative or nothing, got $maxdim"))
+    return Int(maxdim)
+end
+
 # --- Default policy registry ---------------------------------------------
 
 const _PROCESS_DEFAULT_LOCK = ReentrantLock()
@@ -152,13 +164,11 @@ per-call kwargs.
 - Rejects negative `threshold` with `ArgumentError`.
 """
 function _resolve_svd_policy(;
-    threshold::Real,
+    threshold::Union{Nothing,Real},
     svd_policy::Union{Nothing, SvdTruncationPolicy},
 )
-    threshold >= 0 || throw(ArgumentError(
-        "threshold must be nonnegative, got $threshold",
-    ))
-    threshold == 0 && return nothing
+    threshold_value = _normalize_threshold(threshold)
+    threshold_value == 0 && return nothing
     policy = svd_policy === nothing ? default_svd_policy() : svd_policy
-    return _to_c_policy(policy, Float64(threshold))
+    return _to_c_policy(policy, threshold_value)
 end

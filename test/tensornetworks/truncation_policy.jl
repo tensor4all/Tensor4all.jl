@@ -64,6 +64,16 @@ end
     end
 end
 
+@testset "nothing threshold and maxdim normalize to no truncation" begin
+    @test TN_TP._normalize_threshold(nothing) == 0.0
+    @test TN_TP._normalize_threshold(1e-8) == 1e-8
+    @test TN_TP._normalize_maxdim(nothing) == 0
+    @test TN_TP._normalize_maxdim(7) == 7
+    @test TN_TP._resolve_svd_policy(; threshold=nothing, svd_policy=nothing) === nothing
+    @test_throws ArgumentError TN_TP._normalize_threshold(-1.0)
+    @test_throws ArgumentError TN_TP._normalize_maxdim(-1)
+end
+
 @testset "default policy registry" begin
     original = TN_TP.default_svd_policy()
     try

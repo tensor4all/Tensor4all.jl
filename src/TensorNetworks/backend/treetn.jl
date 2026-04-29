@@ -219,18 +219,18 @@ rules and common presets (including ITensors.jl compatibility).
 """
 function truncate(
     tt::TensorTrain;
-    threshold::Real=0.0,
-    maxdim::Integer=0,
+    threshold::Union{Nothing,Real}=nothing,
+    maxdim::Union{Nothing,Integer}=nothing,
     svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
 )
     isempty(tt.data) && throw(ArgumentError("TensorTrain must not be empty"))
-    threshold >= 0 || throw(ArgumentError("threshold must be nonnegative, got $threshold"))
-    maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
-    (threshold == 0.0 && maxdim == 0) && throw(
+    threshold_value = _normalize_threshold(threshold)
+    maxdim_value = _normalize_maxdim(maxdim)
+    (threshold_value == 0.0 && maxdim_value == 0) && throw(
         ArgumentError("At least one of threshold or maxdim must be specified"),
     )
 
-    ffi_policy = _resolve_svd_policy(; threshold, svd_policy)
+    ffi_policy = _resolve_svd_policy(; threshold=threshold_value, svd_policy)
 
     scalar_kind = _promoted_scalar_kind(tt)
     tt_handle = _new_treetn_handle(tt, scalar_kind)
@@ -242,7 +242,7 @@ function truncate(
                 (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t),
                 tt_handle,
                 policy_ptr,
-                Csize_t(maxdim),
+                Csize_t(maxdim_value),
             )
         end
         _check_backend_status(status, "truncating TensorTrain")
@@ -261,14 +261,15 @@ truncation controls.
 function add(
     a::TensorTrain,
     b::TensorTrain;
-    threshold::Real=0.0,
-    maxdim::Integer=0,
+    threshold::Union{Nothing,Real}=nothing,
+    maxdim::Union{Nothing,Integer}=nothing,
     svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
 )
     _validate_tt_binary(a, b, "add")
-    maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
+    threshold_value = _normalize_threshold(threshold)
+    maxdim_value = _normalize_maxdim(maxdim)
 
-    ffi_policy = _resolve_svd_policy(; threshold, svd_policy)
+    ffi_policy = _resolve_svd_policy(; threshold=threshold_value, svd_policy)
 
     scalar_kind = _promoted_scalar_kind(a, b)
     a_handle = _new_treetn_handle(a, scalar_kind)
@@ -284,7 +285,7 @@ function add(
                 a_handle,
                 b_handle,
                 policy_ptr,
-                Csize_t(maxdim),
+                Csize_t(maxdim_value),
                 out,
             )
         end

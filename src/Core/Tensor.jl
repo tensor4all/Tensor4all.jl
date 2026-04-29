@@ -1247,9 +1247,16 @@ function _validate_tensor_left_inds(t::Tensor, left_inds::Vector{Index})
     return tensor_inds
 end
 
-function _validate_truncation_controls(; threshold::Real=0.0, maxdim::Integer=0)
-    threshold >= 0 || throw(ArgumentError("threshold must be nonnegative, got $threshold"))
-    maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
+function _validate_truncation_controls(;
+    threshold::Union{Nothing,Real}=nothing,
+    maxdim::Union{Nothing,Integer}=nothing,
+)
+    if threshold !== nothing
+        threshold >= 0 || throw(ArgumentError("threshold must be nonnegative or nothing, got $threshold"))
+    end
+    if maxdim !== nothing
+        maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative or nothing, got $maxdim"))
+    end
     return nothing
 end
 
@@ -1306,8 +1313,8 @@ rank independently.
 function svd(
     t::Tensor,
     left_inds::Vector{Index};
-    threshold::Real=0.0,
-    maxdim::Integer=0,
+    threshold::Union{Nothing,Real}=nothing,
+    maxdim::Union{Nothing,Integer}=nothing,
     svd_policy=nothing,
 )
     _validate_tensor_left_inds(t, left_inds)
@@ -1315,13 +1322,15 @@ function svd(
 
     scalar_kind = _tensor_scalar_kind(t)
     tn = _tensor_networks_module()
+    threshold_value = tn._normalize_threshold(threshold)
+    maxdim_value = tn._normalize_maxdim(maxdim)
     t_handle = C_NULL
     left_handles = Ptr{Cvoid}[]
     u_handle = C_NULL
     s_handle = C_NULL
     v_handle = C_NULL
 
-    ffi_policy = tn._resolve_svd_policy(; threshold, svd_policy)
+    ffi_policy = tn._resolve_svd_policy(; threshold=threshold_value, svd_policy)
 
     try
         t_handle = tn._new_tensor_handle(t, scalar_kind)
@@ -1350,7 +1359,7 @@ function svd(
                 left_handles,
                 Csize_t(length(left_handles)),
                 policy_ptr,
-                Csize_t(maxdim),
+                Csize_t(maxdim_value),
                 out_u,
                 out_s,
                 out_v,

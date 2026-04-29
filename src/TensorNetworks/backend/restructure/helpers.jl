@@ -141,8 +141,8 @@ function _release_target_args(args::NamedTuple)
     return nothing
 end
 
-function _validate_truncation_kwargs(threshold::Real, maxdim::Integer)
-    threshold >= 0 || throw(ArgumentError("threshold must be nonnegative, got $threshold"))
-    maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
+function _validate_truncation_kwargs(threshold::Union{Nothing,Real}, maxdim::Union{Nothing,Integer})
+    _normalize_threshold(threshold)
+    _normalize_maxdim(maxdim)
     return nothing
 end

@@ -161,13 +161,14 @@ function apply(
     op::LinearOperator,
     state::TensorTrain;
     method::Symbol=:zipup,
-    threshold::Real=0.0,
-    maxdim::Integer=0,
+    threshold::Union{Nothing,Real}=nothing,
+    maxdim::Union{Nothing,Integer}=nothing,
     svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
     nfullsweeps::Integer=0,
     convergence_tol::Real=0.0,
 )
-    maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
+    threshold_value = _normalize_threshold(threshold)
+    maxdim_value = _normalize_maxdim(maxdim)
     nfullsweeps >= 0 || throw(ArgumentError("nfullsweeps must be nonnegative, got $nfullsweeps"))
     convergence_tol >= 0 || throw(ArgumentError("convergence_tol must be nonnegative, got $convergence_tol"))
 
@@ -181,7 +182,7 @@ function apply(
     _validate_operator_spaces!(op.input_indices, op.output_indices, true_inputs, true_outputs)
     mapped_positions = _mapped_state_positions(true_inputs, state_sites)
 
-    ffi_policy = _resolve_svd_policy(; threshold, svd_policy)
+    ffi_policy = _resolve_svd_policy(; threshold=threshold_value, svd_policy)
 
     scalar_kind = _promoted_scalar_kind(state, mpo)
     state_handle = _new_treetn_handle(state, scalar_kind)
@@ -232,7 +233,7 @@ function apply(
                 true_output_handles,
                 _contract_method_code(method),
                 policy_ptr,
-                Csize_t(maxdim),
+                Csize_t(maxdim_value),
                 Csize_t(nfullsweeps),
                 float(convergence_tol),
                 result_ref,
