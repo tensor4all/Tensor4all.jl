@@ -112,6 +112,10 @@ Other chain-facing names in this layer include:
 - `Tensor4all.TensorNetworks.restructure_to`
 - `Tensor4all.TensorNetworks.contract` — `TensorTrain × TensorTrain` chain
   contraction via the `t4a_treetn_contract` C API
+- `Tensor4all.TensorNetworks.PartialContractionSpec`,
+  `Tensor4all.TensorNetworks.partial_contract`, and
+  `Tensor4all.TensorNetworks.elementwise_product` — explicit partial
+  contraction and elementwise chain products through the TreeTN C API
 - `Tensor4all.TensorNetworks.to_dense` — materialize a `TensorTrain` as a
   single dense `Tensor` over its site indices
 - `Tensor4all.TensorNetworks.evaluate` — pointwise evaluation of a
@@ -159,7 +163,7 @@ Tensor4all.TensorNetworks.evaluate!(ws, ev, grouped_values)
 
 ```@autodocs
 Modules = [Tensor4all.TensorNetworks]
-Pages = ["TensorNetworks/types.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/operator_mutations.jl", "TensorNetworks/transforms.jl", "TensorNetworks/index_ops.jl", "TensorNetworks/identity_helpers.jl", "TensorNetworks/truncation_policy.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/backend/treetn.jl", "TensorNetworks/backend/treetn_queries.jl", "TensorNetworks/backend/treetn_dense.jl", "TensorNetworks/backend/treetn_contract.jl", "TensorNetworks/backend/treetn_evaluate.jl", "TensorNetworks/evaluator.jl", "TensorNetworks/backend/restructure/fuse_to.jl", "TensorNetworks/backend/restructure/split_to.jl", "TensorNetworks/backend/restructure/swap_site_indices.jl", "TensorNetworks/backend/restructure/restructure_to.jl", "TensorNetworks/backend/linsolve.jl", "TensorNetworks/random.jl", "TensorNetworks/bridge.jl", "TensorNetworks/deferred.jl"]
+Pages = ["TensorNetworks/types.jl", "TensorNetworks/operator_spaces.jl", "TensorNetworks/site_helpers.jl", "TensorNetworks/matchsiteinds.jl", "TensorNetworks/operator_mutations.jl", "TensorNetworks/transforms.jl", "TensorNetworks/index_ops.jl", "TensorNetworks/identity_helpers.jl", "TensorNetworks/truncation_policy.jl", "TensorNetworks/backend/apply.jl", "TensorNetworks/backend/treetn.jl", "TensorNetworks/backend/treetn_queries.jl", "TensorNetworks/backend/treetn_dense.jl", "TensorNetworks/backend/treetn_contract.jl", "TensorNetworks/backend/partial_contract.jl", "TensorNetworks/backend/treetn_evaluate.jl", "TensorNetworks/evaluator.jl", "TensorNetworks/backend/restructure/fuse_to.jl", "TensorNetworks/backend/restructure/split_to.jl", "TensorNetworks/backend/restructure/swap_site_indices.jl", "TensorNetworks/backend/restructure/restructure_to.jl", "TensorNetworks/backend/linsolve.jl", "TensorNetworks/random.jl", "TensorNetworks/bridge.jl", "TensorNetworks/deferred.jl"]
 Private = false
 Order = [:type, :function]
 ```
