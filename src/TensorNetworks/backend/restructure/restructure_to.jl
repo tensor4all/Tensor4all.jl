@@ -1,10 +1,10 @@
 """
     restructure_to(tt, target_groups;
                    edges=nothing,
-                   split_threshold=0.0, split_maxdim=0,
+                   split_threshold=nothing, split_maxdim=nothing,
                    split_svd_policy=nothing, split_final_sweep=false,
-                   swap_rtol=0.0, swap_maxdim=0,
-                   final_threshold=0.0, final_maxdim=0,
+                   swap_rtol=0.0, swap_maxdim=nothing,
+                   final_threshold=nothing, final_maxdim=nothing,
                    final_svd_policy=nothing) -> TensorTrain
 
 Restructure `tt` so that its site index grouping matches `target_groups`.
@@ -202,13 +202,15 @@ function _final_truncate(
     final_maxdim::Union{Nothing,Integer},
     final_svd_policy::Union{Nothing, SvdTruncationPolicy},
 )
-    has_final_truncation = final_threshold > 0 || final_maxdim > 0 ||
+    final_threshold_value = _normalize_threshold(final_threshold)
+    final_maxdim_value = _normalize_maxdim(final_maxdim)
+    has_final_truncation = final_threshold_value > 0 || final_maxdim_value > 0 ||
         final_svd_policy !== nothing
     has_final_truncation || return tt
     return truncate(
         tt;
-        threshold=final_threshold,
-        maxdim=final_maxdim,
+        threshold=final_threshold_value,
+        maxdim=final_maxdim_value,
         svd_policy=final_svd_policy,
     )
 end
