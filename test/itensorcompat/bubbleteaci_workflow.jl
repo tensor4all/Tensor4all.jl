@@ -15,10 +15,10 @@ const TN_BTCI = Tensor4all.TensorNetworks
 
     replacement = Index(2; tags=["y", "y=1"])
     original_first = m[1]
-    original_data = m[1].data
+    original_data = copy_data(m[1])
     @test IC_BTCI.replace_siteinds!(m, [sites[1]], [replacement]) === m
     @test m[1] === original_first
-    @test m[1].data === original_data
+    @test copy_data(m[1]) == original_data
     @test IC_BTCI.siteinds(m)[1] == replacement
 
     dummy = Index(2; tags=["dummy", "dummy=1"])

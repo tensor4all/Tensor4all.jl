@@ -19,7 +19,7 @@ using HDF5
         @test tt2.llim == 0
         @test tt2.rlim == 2
         @test length(tt2) == 1
-        @test tt2.data[1].data == t.data
+        @test Tensor4all.copy_data(tt2.data[1]) == Tensor4all.copy_data(t)
         @test Tensor4all.inds(tt2.data[1]) == Tensor4all.inds(t)
 
         h5open(path, "r") do f
@@ -48,8 +48,8 @@ using HDF5
         @test length(tt2) == 2
         @test tt2.llim == 0
         @test tt2.rlim == 3
-        @test tt2.data[1].data == t1.data
-        @test tt2.data[2].data == t2.data
+        @test Tensor4all.copy_data(tt2.data[1]) == Tensor4all.copy_data(t1)
+        @test Tensor4all.copy_data(tt2.data[2]) == Tensor4all.copy_data(t2)
 
         h5open(path, "r") do f
             g = f["psi"]

@@ -46,7 +46,7 @@ export dot, inner, dist
 export linkind, linkinds, linkdims, siteind, siteinds
 export norm
 export orthogonalize, truncate
-export Tensor, ITensor, inds, rank, dims, swapinds, contract
+export Tensor, ITensor, inds, rank, dims, swapinds, copy_data, contract
 export delta, isdiag, structured_storage_info, structured_payload
 export selectinds, onehot, fixinds, suminds, projectinds
 export svd, qr

@@ -69,10 +69,10 @@ function _tt_arith_dense_contract(
 end
 
 function tt_arith_dense_tensor(tt::TN.TensorTrain, target_inds::Vector{Index})
-    data = copy(tt[1].data)
+    data = Tensor4all.copy_data(tt[1])
     current_inds = inds(tt[1])
     for n in 2:length(tt)
-        data, current_inds = _tt_arith_dense_contract(data, current_inds, tt[n].data, inds(tt[n]))
+        data, current_inds = _tt_arith_dense_contract(data, current_inds, Tensor4all.copy_data(tt[n]), inds(tt[n]))
     end
 
     boundary_axes = [axis for (axis, index) in pairs(current_inds) if hastag(index, "Link")]
@@ -225,6 +225,26 @@ end
         @test TN.siteinds(result_truncated) == TN.siteinds(tt1)
         @test length.(TN.siteinds(result_truncated)) == [2, 2, 2]
     end
+
+    @testset "mixed real and complex addition promotes backend handles" begin
+        s1 = Index(2; tags=["mix", "s=1"])
+        s2 = Index(2; tags=["mix", "s=2"])
+        link = Index(2; tags=["Link", "mix-l=1"])
+        real_tt = TN.TensorTrain([
+            Tensor(reshape([1.0, 2.0, 3.0, 4.0], 2, 2), [s1, link]),
+            Tensor(reshape([5.0, 6.0, 7.0, 8.0], 2, 2), [link, s2]),
+        ])
+        complex_tt = TN.TensorTrain([
+            Tensor(ComplexF64.(reshape([1.0, 0.0, 0.0, 1.0], 2, 2)), [s1, link]),
+            Tensor(ComplexF64.(reshape([2.0, 3.0, 4.0, 5.0], 2, 2)), [link, s2]),
+        ])
+
+        result = TN.add(real_tt, complex_tt)
+        @test eltype(result.data[1]) == ComplexF64
+        @test tt_arith_dense_tensor(result, [s1, s2]) ≈
+            tt_arith_dense_tensor(real_tt, [s1, s2]) .+
+            tt_arith_dense_tensor(complex_tt, [s1, s2])
+    end
 end
 
 @testset "TensorTrain truncated add" begin
@@ -258,6 +278,14 @@ end
     @test abs(imag(self_dot)) < 1e-10
 
     @test TensorNetworks.inner(tt1, tt2) ≈ d
+
+    @testset "mixed real and complex dot promotes backend handles" begin
+        real_tt, _, dense = make_known_two_site_mps()
+        complex_tt = (1.0 + 0.25im) * real_tt
+        mixed_dot = TensorNetworks.dot(real_tt, complex_tt)
+        @test mixed_dot ≈ sum(conj.(dense) .* ((1.0 + 0.25im) .* dense))
+        @test TensorNetworks.inner(real_tt, complex_tt) ≈ mixed_dot
+    end
 end
 
 @testset "TensorTrain norm" begin

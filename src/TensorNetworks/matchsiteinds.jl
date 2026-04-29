@@ -90,7 +90,7 @@ function _resolve_mpo_sites(
 end
 
 function _canonicalize_mps_tensor(tensor::Tensor, sparse_position::Int, sparse_length::Int)
-    data = tensor.data
+    data = copy_data(tensor)
     if ndims(data) == 1
         sparse_length == 1 || throw(
             ArgumentError("Only single-site MPS-like TensorTrains may use rank-1 tensors"),
@@ -109,7 +109,7 @@ function _canonicalize_mps_tensor(tensor::Tensor, sparse_position::Int, sparse_l
 end
 
 function _canonicalize_mpo_tensor(tensor::Tensor, sparse_position::Int, sparse_length::Int)
-    data = tensor.data
+    data = copy_data(tensor)
     if ndims(data) == 2
         sparse_length == 1 || throw(
             ArgumentError("Only single-site MPO-like TensorTrains may use rank-2 tensors"),

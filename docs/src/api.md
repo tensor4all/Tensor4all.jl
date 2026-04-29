@@ -15,6 +15,8 @@
 - `Tensor4all.inds`, `Tensor4all.rank`, `Tensor4all.dims`,
   `Tensor4all.swapinds`
 - `Tensor4all.scalar`, `Tensor4all.onehot`
+- `Tensor4all.copy_data` — explicitly materialize a fresh dense copy of a
+  `Tensor`, optionally in a requested `Index` order
 - `Tensor4all.fixinds`, `Tensor4all.suminds`, `Tensor4all.projectinds`
 - `Tensor4all.delta`, `Tensor4all.isdiag`,
   `Tensor4all.structured_storage_info`, `Tensor4all.structured_payload`
@@ -24,6 +26,10 @@
   `t4a_tensor_contract` C API
 - `Tensor4all.svd`, `Tensor4all.qr` — backend tensor factorizations via the
   C API
+
+`Tensor` owns a backend tensor handle plus Julia-side `Index` metadata. It does
+not expose `.data` or cached `structured_storage` fields; dense materialization
+is always an explicit copy through `copy_data` or `Array`.
 
 ```@docs
 Tensor4all

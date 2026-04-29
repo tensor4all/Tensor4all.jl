@@ -18,12 +18,14 @@ function _boundary_link(position::Integer)
 end
 
 function _prepend_link_axis(tensor::Tensor, link::Index)
-    data = reshape(tensor.data, 1, size(tensor.data)...)
+    tensor_data = copy_data(tensor)
+    data = reshape(tensor_data, 1, size(tensor_data)...)
     return Tensor(data, Index[link, inds(tensor)...])
 end
 
 function _append_link_axis(tensor::Tensor, link::Index)
-    data = reshape(tensor.data, size(tensor.data)..., 1)
+    tensor_data = copy_data(tensor)
+    data = reshape(tensor_data, size(tensor_data)..., 1)
     return Tensor(data, Index[inds(tensor)..., link])
 end
 

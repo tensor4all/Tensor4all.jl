@@ -60,6 +60,20 @@ end
         @test v ≈ dense[2, 2]
     end
 
+    @testset "mixed real and complex sites promote backend handles" begin
+        s1 = Index(2; tags=["s", "mixed=1"])
+        s2 = Index(2; tags=["s", "mixed=2"])
+        link = Index(2; tags=["L", "mixed=1"])
+        tt = TN_EVAL.TensorTrain([
+            Tensor([1.0 0.5; 0.0 1.0], [s1, link]),
+            Tensor(ComplexF64[2.0 0.0; 0.0 1.0 + 1.0im], [link, s2]),
+        ])
+        dense = Array(TN_EVAL.to_dense(tt), [s1, s2]...)
+        v = TN_EVAL.evaluate(tt, [s1, s2], [2, 2])
+        @test v ≈ dense[2, 2]
+        @test v isa ComplexF64
+    end
+
     @testset "argument validation" begin
         tt, sites = _eval_two_site_mps()
         empty_tt = TN_EVAL.TensorTrain(Tensor[])

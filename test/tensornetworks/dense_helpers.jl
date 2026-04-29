@@ -37,10 +37,10 @@ end
 
 if !isdefined(@__MODULE__, :tn_test_dense_tensor)
     function tn_test_dense_tensor(tt::TN.TensorTrain, target_inds::Vector{Index})
-        data = copy(tt[1].data)
+        data = copy_data(tt[1])
         current_inds = inds(tt[1])
         for n in 2:length(tt)
-            data, current_inds = _tn_test_dense_contract(data, current_inds, tt[n].data, inds(tt[n]))
+            data, current_inds = _tn_test_dense_contract(data, current_inds, copy_data(tt[n]), inds(tt[n]))
         end
 
         boundary_axes = [axis for (axis, index) in pairs(current_inds) if hastag(index, "Link")]

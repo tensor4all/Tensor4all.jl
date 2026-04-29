@@ -13,10 +13,10 @@ using Tensor4all
     d = dag(t)
 
     @test inds(d) == [i, j]
-    @test d.data ≈ conj(data)
+    @test copy_data(d) ≈ conj(data)
 
     t_real = Tensor(reshape(collect(1.0:6.0), 2, 3), [i, j])
-    @test dag(t_real).data ≈ t_real.data
+    @test copy_data(dag(t_real)) ≈ copy_data(t_real)
 end
 
 @testset "Tensor Array with index reordering" begin
@@ -72,7 +72,7 @@ end
     _, S_explicit, _ = svd(t, [i];
         threshold=1e-6, svd_policy=TN.SvdTruncationPolicy())
     @test dims(S_default) == dims(S_explicit)
-    @test isapprox(S_default.data, S_explicit.data; atol=1e-14)
+    @test isapprox(copy_data(S_default), copy_data(S_explicit); atol=1e-14)
 
     # Strategy not covered by the default: absolute + squared + tail-sum.
     pol = TN.SvdTruncationPolicy(

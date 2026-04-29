@@ -105,12 +105,13 @@ function _operator_canonical_tensor(
         ArgumentError("operator tensor $position has overlapping link/input/output axes"),
     )
 
-    data = length(source_axes) == ndims(tensor.data) ? permutedims(tensor.data, Tuple(source_axes)) :
-        tensor.data
-    if length(source_axes) != ndims(tensor.data)
+    tensor_data = copy_data(tensor)
+    data = length(source_axes) == ndims(tensor_data) ? permutedims(tensor_data, Tuple(source_axes)) :
+        tensor_data
+    if length(source_axes) != ndims(tensor_data)
         existing_axes = Set(source_axes)
         expected_missing = count(isnothing, (left_axis, right_axis))
-        ndims(tensor.data) - length(existing_axes) == 0 || throw(
+        ndims(tensor_data) - length(existing_axes) == 0 || throw(
             ArgumentError("operator tensor $position has unsupported extra axes"),
         )
         expected_missing in (1, 2) || throw(

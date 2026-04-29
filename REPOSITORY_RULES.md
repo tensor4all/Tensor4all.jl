@@ -15,3 +15,22 @@
 - Regression tests for index matching code should include two indices with the
   same `id` but different `plev`, and two indices with the same `id` and `plev`
   but different `tags`.
+
+## FFI Handle Ownership Discipline
+
+- Any Julia object that owns a Rust/C handle must make ownership explicit in
+  its constructor or wrapper type.
+- Do not rely on Julia's default `deepcopy` for objects that contain owned raw
+  pointers. Define `Base.deepcopy_internal` to either clone/rebuild the
+  backend resource or throw an actionable error.
+- Public copy operations for handle-backed public objects must create an
+  independently owned backend resource. They must not share an owned raw
+  pointer with the source object.
+- Direct copying of low-level handle wrappers should be disallowed unless the
+  wrapper is explicitly non-owning or reference-counted.
+- When transferring a newly returned C handle into a Julia finalizer-backed
+  object, clear the local raw pointer variable before the surrounding `finally`
+  block releases temporary handles.
+- Regression tests for handle-backed public objects should check that
+  `copy`/`deepcopy` preserve data and metadata while producing distinct backend
+  pointers.

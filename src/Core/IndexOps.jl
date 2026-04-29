@@ -20,10 +20,9 @@ end
 
 function _copy_tensor_without_index_op(t::Tensor)
     return Tensor(
-        t.data,
+        copy_data(t),
         inds(t);
-        backend_handle=t.backend_handle,
-        structured_storage=_copy_structured_storage(t.structured_storage),
+        structured_storage=_structured_storage_from_tensor(t),
     )
 end
 
@@ -53,7 +52,7 @@ function fixinds(t::Tensor, replacements::Pair{Index,<:Integer}...)
     end
 
     result_inds = Index[tensor_indices[n] for n in eachindex(tensor_indices) if !fixed[n]]
-    return _tensor_from_indexed_data(t.data[selectors...], result_inds)
+    return _tensor_from_indexed_data(copy_data(t)[selectors...], result_inds)
 end
 
 """
@@ -70,7 +69,7 @@ function suminds(t::Tensor, indices::Index...)
     axes = [_index_position(tensor_indices, index, "suminds") for index in requested]
     result_inds = Index[tensor_indices[n] for n in eachindex(tensor_indices) if !(n in axes)]
 
-    summed = sum(t.data; dims=Tuple(sort(axes)))
+    summed = sum(copy_data(t); dims=Tuple(sort(axes)))
     dropped = dropdims(summed; dims=Tuple(sort(axes)))
     return _tensor_from_indexed_data(dropped, result_inds)
 end
@@ -109,5 +108,5 @@ function projectinds(
         seen[position] = true
     end
 
-    return Tensor(copy(t.data[selectors...]), result_inds)
+    return Tensor(copy(copy_data(t)[selectors...]), result_inds)
 end

@@ -49,7 +49,7 @@ using Random: MersenneTwister
         # dense forms (this avoids the rank-0 to_dense path which currently
         # mishandles rank-0 inputs in _new_tensor_handle).
         expected = Tensor4all.contract(TN_CONTRACT.to_dense(a), TN_CONTRACT.to_dense(b))
-        @test result.data[1].data[] ≈ expected.data[]
+        @test Tensor4all.copy_data(result.data[1])[] ≈ Tensor4all.copy_data(expected)[]
     end
 
     @testset "MPS · MPO leaves output sites" begin
@@ -89,6 +89,22 @@ using Random: MersenneTwister
         result_dense = TN_CONTRACT.to_dense(result)
         expected = Tensor4all.contract(TN_CONTRACT.to_dense(a), TN_CONTRACT.to_dense(b))
         @test result_dense ≈ expected
+    end
+
+    @testset "mixed real and complex inputs promote backend handles" begin
+        sites = [Index(2; tags=["mix-contract", "s=$n"]) for n in 1:2]
+        links_a = [Index(2; tags=["LinkA", "mix-contract=1"])]
+        links_b = [Index(2; tags=["LinkB", "mix-contract=1"])]
+        real_tt = _make_mps(sites, links_a, Float64; seed=70)
+        complex_tt = _make_mps(sites, links_b, ComplexF64; seed=80)
+
+        result = TN_CONTRACT.contract(real_tt, complex_tt)
+        expected = Tensor4all.contract(
+            TN_CONTRACT.to_dense(real_tt),
+            TN_CONTRACT.to_dense(complex_tt),
+        )
+        @test eltype(result.data[1]) == ComplexF64
+        @test copy_data(result.data[1])[] ≈ copy_data(expected)[]
     end
 
     @testset "argument validation" begin

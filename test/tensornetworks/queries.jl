@@ -59,7 +59,7 @@ using Tensor4all
         tt_c = TensorNetworks.TensorTrain([tc])
         tt_d = TensorNetworks.dag(tt_c)
         @test inds(tt_d[1]) == inds(tc)
-        @test tt_d[1].data ≈ conj(tc.data)
+        @test Tensor4all.copy_data(tt_d[1]) ≈ conj(Tensor4all.copy_data(tc))
         @test length(tt_d) == 1
     end
 end
