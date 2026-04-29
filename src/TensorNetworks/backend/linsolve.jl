@@ -41,8 +41,8 @@ function linsolve(
     a0::Real=0.0,
     a1::Real=1.0,
     center_vertex::Integer=1,
-    threshold::Real=0.0,
-    maxdim::Integer=0,
+    threshold::Union{Nothing,Real}=nothing,
+    maxdim::Union{Nothing,Integer}=nothing,
     svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
     nfullsweeps::Integer=5,
     krylov_tol::Real=1.0e-12,
@@ -51,7 +51,8 @@ function linsolve(
     convergence_tol::Real=0.0,
 )
     isempty(rhs.data) && throw(ArgumentError("rhs TensorTrain must not be empty"))
-    maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
+    threshold_value = _normalize_threshold(threshold)
+    maxdim_value = _normalize_maxdim(maxdim)
     nfullsweeps >= 1 || throw(ArgumentError("nfullsweeps must be >= 1, got $nfullsweeps"))
     krylov_tol > 0 || throw(ArgumentError("krylov_tol must be positive, got $krylov_tol"))
     krylov_maxiter >= 1 || throw(ArgumentError("krylov_maxiter must be >= 1, got $krylov_maxiter"))
@@ -77,7 +78,7 @@ function linsolve(
     _validate_operator_spaces!(op.input_indices, op.output_indices, true_inputs, true_outputs)
     mapped_positions = _mapped_state_positions(true_inputs, rhs_sites)
 
-    ffi_policy = _resolve_svd_policy(; threshold, svd_policy)
+    ffi_policy = _resolve_svd_policy(; threshold=threshold_value, svd_policy)
 
     scalar_kind = _promoted_scalar_kind(rhs, init_tt, mpo)
     operator_handle = _new_treetn_handle(mpo, scalar_kind)
@@ -142,7 +143,7 @@ function linsolve(
                 true_output_handles,
                 internal_output_handles,
                 policy_ptr,
-                Csize_t(maxdim),
+                Csize_t(maxdim_value),
                 Csize_t(nfullsweeps),
                 float(krylov_tol),
                 Csize_t(krylov_maxiter),

@@ -40,8 +40,8 @@ function contract(
     a::TensorTrain,
     b::TensorTrain;
     method::Symbol=:zipup,
-    threshold::Real=0.0,
-    maxdim::Integer=0,
+    threshold::Union{Nothing,Real}=nothing,
+    maxdim::Union{Nothing,Integer}=nothing,
     svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
     nfullsweeps::Integer=0,
     convergence_tol::Real=0.0,
@@ -50,14 +50,15 @@ function contract(
 )
     isempty(a.data) && throw(ArgumentError("Left TensorTrain must not be empty for contract"))
     isempty(b.data) && throw(ArgumentError("Right TensorTrain must not be empty for contract"))
-    maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
+    threshold_value = _normalize_threshold(threshold)
+    maxdim_value = _normalize_maxdim(maxdim)
     nfullsweeps >= 0 || throw(ArgumentError("nfullsweeps must be nonnegative, got $nfullsweeps"))
     convergence_tol >= 0 || throw(ArgumentError("convergence_tol must be nonnegative, got $convergence_tol"))
     qr_rtol >= 0 || throw(ArgumentError("qr_rtol must be nonnegative, got $qr_rtol"))
 
     method_code = _contract_method_code(method)
     factorize_code = _factorize_alg_code(factorize_alg)
-    ffi_policy = _resolve_svd_policy(; threshold, svd_policy)
+    ffi_policy = _resolve_svd_policy(; threshold=threshold_value, svd_policy)
 
     scalar_kind = _promoted_scalar_kind(a, b)
     a_handle = _new_treetn_handle(a, scalar_kind)
@@ -85,7 +86,7 @@ function contract(
                 b_handle,
                 method_code,
                 policy_ptr,
-                Csize_t(maxdim),
+                Csize_t(maxdim_value),
                 Csize_t(nfullsweeps),
                 float(convergence_tol),
                 factorize_code,

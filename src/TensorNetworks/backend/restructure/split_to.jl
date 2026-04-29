@@ -27,15 +27,17 @@ function split_to(
     tt::TensorTrain,
     target_groups::AbstractVector{<:AbstractVector{<:Index}};
     edges::Union{Nothing, AbstractVector{<:Tuple{<:Integer, <:Integer}}}=nothing,
-    threshold::Real=0.0,
-    maxdim::Integer=0,
+    threshold::Union{Nothing,Real}=nothing,
+    maxdim::Union{Nothing,Integer}=nothing,
     svd_policy::Union{Nothing, SvdTruncationPolicy}=nothing,
     final_sweep::Bool=false,
 )
     isempty(tt.data) && throw(ArgumentError("TensorTrain must not be empty for split_to"))
     _validate_truncation_kwargs(threshold, maxdim)
+    threshold_value = _normalize_threshold(threshold)
+    maxdim_value = _normalize_maxdim(maxdim)
 
-    ffi_policy = _resolve_svd_policy(; threshold, svd_policy)
+    ffi_policy = _resolve_svd_policy(; threshold=threshold_value, svd_policy)
 
     args = _build_target_args(tt, target_groups, edges)
     scalar_kind = _promoted_scalar_kind(tt)
@@ -70,7 +72,7 @@ function split_to(
                 args.edge_targets,
                 args.n_edges,
                 policy_ptr,
-                Csize_t(maxdim),
+                Csize_t(maxdim_value),
                 Cint(final_sweep ? 1 : 0),
                 out,
             )

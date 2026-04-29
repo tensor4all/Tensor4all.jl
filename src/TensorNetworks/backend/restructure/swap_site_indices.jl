@@ -20,11 +20,11 @@ function swap_site_indices(
     tt::TensorTrain,
     target_assignment::AbstractDict{<:Index, <:Integer};
     rtol::Real=0.0,
-    maxdim::Integer=0,
+    maxdim::Union{Nothing,Integer}=nothing,
 )
     isempty(tt.data) && throw(ArgumentError("TensorTrain must not be empty for swap_site_indices"))
     rtol >= 0 || throw(ArgumentError("rtol must be nonnegative, got $rtol"))
-    maxdim >= 0 || throw(ArgumentError("maxdim must be nonnegative, got $maxdim"))
+    maxdim_value = _normalize_maxdim(maxdim)
 
     n_vertices = length(tt)
     current_sites = _siteind_set(tt)
@@ -69,7 +69,7 @@ function swap_site_indices(
             siteind_handles,
             targets_c,
             Csize_t(length(sites)),
-            Csize_t(maxdim),
+            Csize_t(maxdim_value),
             float(rtol),
             out,
         )
