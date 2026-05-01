@@ -7,6 +7,9 @@
 #   1. TENSOR4ALL_RS_PATH environment variable
 #   2. Sibling directory ../tensor4all-rs/ (relative to package root)
 #   3. Clone from GitHub
+#
+# Optional Cargo feature selection:
+#   TENSOR4ALL_RS_FEATURES="tenferro-provider-inject"
 
 using Libdl
 using RustToolChain: cargo
@@ -67,6 +70,16 @@ function clone_from_github(dest::String)
     run(`git -C $dest checkout --detach $TENSOR4ALL_RS_FALLBACK_COMMIT`)
 end
 
+function cargo_feature_args()
+    raw = strip(get(ENV, "TENSOR4ALL_RS_FEATURES", ""))
+    isempty(raw) && return String[]
+
+    features = filter(!isempty, split(raw, r"[\s,]+"))
+    isempty(features) && return String[]
+
+    return String["--no-default-features", "--features", join(features, ",")]
+end
+
 """
     build_library(rust_dir::String)
 
@@ -82,12 +95,16 @@ function build_library(rust_dir::String)
     println("Building tensor4all-capi ($profile)...")
     println("  Rust source: $rust_dir")
     println("  Using cargo from RustToolChain.jl")
+    feature_args = cargo_feature_args()
+    if !isempty(feature_args)
+        println("  Cargo features: ", join(feature_args, " "))
+    end
 
     cd(rust_dir) do
         if is_debug
-            run(`$(cargo()) build -p tensor4all-capi`)
+            run(`$(cargo()) build -p tensor4all-capi $feature_args`)
         else
-            run(`$(cargo()) build -p tensor4all-capi --release`)
+            run(`$(cargo()) build -p tensor4all-capi --release $feature_args`)
         end
     end
 
