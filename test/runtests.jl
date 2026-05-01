@@ -1,6 +1,7 @@
 using Test
 using Tensor4all
 
+include("deps/build_config.jl")
 include("api/skeleton_alignment.jl")
 include("core/index.jl")
 include("core/tensor.jl")

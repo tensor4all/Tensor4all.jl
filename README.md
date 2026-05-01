@@ -76,20 +76,6 @@ export TENSOR4ALL_RS_PATH=/path/to/tensor4all-rs
 julia --startup-file=no --project=. deps/build.jl
 ```
 
-For local provider-inject testing, use a local `tensor4all-rs` checkout that
-provides the `tenferro-provider-inject` feature and build with that feature:
-
-```bash
-export TENSOR4ALL_RS_PATH=/path/to/tensor4all-rs
-export TENSOR4ALL_RS_FEATURES=tenferro-provider-inject
-julia --startup-file=no --project=. deps/build.jl
-```
-
-When the built `libtensor4all_capi` exports inject registration symbols,
-Tensor4all.jl registers Julia/libblastrampoline BLAS/LAPACK pointers
-automatically at backend load, using `LinearAlgebra.BLAS.USE_BLAS64` to choose
-LP64 vs ILP64.
-
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution flow (issue →
@@ -115,6 +101,60 @@ Run it with the package project:
 ```bash
 julia --startup-file=no --project=. deps/build.jl
 ```
+
+Select the linear algebra backend with `TENSOR4ALL_LINALG_BACKEND`. The default
+is `julia-blas`, which uses Julia's BLAS/LAPACK provider through
+libblastrampoline:
+
+```bash
+# Default: Julia BLAS/LAPACK provider-inject backend.
+export TENSOR4ALL_LINALG_BACKEND=julia-blas
+julia --startup-file=no --project=. deps/build.jl
+
+# Rust/faer backend.
+export TENSOR4ALL_LINALG_BACKEND=faer
+julia --startup-file=no --project=. deps/build.jl
+```
+
+`julia-blas` builds the Rust backend with provider injection enabled. When the
+built `libtensor4all_capi` exports inject registration symbols, Tensor4all.jl
+registers Julia/libblastrampoline BLAS/LAPACK pointers automatically at backend
+load. It selects LP64 vs ILP64 from `LinearAlgebra.BLAS.USE_BLAS64`. This mode
+requires a `tensor4all-rs` checkout or pin that provides the
+`tenferro-provider-inject` feature.
+
+`TENSOR4ALL_RS_FEATURES` can still be used for additional Cargo features. When
+extra features are supplied, the build script disables Cargo default features
+and explicitly includes the selected linear algebra backend feature.
+
+### Parallelism
+
+For `TENSOR4ALL_LINALG_BACKEND=faer`, tensor kernels run through Rust's CPU
+backend and its rayon pool. Set `RAYON_NUM_THREADS` before starting Julia:
+
+```bash
+export TENSOR4ALL_LINALG_BACKEND=faer
+export RAYON_NUM_THREADS=8
+julia --startup-file=no --project=. deps/build.jl
+```
+
+For `TENSOR4ALL_LINALG_BACKEND=julia-blas`, LAPACK/BLAS calls use Julia's
+libblastrampoline provider and follow Julia's BLAS threading behavior. Set the
+BLAS provider's thread count before the first backend operation:
+
+```julia
+using LinearAlgebra
+BLAS.set_num_threads(8)
+```
+
+Provider environment variables such as `OPENBLAS_NUM_THREADS`,
+`BLAS_NUM_THREADS`, `MKL_NUM_THREADS`, or `OMP_NUM_THREADS` may also apply,
+depending on the BLAS/LAPACK provider loaded by Julia. If you use MKL.jl,
+configure threads through MKL.jl / Julia's BLAS controls in the same way you
+would for ordinary Julia linear algebra. To avoid oversubscription when BLAS is
+threaded, keep `RAYON_NUM_THREADS=1` unless you intentionally want parallelism
+in both Rust kernels and the BLAS provider. `JULIA_NUM_THREADS` controls Julia
+task threads and is independent of both settings.
 
 ## Tests
 
