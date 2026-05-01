@@ -76,6 +76,20 @@ export TENSOR4ALL_RS_PATH=/path/to/tensor4all-rs
 julia --startup-file=no --project=. deps/build.jl
 ```
 
+For local provider-inject testing, use a local `tensor4all-rs` checkout that
+provides the `tenferro-provider-inject` feature and build with that feature:
+
+```bash
+export TENSOR4ALL_RS_PATH=/path/to/tensor4all-rs
+export TENSOR4ALL_RS_FEATURES=tenferro-provider-inject
+julia --startup-file=no --project=. deps/build.jl
+```
+
+When the built `libtensor4all_capi` exports inject registration symbols,
+Tensor4all.jl registers Julia/libblastrampoline BLAS/LAPACK pointers
+automatically at backend load, using `LinearAlgebra.BLAS.USE_BLAS64` to choose
+LP64 vs ILP64.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution flow (issue →

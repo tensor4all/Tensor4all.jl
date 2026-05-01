@@ -48,5 +48,6 @@ function require_backend()
     if _backend_handle[] == C_NULL
         _backend_handle[] = Libdl.dlopen(path)
     end
+    _register_blas_lapack_provider_if_available!(_backend_handle[])
     return _backend_handle[]
 end

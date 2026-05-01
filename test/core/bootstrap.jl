@@ -17,3 +17,19 @@ using Tensor4all
     @test sprint(showerror, missing) == "backend missing"
     @test Tensor4all.backend_library_path() isa String
 end
+
+@testset "backend inject helper surface" begin
+    interface = Tensor4all._inject_blas_interface()
+    @test interface in (:lp64, :ilp64)
+    @test :dgemm in Tensor4all._CBLAS_GEMM_INJECT_SYMBOLS
+    @test :zgemm in Tensor4all._CBLAS_GEMM_INJECT_SYMBOLS
+    @test :dgesvd in Tensor4all._LAPACK_INJECT_SYMBOLS
+    @test :zgesvd in Tensor4all._LAPACK_INJECT_SYMBOLS
+    @test :dgetc2 in Tensor4all._LAPACK_INJECT_SYMBOLS
+    @test :zgesc2 in Tensor4all._LAPACK_INJECT_SYMBOLS
+    @test !Tensor4all._inject_missing_provider_pointer(
+        Tensor4all._inject_provider_pointer(:dgemm, interface),
+    )
+    @test Tensor4all._inject_missing_provider_pointer(C_NULL)
+    @test Tensor4all._inject_missing_provider_pointer(Ptr{Cvoid}(typemax(UInt)))
+end
