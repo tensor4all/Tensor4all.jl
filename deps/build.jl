@@ -8,8 +8,12 @@
 #   2. Sibling directory ../tensor4all-rs/ (relative to package root)
 #   3. Clone from GitHub
 #
-# Optional Cargo feature selection:
-#   TENSOR4ALL_RS_FEATURES="tenferro-provider-inject"
+# Optional linear algebra backend selection:
+#   TENSOR4ALL_LINALG_BACKEND=julia-blas  # default: inject Julia BLAS/LAPACK pointers
+#   TENSOR4ALL_LINALG_BACKEND=faer        # Rust/faer backend
+#
+# Optional extra Cargo feature selection:
+#   TENSOR4ALL_RS_FEATURES="feature-a,feature-b"
 
 using Libdl
 using RustToolChain: cargo
@@ -70,12 +74,55 @@ function clone_from_github(dest::String)
     run(`git -C $dest checkout --detach $TENSOR4ALL_RS_FALLBACK_COMMIT`)
 end
 
-function cargo_feature_args()
-    raw = strip(get(ENV, "TENSOR4ALL_RS_FEATURES", ""))
-    isempty(raw) && return String[]
+function _split_cargo_features(raw::AbstractString)
+    return filter(!isempty, split(strip(raw), r"[\s,]+"))
+end
 
-    features = filter(!isempty, split(raw, r"[\s,]+"))
-    isempty(features) && return String[]
+function selected_linalg_backend()
+    raw_env = get(ENV, "TENSOR4ALL_LINALG_BACKEND", "julia-blas")
+    raw = lowercase(strip(raw_env))
+    normalized = replace(raw, "_" => "-")
+    if normalized in ("faer", "cpu-faer")
+        return :faer
+    elseif isempty(normalized) ||
+           normalized in ("julia-blas", "blas", "lapack", "inject", "provider-inject")
+        return :julia_blas
+    end
+
+    error(
+        "invalid TENSOR4ALL_LINALG_BACKEND=$(repr(raw)); expected `faer` " *
+        "or `julia-blas`",
+    )
+end
+
+function _dedup_preserve_order(features)
+    out = String[]
+    seen = Set{String}()
+    for feature in features
+        feature_str = String(feature)
+        if !(feature_str in seen)
+            push!(out, feature_str)
+            push!(seen, feature_str)
+        end
+    end
+    return out
+end
+
+function linalg_backend_label(backend::Symbol = selected_linalg_backend())
+    return backend == :julia_blas ? "julia-blas" : String(backend)
+end
+
+function cargo_feature_args()
+    backend = selected_linalg_backend()
+    extra_features = _split_cargo_features(get(ENV, "TENSOR4ALL_RS_FEATURES", ""))
+
+    if backend == :faer && isempty(extra_features)
+        return String[]
+    end
+
+    backend_features =
+        backend == :faer ? ["tenferro-cpu-faer"] : ["tenferro-provider-inject"]
+    features = _dedup_preserve_order(vcat(backend_features, extra_features))
 
     return String["--no-default-features", "--features", join(features, ",")]
 end
@@ -95,6 +142,7 @@ function build_library(rust_dir::String)
     println("Building tensor4all-capi ($profile)...")
     println("  Rust source: $rust_dir")
     println("  Using cargo from RustToolChain.jl")
+    println("  Linear algebra backend: ", linalg_backend_label())
     feature_args = cargo_feature_args()
     if !isempty(feature_args)
         println("  Cargo features: ", join(feature_args, " "))
@@ -155,5 +203,7 @@ function main()
     end
 end
 
-# Run build
-main()
+# Run build unless a test includes this file for configuration-only checks.
+if get(ENV, "TENSOR4ALL_BUILD_CONFIG_ONLY", "") != "1"
+    main()
+end

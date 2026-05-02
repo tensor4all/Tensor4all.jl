@@ -11,12 +11,14 @@ module Tensor4all
 
 using Libdl
 using LinearAlgebra: norm
+import LinearAlgebra
 import QuanticsGrids as UpstreamQuanticsGrids
 import QuanticsTCI as UpstreamQuanticsTCI
 
 const SKELETON_PHASE = true
 
 include("Core/Errors.jl")
+include("Core/BlasLapackInject.jl")
 include("Core/Backend.jl")
 include("Core/Index.jl")
 include("Core/Tensor.jl")
