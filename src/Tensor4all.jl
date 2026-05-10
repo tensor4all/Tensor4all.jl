@@ -14,6 +14,7 @@ using LinearAlgebra: norm
 import LinearAlgebra
 import QuanticsGrids as UpstreamQuanticsGrids
 import QuanticsTCI as UpstreamQuanticsTCI
+import InterpolativeQTT as UpstreamInterpolativeQTT
 
 const SKELETON_PHASE = true
 
@@ -30,6 +31,7 @@ include("ITensorCompat.jl")
 include("TensorCI.jl")
 include("QuanticsGrids.jl")
 include("QuanticsTCI.jl")
+include("InterpolativeQTT.jl")
 include("QuanticsTransform/QuanticsTransform.jl")
 
 using .TensorNetworks: add, apply, dot, inner, dist, linkdims, linkind, linkinds, siteinds, orthogonalize, truncate
@@ -53,6 +55,6 @@ export delta, isdiag, structured_storage_info, structured_payload
 export selectinds, onehot, fixinds, suminds, projectinds
 export svd, qr
 export random_itensor, random_mps
-export TensorNetworks, ITensorCompat, SimpleTT, TensorCI, QuanticsGrids, QuanticsTCI, QuanticsTransform
+export TensorNetworks, ITensorCompat, SimpleTT, TensorCI, QuanticsGrids, QuanticsTCI, QuanticsTransform, InterpolativeQTT
 
 end

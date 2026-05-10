@@ -306,6 +306,7 @@ Order = [:function]
 
 - `Tensor4all.QuanticsGrids` re-exports the public `QuanticsGrids.jl` surface
 - `Tensor4all.QuanticsTCI` re-exports the public `QuanticsTCI.jl` surface
+- `Tensor4all.InterpolativeQTT` re-exports the public `InterpolativeQTT.jl` surface
 
 These modules are wrapper re-exports for discoverability. Tensor4all does not
 take ownership of their APIs; see the upstream
@@ -335,6 +336,22 @@ qtt, ranks, errors = QTCI.quanticscrossinterpolate(
 
 qtt(4)      # evaluate at an integer grid index
 sum(qtt)    # upstream QuanticsTCI reduction
+```
+
+[InterpolativeQTT.jl docs](https://tensor4all.github.io/InterpolativeQTT.jl/dev)
+
+```julia
+const IQTT = Tensor4all.InterpolativeQTT
+
+# single-scale Chebyshev QTT approximation
+tt = IQTT.interpolatesinglescale(x -> exp(-x^2), -2.0, 2.0, 8, 20)
+```
+
+```@autodocs
+Modules = [Tensor4all.InterpolativeQTT]
+Pages = ["InterpolativeQTT.jl"]
+Private = false
+Order = [:type, :function]
 ```
 
 ## HDF5 Compatibility
