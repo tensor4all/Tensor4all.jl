@@ -43,6 +43,7 @@ include("itensorcompat/bubbleteaci_workflow.jl")
 include("itensorcompat/operator_overloads.jl")
 include("quanticsgrids/surface.jl")
 include("quanticstci/surface.jl")
+include("interpolativeqtt/surface.jl")
 if get(ENV, "T4A_SKIP_HDF5_TESTS", "0") != "1" && Base.find_package("HDF5") !== nothing
     include("extensions/hdf5_roundtrip.jl")
 end
