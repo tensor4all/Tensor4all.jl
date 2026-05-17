@@ -47,7 +47,7 @@ primary public story.
 
 - Julia 1.9 or later
 - A Rust toolchain (cargo) — installed automatically via
-  [RustToolChain.jl](https://github.com/nicholaskl97/RustToolChain.jl) during
+  [RustToolChain.jl](https://github.com/AtelierArith/RustToolChain.jl) during
   the build step
 - Git (for the GitHub clone fallback if no local `tensor4all-rs` source is
   available)
