@@ -240,6 +240,111 @@ conversion remains on the Julia side.
   `TENSOR4ALL_RS_PATH` > sibling `../tensor4all-rs/` > GitHub clone
 - Main tests: `Pkg.test()` or `julia test/runtests.jl`
 - Skip HDF5 tests in direct runs with `T4A_SKIP_HDF5_TESTS=1`
+- **C API / Rust binary:** After you change the C API or rebuild
+  `libtensor4all_capi.so` (for example `julia --startup-file=no --project=.
+  deps/build.jl` or **`Pkg.build()`** on Tensor4all.jl), WarmTestRunner’s warm
+  workers may still hold the old library. If you use **WarmTestRunner**, follow
+  this order (from the Tensor4all.jl root, use **`--project=.`** on each
+  `julia ... -e` line so `WarmTestRunner` and `Pkg` use this repo’s environment):
+
+  ```bash
+  julia --startup-file=no --project=. -e 'using Pkg; Pkg.build()'
+  julia --startup-file=no --project=. -e 'using WarmTestRunner; stop()'
+  env JULIA_NUM_THREADS=1 JULIA_NUM_GC_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+      BLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 RAYON_NUM_THREADS=1 \
+      julia --startup-file=no --project=. -e 'using WarmTestRunner; runtests()'
+  ```
+
+  Use `deps/build.jl` instead of `Pkg.build()` when that is how you refreshed the
+  `.so`. For merge-ready verification you can run **`Pkg.test()`** instead of the
+  last line. If WarmTestRunner was not running, **`stop()`** is harmless before the
+  next **`runtests()`**.
+
+### WarmTestRunner.jl (Codex and other coding agents)
+
+For **iterative edit/test loops**, Codex and other coding agents **should prefer
+[WarmTestRunner.jl](https://github.com/terasakisatoshi/WarmTestRunner.jl)** when
+it is available: it reuses a warm worker pool so repeated `runtests()` calls pay
+package load and compilation costs only once per session, similar to a human
+developer keeping a REPL open.
+
+WarmTestRunner is **not** a full drop-in for `Pkg.test()` (workers reuse `Main`;
+isolation is weaker). Treat it as a **fast local loop**; before claiming a branch
+is merge-ready, still run **`Pkg.test()`** (or CI-equivalent) with the same
+**[Resource Settings](#resource-settings)** one-CPU environment as for other
+backend test commands.
+
+**Julia version:** WarmTestRunner.jl requires **Julia 1.12 or later**. This repo’s
+`[compat]` allows older Julia versions; on **Julia versions below 1.12**, agents
+**must not** assume WarmTestRunner and should use `Pkg.test()` /
+`julia test/runtests.jl` instead.
+
+**Project selection:** For Tensor4all.jl development, run WarmTestRunner through
+this repository environment with **`--project=.`**. That should load the developed
+dependency from `~/.julia/dev/WarmTestRunner` when it is registered in
+`Manifest.toml`. Do not use `--project=ext/WarmTestRunner.jl` for Tensor4all.jl
+tests unless you are intentionally testing a local WarmTestRunner checkout.
+
+**Install** From the **Tensor4all.jl** project directory (so `Pkg.activate()` picks
+up this repo’s `Project.toml`), run:
+
+```bash
+julia --startup-file=no --project=. -e 'using Pkg; Pkg.develop(url="https://github.com/terasakisatoshi/WarmTestRunner.jl")'
+```
+
+That registers WarmTestRunner as a **develop** dependency (editable clone under
+`~/.julia/dev/` by default). You can still use `Pkg.develop(path = "...")` on a
+manual checkout if you need a specific tree; see upstream `README.md`.
+
+**Standard warm loop** Use this for everyday local iteration. It keeps one worker
+warm and matches this document’s one-CPU/thread resource policy:
+
+```bash
+cd /path/to/Tensor4all.jl
+env JULIA_NUM_THREADS=1 JULIA_NUM_GC_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+    BLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 RAYON_NUM_THREADS=1 \
+    julia --startup-file=no --project=. -e 'using WarmTestRunner; runtests()'
+```
+
+If `Revise.jl` is installed in the same environment, you may preload it in that
+`-e` string the way WarmTestRunner’s upstream docs suggest for faster reloads.
+Set `T4A_SKIP_HDF5_TESTS=1` when you need the same HDF5-skipping behavior as in
+other direct test runs. Use
+`runtests(tests = ["tensornetworks/foo.jl"], print_summary = true)` (paths
+relative to `test/`) to narrow scope when fixing a single file.
+
+**Parallel split loop** For broad repeated local checks, a warm multi-worker pool
+with top-level testset splitting can be faster after the first run. Start or reuse
+an 8-worker daemon and split testsets like this:
+
+```bash
+env JULIA_NUM_THREADS=1 JULIA_NUM_GC_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+    BLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 RAYON_NUM_THREADS=1 \
+    julia --startup-file=no --project=. -e 'using WarmTestRunner; runtests(jobs = 8, split_testsets = true)'
+```
+
+The first run includes daemon/worker startup and compilation. In local Codex
+measurements on this repo, cold 8-worker split runs were about 45 seconds wall
+time; repeated warm 8-worker split runs were about 11 seconds wall time. Treat
+these as local guidance, not CI guarantees. The `RunSummary` “total” value is the
+sum of result elapsed times and is not the same as external wall time; use
+`/usr/bin/time -p ...` when comparing runtime.
+
+Check the daemon and loaded package path when results look surprising:
+
+```bash
+julia --startup-file=no --project=. -e 'using WarmTestRunner; println(pathof(WarmTestRunner)); println(status())'
+```
+
+Only use `serve(jobs = n)` with **`n` greater than one** and
+`split_testsets = true` for **intentional** parallel scaling experiments and
+**record** thread and worker counts (see [Resource Settings](#resource-settings)).
+
+After **`Pkg.build()`**, **`deps/build.jl`**, or other **binary artifact**
+changes while using WarmTestRunner, follow the **rebuild → `stop()` → `runtests()`**
+sequence in the **C API / Rust binary** bullet under **Build & Test** (above).
+Also run `stop()` before changing worker count, changing WarmTestRunner source or
+project selection, or when `status()` reports a stale or mismatched daemon.
 
 ## Cross-repo development with tensor4all-rs
 
