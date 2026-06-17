@@ -19,18 +19,6 @@ function _materialize_single_target(materialize::Function, context::AbstractStri
     return _materialized_linear_operator(out[])
 end
 
-function _bc_code(bc::Symbol)
-    bc === :periodic && return TensorNetworks._T4A_BC_PERIODIC
-    (bc === :antiperiodic || bc === :anti_periodic) &&
-        return TensorNetworks._T4A_BC_ANTIPERIODIC
-    bc === :open && return TensorNetworks._T4A_BC_OPEN
-    throw(
-        ArgumentError(
-            "unknown boundary condition $bc. Expected :periodic, :antiperiodic, or :open",
-        ),
-    )
-end
-
 function _new_qtt_layout_handle(nvars::Integer, resolutions::Vector{<:Integer})
     nvars > 0 || throw(ArgumentError("nvars must be positive, got $nvars"))
     length(resolutions) == nvars || throw(
@@ -103,7 +91,7 @@ function _materialize_shift(
             layout_handle,
             Csize_t(target_var),
             Int64(offset),
-            _bc_code(bc),
+            TensorNetworks._bc_code(bc),
             out,
         )
     end
@@ -122,7 +110,7 @@ function _materialize_flip(
             (Ptr{Cvoid}, Csize_t, Cint, Ref{Ptr{Cvoid}}),
             layout_handle,
             Csize_t(target_var),
-            _bc_code(bc),
+            TensorNetworks._bc_code(bc),
             out,
         )
     end
@@ -223,7 +211,7 @@ function _materialize_affine(
     a_den_c = Int64.(a_den)
     b_num_c = Int64.(b_num)
     b_den_c = Int64.(b_den)
-    bc_c = Cint[_bc_code(b) for b in bc]
+    bc_c = Cint[TensorNetworks._bc_code(b) for b in bc]
     return _materialize_single_target(context) do out
         ccall(
             TensorNetworks._t4a(:t4a_qtransform_affine_materialize),

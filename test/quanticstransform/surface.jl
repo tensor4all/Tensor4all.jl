@@ -7,6 +7,7 @@ using Tensor4all
     @test isdefined(Tensor4all.QuanticsTransform, :flip_operator)
     @test isdefined(Tensor4all.QuanticsTransform, :fourier_operator)
     @test !isdefined(Tensor4all.QuanticsTransform, :LinearOperator)
+    @test !isdefined(Tensor4all.QuanticsTransform, :_bc_code)
 
     op = Tensor4all.QuanticsTransform.shift_operator(4, 1)
     @test op isa Tensor4all.TensorNetworks.LinearOperator
