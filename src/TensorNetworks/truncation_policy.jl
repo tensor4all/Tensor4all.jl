@@ -87,6 +87,22 @@ function _normalize_maxdim(maxdim::Union{Nothing,Integer})
     return Int(maxdim)
 end
 
+const _DEFAULT_NAIVE_MAX_DENSE_ELEMENTS = 1_000_000
+
+function _normalize_max_dense_elements(
+    method::Symbol,
+    max_dense_elements::Union{Nothing,Integer},
+)
+    max_dense_elements === nothing &&
+        return method === :naive ? _DEFAULT_NAIVE_MAX_DENSE_ELEMENTS : 0
+    max_dense_elements >= 0 || throw(
+        ArgumentError(
+            "max_dense_elements must be nonnegative or nothing, got $max_dense_elements",
+        ),
+    )
+    return Int(max_dense_elements)
+end
+
 # --- Default policy registry ---------------------------------------------
 
 const _PROCESS_DEFAULT_LOCK = ReentrantLock()

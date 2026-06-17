@@ -153,6 +153,7 @@ function partial_contract(
     convergence_tol::Real=0.0,
     factorize_alg::Symbol=:svd,
     qr_rtol::Real=0.0,
+    max_dense_elements::Union{Nothing,Integer}=nothing,
 )
     _validate_partial_contract_inputs(a, b, spec)
     1 <= center <= max(length(a), length(b)) || throw(ArgumentError("center must be in 1:$(max(length(a), length(b))), got $center"))
@@ -164,6 +165,7 @@ function partial_contract(
 
     method_code = _contract_method_code(method)
     factorize_code = _factorize_alg_code(factorize_alg)
+    max_dense_elements_value = _normalize_max_dense_elements(method, max_dense_elements)
     ffi_policy = _resolve_svd_policy(; threshold=threshold_value, svd_policy)
 
     scalar_kind = _promoted_scalar_kind(a, b)
@@ -209,6 +211,7 @@ function partial_contract(
                     Cdouble,
                     Cint,
                     Cdouble,
+                    Csize_t,
                     Ref{Ptr{Cvoid}},
                 ),
                 a_handle,
@@ -229,6 +232,7 @@ function partial_contract(
                 float(convergence_tol),
                 factorize_code,
                 float(qr_rtol),
+                Csize_t(max_dense_elements_value),
                 out,
             )
         end

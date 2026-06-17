@@ -15,7 +15,8 @@ end
              nfullsweeps::Integer = 0,
              convergence_tol::Real = 0.0,
              factorize_alg::Symbol = :svd,
-             qr_rtol::Real = 0.0) -> TensorTrain
+             qr_rtol::Real = 0.0,
+             max_dense_elements::Union{Nothing,Integer} = nothing) -> TensorTrain
 
 Contract two `TensorTrain`s over their shared site indices using the backend
 TreeTN contraction kernel (`t4a_treetn_contract`).
@@ -33,6 +34,9 @@ TreeTN contraction kernel (`t4a_treetn_contract`).
   (default), `:qr`, `:lu`, `:ci`.
 - `qr_rtol`: relative tolerance for the QR step when `factorize_alg=:qr`.
   `0.0` (default) lets the backend pick.
+- `max_dense_elements`: dense/reference safety limit used by `method=:naive`.
+  When omitted, `:naive` uses a small default limit and other methods pass no
+  dense-reference limit.
 
 Returns a new `TensorTrain`. Throws `ArgumentError` for invalid arguments.
 """
@@ -47,6 +51,7 @@ function contract(
     convergence_tol::Real=0.0,
     factorize_alg::Symbol=:svd,
     qr_rtol::Real=0.0,
+    max_dense_elements::Union{Nothing,Integer}=nothing,
 )
     isempty(a.data) && throw(ArgumentError("Left TensorTrain must not be empty for contract"))
     isempty(b.data) && throw(ArgumentError("Right TensorTrain must not be empty for contract"))
@@ -58,6 +63,7 @@ function contract(
 
     method_code = _contract_method_code(method)
     factorize_code = _factorize_alg_code(factorize_alg)
+    max_dense_elements_value = _normalize_max_dense_elements(method, max_dense_elements)
     ffi_policy = _resolve_svd_policy(; threshold=threshold_value, svd_policy)
 
     scalar_kind = _promoted_scalar_kind(a, b)
@@ -80,6 +86,7 @@ function contract(
                     Cdouble,
                     Cint,
                     Cdouble,
+                    Csize_t,
                     Ref{Ptr{Cvoid}},
                 ),
                 a_handle,
@@ -91,6 +98,7 @@ function contract(
                 float(convergence_tol),
                 factorize_code,
                 float(qr_rtol),
+                Csize_t(max_dense_elements_value),
                 out,
             )
         end
