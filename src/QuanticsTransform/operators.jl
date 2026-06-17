@@ -32,6 +32,7 @@ end
     shift_operator(r, offset; bc=:periodic)
 
 Construct a quantics shift operator materialized as a `TensorNetworks.LinearOperator`.
+The boundary condition `bc` is one of `:periodic`, `:antiperiodic`, or `:open`.
 """
 function shift_operator(r::Integer, offset::Integer; bc=:periodic)
     layout_handle = _new_univariate_layout(r)
@@ -46,6 +47,7 @@ end
     shift_operator_multivar(r, offset, nvars, target; bc=:periodic)
 
 Construct a multivariable quantics shift operator targeting the `target`th variable.
+The boundary condition `bc` is one of `:periodic`, `:antiperiodic`, or `:open`.
 """
 function shift_operator_multivar(
     r::Integer,
@@ -73,6 +75,7 @@ end
     flip_operator(r; bc=:periodic)
 
 Construct a quantics flip operator materialized as a `TensorNetworks.LinearOperator`.
+The boundary condition `bc` is one of `:periodic`, `:antiperiodic`, or `:open`.
 """
 function flip_operator(r::Integer; bc=:periodic)
     layout_handle = _new_univariate_layout(r)
@@ -87,6 +90,7 @@ end
     flip_operator_multivar(r, nvars, target; bc=:periodic)
 
 Construct a multivariable quantics flip operator targeting the `target`th variable.
+The boundary condition `bc` is one of `:periodic`, `:antiperiodic`, or `:open`.
 """
 function flip_operator_multivar(r::Integer, nvars::Integer, target::Integer; bc=:periodic)
     _require_multivar_target(nvars, target)
@@ -192,7 +196,8 @@ as a `TensorNetworks.LinearOperator`. Maps a state `g(x)` of one variable to
 
 To obtain the pullback operator `f(y) = g(a * y + b)` call `transpose` on the
 returned operator; the pullback is exactly the transpose of the forward
-operator.
+operator. The boundary condition `bc` is one of `:periodic`, `:antiperiodic`,
+or `:open`.
 """
 function affine_operator(
     r::Integer,
@@ -232,7 +237,7 @@ Multi-variable forward affine operator. Applies the coordinate map
 - `b` is the `M`-dimensional translation vector through `b_num`, `b_den`
   (each of length `m`).
 - `bc` is the per-output-dimension boundary condition (`Vector{Symbol}` of
-  length `m`); each entry is one of `:periodic` or `:open`.
+  length `m`); each entry is one of `:periodic`, `:antiperiodic`, or `:open`.
 
 The layout uses `max(m, n)` variables of `r` bits each (Fused). To obtain the
 pullback `f(y) = g(A * y + b)` call `transpose` on the returned operator.
@@ -277,7 +282,8 @@ The pullback maps a source state `g(x)` of one variable to a target
 state `f(y) = g(a * y + b)`, with `a = a_num / a_den` and `b = b_num / b_den`
 expressed as exact rationals. Implemented as the transpose of the forward
 affine operator (the pullback is exactly the transpose of the forward
-operator).
+operator). The boundary condition `bc` is one of `:periodic`, `:antiperiodic`,
+or `:open`.
 """
 function affine_pullback_operator(
     r::Integer,
@@ -327,6 +333,8 @@ matrix `A = [[a1, b1]; [a2, b2]]` and zero shift).
 
 Implemented as a thin wrapper over [`affine_pullback_operator_multivar`](@ref)
 with a zero shift vector; the returned operator uses a Fused QTT layout.
+The boundary conditions `bc1` and `bc2` are each one of `:periodic`,
+`:antiperiodic`, or `:open`.
 """
 function binaryop_operator(
     r::Integer,
@@ -358,6 +366,8 @@ distinct. The transformation acts as the 2×2 affine map on variables
 Implemented as a thin wrapper over [`affine_pullback_operator_multivar`](@ref)
 with an `nvars × nvars` linear matrix that embeds the 2×2 coefficient matrix
 at the `(lhs_var, rhs_var)` rows/cols and identity elsewhere.
+The boundary conditions `bc1` and `bc2` are each one of `:periodic`,
+`:antiperiodic`, or `:open`.
 """
 function binaryop_operator_multivar(
     r::Integer,

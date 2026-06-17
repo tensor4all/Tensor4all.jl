@@ -21,8 +21,14 @@ end
 
 function _bc_code(bc::Symbol)
     bc === :periodic && return TensorNetworks._T4A_BC_PERIODIC
+    (bc === :antiperiodic || bc === :anti_periodic) &&
+        return TensorNetworks._T4A_BC_ANTIPERIODIC
     bc === :open && return TensorNetworks._T4A_BC_OPEN
-    throw(ArgumentError("unknown boundary condition $bc. Expected :periodic or :open"))
+    throw(
+        ArgumentError(
+            "unknown boundary condition $bc. Expected :periodic, :antiperiodic, or :open",
+        ),
+    )
 end
 
 function _new_qtt_layout_handle(nvars::Integer, resolutions::Vector{<:Integer})
@@ -245,4 +251,3 @@ function _materialize_affine(
         )
     end
 end
-

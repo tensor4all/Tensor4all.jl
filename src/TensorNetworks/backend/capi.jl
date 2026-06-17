@@ -20,6 +20,7 @@ const _T4A_QTT_LAYOUT_FUSED = Cint(1)
 
 const _T4A_BC_PERIODIC = Cint(0)
 const _T4A_BC_OPEN = Cint(1)
+const _T4A_BC_ANTIPERIODIC = Cint(2)
 
 const _T4A_THRESHOLD_SCALE_RELATIVE = Cint(0)
 const _T4A_THRESHOLD_SCALE_ABSOLUTE = Cint(1)
@@ -52,8 +53,13 @@ end
 
 function _bc_code(bc::Symbol)
     bc === :periodic && return _T4A_BC_PERIODIC
+    (bc === :antiperiodic || bc === :anti_periodic) && return _T4A_BC_ANTIPERIODIC
     bc === :open && return _T4A_BC_OPEN
-    throw(ArgumentError("unknown boundary condition $bc. Expected :periodic or :open"))
+    throw(
+        ArgumentError(
+            "unknown boundary condition $bc. Expected :periodic, :antiperiodic, or :open",
+        ),
+    )
 end
 
 function _new_qtt_layout_handle(nvars::Integer, resolutions::Vector{<:Integer})
