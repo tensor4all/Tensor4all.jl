@@ -27,6 +27,19 @@ end
             op = QT.shift_operator(3, 1; bc=:open)
             @test op.mpo !== nothing
         end
+
+        @testset "anti-periodic wrap sign" begin
+            op = QT.shift_operator(2, 1; bc=:antiperiodic)
+            dense = reshape(_operator_dense(op), 4, 4)
+            @test findall(!iszero, dense) == CartesianIndex{2}[
+                CartesianIndex(3, 1),
+                CartesianIndex(4, 2),
+                CartesianIndex(2, 3),
+                CartesianIndex(1, 4),
+            ]
+            @test dense[3, 1] ≈ 1
+            @test dense[1, 4] ≈ -1
+        end
     end
 
     @testset "flip_operator" begin
@@ -76,6 +89,19 @@ end
         op = QT.affine_operator(3, 1, 1, 1, 1; bc=:periodic)
         @test op.mpo !== nothing
         @test length(op.mpo) == 3
+
+        @testset "anti-periodic negative carry" begin
+            anti = QT.affine_operator(2, 1, 1, -1, 1; bc=:anti_periodic)
+            dense = reshape(_operator_dense(anti), 4, 4)
+            @test findall(!iszero, dense) == CartesianIndex{2}[
+                CartesianIndex(4, 1),
+                CartesianIndex(3, 2),
+                CartesianIndex(1, 3),
+                CartesianIndex(2, 4),
+            ]
+            @test dense[4, 1] ≈ -1
+            @test dense[3, 2] ≈ 1
+        end
 
         transposed = transpose(op)
         @test transposed.input_indices == op.output_indices
