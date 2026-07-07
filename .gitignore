@@ -8,6 +8,7 @@ deps/*.dylib
 deps/*.so
 deps/*.dll
 deps/build.log
+deps/.tensor4all-rs/
 
 extern/
 .worktrees/
