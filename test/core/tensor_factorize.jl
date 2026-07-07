@@ -106,4 +106,5 @@ end
     @test_throws ArgumentError qr(t, Index[])
     @test_throws ArgumentError qr(t, [Index(5; tags=["x"])])
     @test_throws ArgumentError qr(t, [i, j])
+    @test_throws ArgumentError qr(t, [i]; rtol=-1.0)
 end
