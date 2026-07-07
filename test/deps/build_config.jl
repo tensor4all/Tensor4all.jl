@@ -62,4 +62,10 @@ end
     cached = BuildScript.CACHED_RUST_DIR
     @test endswith(cached, joinpath("deps", ".tensor4all-rs"))
     @test !occursin(tempdir(), cached)
+    @test BuildScript.TENSOR4ALL_RS_FALLBACK_COMMIT isa String
+    if isdir(joinpath(cached, ".git"))
+        short_ref = SubString(BuildScript.TENSOR4ALL_RS_FALLBACK_COMMIT, 1:10)
+        @test BuildScript.git_rev_parse(cached, short_ref) isa String
+        @test BuildScript.cached_rust_source_at_pin(cached) in (true, false)
+    end
 end
