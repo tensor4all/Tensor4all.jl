@@ -22,7 +22,8 @@ using RustToolChain: cargo
 # so that `deps/build.jl` and the GitHub workflows (.github/workflows/*.yml)
 # share a single source of truth — bump the pin in that one file.
 const TENSOR4ALL_RS_PIN_FILE = joinpath(@__DIR__, "TENSOR4ALL_RS_PIN")
-const TENSOR4ALL_RS_FALLBACK_COMMIT = strip(read(TENSOR4ALL_RS_PIN_FILE, String))
+const TENSOR4ALL_RS_FALLBACK_COMMIT =
+    String(strip(read(TENSOR4ALL_RS_PIN_FILE, String)))
 const TENSOR4ALL_RS_REPO = "https://github.com/tensor4all/tensor4all-rs.git"
 
 # Paths
@@ -78,11 +79,11 @@ function clone_from_github(dest::String)
     run(`git -C $dest checkout --detach $TENSOR4ALL_RS_FALLBACK_COMMIT`)
 end
 
-function git_rev_parse(dir::String, ref::String)
-    return strip(read(`git -C $dir rev-parse $ref`, String))
+function git_rev_parse(dir::AbstractString, ref::AbstractString)
+    return String(strip(read(`git -C $(String(dir)) rev-parse $(String(ref))`, String)))
 end
 
-function cached_rust_source_at_pin(dir::String)
+function cached_rust_source_at_pin(dir::AbstractString)
     if !isdir(joinpath(dir, ".git")) || !isfile(joinpath(dir, "Cargo.toml"))
         return false
     end
@@ -114,11 +115,15 @@ function ensure_github_clone()
                 "$TENSOR4ALL_RS_FALLBACK_COMMIT...",
             )
             run(`git -C $dest fetch origin`)
-            run(`git -C $dest checkout --detach $TENSOR4ALL_RS_FALLBACK_COMMIT`)
+            run(`git -C $dest checkout --detach $(String(TENSOR4ALL_RS_FALLBACK_COMMIT))`)
             return dest
         catch err
-            @warn "Cached Rust source unusable; recloning" path=dest exception=err
-            rm(dest; recursive=true, force=true)
+            if err isa Base.ProcessFailedException || err isa IOError || err isa ErrorException
+                @warn "Cached Rust source unusable; recloning" path=dest exception=err
+                rm(dest; recursive=true, force=true)
+            else
+                rethrow()
+            end
         end
     end
 
@@ -179,6 +184,27 @@ function cargo_feature_args()
     return String["--no-default-features", "--features", join(features, ",")]
 end
 
+function run_cargo_build!(is_debug::Bool, feature_args::Vector{String})
+    function do_build()
+        if is_debug
+            run(`$(cargo()) build -p tensor4all-capi $feature_args`)
+        else
+            run(`$(cargo()) build -p tensor4all-capi --release $feature_args`)
+        end
+    end
+
+    try
+        do_build()
+    catch err
+        if !(err isa Base.ProcessFailedException)
+            rethrow()
+        end
+        @warn "Cargo build failed; running cargo clean and retrying once" exception=err
+        run(`$(cargo()) clean`)
+        do_build()
+    end
+end
+
 """
     cargo_built_library_candidates(rust_dir::String, profile::String) -> Vector{String}
 
@@ -228,11 +254,7 @@ function build_library(rust_dir::String)
     end
 
     cd(rust_dir) do
-        if is_debug
-            run(`$(cargo()) build -p tensor4all-capi $feature_args`)
-        else
-            run(`$(cargo()) build -p tensor4all-capi --release $feature_args`)
-        end
+        run_cargo_build!(is_debug, feature_args)
     end
 
     return find_built_library(rust_dir, profile)
