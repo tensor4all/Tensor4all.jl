@@ -6,7 +6,7 @@
 # Rust source resolution (in priority order):
 #   1. TENSOR4ALL_RS_PATH environment variable
 #   2. Sibling directory ../tensor4all-rs/ (relative to package root)
-#   3. Clone from GitHub
+#   3. Persistent cached clone under deps/.tensor4all-rs/
 #
 # Optional linear algebra backend selection:
 #   TENSOR4ALL_LINALG_BACKEND=julia-blas  # default: inject Julia BLAS/LAPACK pointers
@@ -29,9 +29,13 @@ const TENSOR4ALL_RS_REPO = "https://github.com/tensor4all/tensor4all-rs.git"
 const DEPS_DIR = @__DIR__
 const PACKAGE_DIR = dirname(DEPS_DIR)
 const SIBLING_RUST_DIR = joinpath(dirname(PACKAGE_DIR), "tensor4all-rs")
+const CACHED_RUST_DIR = joinpath(DEPS_DIR, ".tensor4all-rs")
 
-# Output library name (platform-specific)
+# Installed library name (platform-specific). Copied into `deps/` after build.
 const LIB_NAME = "libtensor4all_capi." * Libdl.dlext
+
+# Cargo cdylib base name (`tensor4all-capi` crate -> `tensor4all_capi` artifact).
+const CARGO_CDYLIB_BASE_NAME = "tensor4all_capi"
 
 """
     find_rust_source() -> Union{String, Nothing}
@@ -72,6 +76,54 @@ function clone_from_github(dest::String)
     println("Cloning tensor4all-rs from GitHub (pinned commit: $TENSOR4ALL_RS_FALLBACK_COMMIT)...")
     run(`git clone $TENSOR4ALL_RS_REPO $dest`)
     run(`git -C $dest checkout --detach $TENSOR4ALL_RS_FALLBACK_COMMIT`)
+end
+
+function git_rev_parse(dir::String, ref::String)
+    return strip(read(`git -C $dir rev-parse $ref`, String))
+end
+
+function cached_rust_source_at_pin(dir::String)
+    if !isdir(joinpath(dir, ".git")) || !isfile(joinpath(dir, "Cargo.toml"))
+        return false
+    end
+    head = git_rev_parse(dir, "HEAD")
+    pinned = git_rev_parse(dir, TENSOR4ALL_RS_FALLBACK_COMMIT)
+    return head == pinned
+end
+
+"""
+    ensure_github_clone() -> String
+
+Ensure a pinned tensor4all-rs checkout exists under `deps/.tensor4all-rs/`.
+
+The clone is kept on disk so rebuilds reuse Cargo artifacts and so Windows
+application-control policies that block executables under `%TEMP%` do not break
+`cargo` build scripts.
+"""
+function ensure_github_clone()
+    dest = CACHED_RUST_DIR
+
+    if isdir(dest)
+        try
+            if cached_rust_source_at_pin(dest)
+                println("Using cached Rust source: $dest")
+                return dest
+            end
+            println(
+                "Updating cached Rust source to pinned commit " *
+                "$TENSOR4ALL_RS_FALLBACK_COMMIT...",
+            )
+            run(`git -C $dest fetch origin`)
+            run(`git -C $dest checkout --detach $TENSOR4ALL_RS_FALLBACK_COMMIT`)
+            return dest
+        catch err
+            @warn "Cached Rust source unusable; recloning" path=dest exception=err
+            rm(dest; recursive=true, force=true)
+        end
+    end
+
+    clone_from_github(dest)
+    return dest
 end
 
 function _split_cargo_features(raw::AbstractString)
@@ -128,6 +180,33 @@ function cargo_feature_args()
 end
 
 """
+    cargo_built_library_candidates(rust_dir::String, profile::String) -> Vector{String}
+
+Return possible `cargo build` output paths for the `tensor4all-capi` cdylib.
+
+Rust prefixes dynamic libraries with `lib` on Unix but not on Windows.
+"""
+function cargo_built_library_candidates(rust_dir::String, profile::String)
+    target_dir = joinpath(rust_dir, "target", profile)
+    ext = Libdl.dlext
+    candidates = String[joinpath(target_dir, LIB_NAME)]
+    if Sys.iswindows()
+        push!(candidates, joinpath(target_dir, "$CARGO_CDYLIB_BASE_NAME.$ext"))
+    end
+    return candidates
+end
+
+function find_built_library(rust_dir::String, profile::String)
+    for path in cargo_built_library_candidates(rust_dir, profile)
+        if isfile(path)
+            return path
+        end
+    end
+    searched = join(["  $path" for path in cargo_built_library_candidates(rust_dir, profile)], "\n")
+    error("Built library not found. Searched:\n$searched")
+end
+
+"""
     build_library(rust_dir::String)
 
 Build tensor4all-capi in the specified Rust workspace directory.
@@ -156,13 +235,7 @@ function build_library(rust_dir::String)
         end
     end
 
-    # Find the built library
-    src_lib = joinpath(rust_dir, "target", profile, LIB_NAME)
-    if !isfile(src_lib)
-        error("Built library not found at: $src_lib")
-    end
-
-    return src_lib
+    return find_built_library(rust_dir, profile)
 end
 
 """
@@ -181,26 +254,15 @@ end
 
 function main()
     rust_dir = find_rust_source()
-    cleanup = false
 
     if rust_dir === nothing
-        # Clone from GitHub
-        rust_dir = mktempdir()
-        clone_from_github(rust_dir)
-        cleanup = true
+        rust_dir = ensure_github_clone()
     else
         println("Using local Rust source: $rust_dir")
     end
 
-    try
-        src_lib = build_library(rust_dir)
-        install_library(src_lib)
-    finally
-        if cleanup
-            println("Cleaning up temporary directory...")
-            rm(rust_dir; recursive=true, force=true)
-        end
-    end
+    src_lib = build_library(rust_dir)
+    install_library(src_lib)
 end
 
 # Run build unless a test includes this file for configuration-only checks.

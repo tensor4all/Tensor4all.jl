@@ -1,3 +1,4 @@
+using Libdl
 using Test
 
 function _load_build_script_for_config_tests()
@@ -43,4 +44,22 @@ const BuildScript = _load_build_script_for_config_tests()
     withenv("TENSOR4ALL_LINALG_BACKEND" => "unknown", "TENSOR4ALL_RS_FEATURES" => nothing) do
         @test_throws ErrorException BuildScript.selected_linalg_backend()
     end
+end
+
+@testset "deps build library path resolution" begin
+    rust_dir = normpath("C:/fake/tensor4all-rs")
+    release = BuildScript.cargo_built_library_candidates(rust_dir, "release")
+    @test endswith(release[1], "libtensor4all_capi." * Libdl.dlext)
+    if Sys.iswindows()
+        @test length(release) == 2
+        @test endswith(release[2], "tensor4all_capi.dll")
+    else
+        @test length(release) == 1
+    end
+end
+
+@testset "deps build cached rust source path" begin
+    cached = BuildScript.CACHED_RUST_DIR
+    @test endswith(cached, joinpath("deps", ".tensor4all-rs"))
+    @test !occursin(tempdir(), cached)
 end
