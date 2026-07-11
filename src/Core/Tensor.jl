@@ -1395,13 +1395,19 @@ end
 svd(t::Tensor, left_inds::Index...; kwargs...) = svd(t, collect(left_inds); kwargs...)
 
 """
-    qr(t, left_inds)
+    qr(t, left_inds; rtol=0.0)
 
 Compute a backend QR decomposition of `t`, grouping `left_inds` as the left
 partition.
+
+`rtol` is the relative tolerance passed to the C API (`t4a_tensor_qr`). The
+backend treats `rtol == 0.0` as the sentinel for exact QR (no rank truncation).
+`rtol` must be finite and non-negative.
 """
-function qr(t::Tensor, left_inds::Vector{Index})
+function qr(t::Tensor, left_inds::Vector{Index}; rtol::Real=0.0)
     _validate_tensor_left_inds(t, left_inds)
+    isfinite(rtol) || throw(ArgumentError("rtol must be finite, got $rtol"))
+    rtol >= 0 || throw(ArgumentError("rtol must be nonnegative, got $rtol"))
 
     scalar_kind = _tensor_scalar_kind(t)
     tn = _tensor_networks_module()
@@ -1421,10 +1427,11 @@ function qr(t::Tensor, left_inds::Vector{Index})
         status = ccall(
             tn._t4a(:t4a_tensor_qr),
             Cint,
-            (Ptr{Cvoid}, Ptr{Ptr{Cvoid}}, Csize_t, Ref{Ptr{Cvoid}}, Ref{Ptr{Cvoid}}),
+            (Ptr{Cvoid}, Ptr{Ptr{Cvoid}}, Csize_t, Cdouble, Ref{Ptr{Cvoid}}, Ref{Ptr{Cvoid}}),
             t_handle,
             left_handles,
             Csize_t(length(left_handles)),
+            Cdouble(rtol),
             out_q,
             out_r,
         )
@@ -1442,4 +1449,4 @@ function qr(t::Tensor, left_inds::Vector{Index})
     end
 end
 
-qr(t::Tensor, left_inds::Index...) = qr(t, collect(left_inds))
+qr(t::Tensor, left_inds::Index...; kwargs...) = qr(t, collect(left_inds); kwargs...)
