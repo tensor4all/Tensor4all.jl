@@ -1,0 +1,206 @@
+# Windows CI for Tensor4all.jl
+#
+# Exercises the end-user Windows path:
+#   1. Hide/remove any preinstalled system Rust on the runner
+#   2. Let RustToolChain.jl provide cargo/rustc (Windows rustup installer fallback)
+#   3. Build libtensor4all_capi via deps/build.jl
+#   4. Run the full package test suite
+#
+# Adapted from RustToolChain.jl's windows-rusttoolchain-bootstrap.yml so that
+# Tensor4all.jl CI does not accidentally rely on the runner's system Rust.
+
+name: CI Windows
+
+on:
+  push:
+    branches: [main, tensor4all-rework]
+  pull_request:
+    branches: [main, tensor4all-rework]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-test-without-system-rust:
+    name: Julia ${{ matrix.julia-version }} / Windows / no system Rust
+    runs-on: windows-2025
+    timeout-minutes: 120
+
+    strategy:
+      fail-fast: false
+      matrix:
+        julia-version:
+          - 'lts'
+          - '1'
+
+    env:
+      JULIA_NUM_THREADS: auto
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Julia
+        uses: julia-actions/setup-julia@v3
+        with:
+          version: ${{ matrix.julia-version }}
+          arch: x64
+
+      - name: Cache Julia packages
+        uses: julia-actions/cache@v3
+
+      - name: Show initial Rust state
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Continue"
+
+          Write-Host "Initial PATH:"
+          Write-Host $env:PATH
+
+          Write-Host "Initial rustup:"
+          Get-Command rustup -ErrorAction SilentlyContinue | Format-List *
+
+          Write-Host "Initial cargo:"
+          Get-Command cargo -ErrorAction SilentlyContinue | Format-List *
+
+          Write-Host "Initial rustc:"
+          Get-Command rustc -ErrorAction SilentlyContinue | Format-List *
+
+          if (Get-Command rustup -ErrorAction SilentlyContinue) {
+            rustup --version
+          }
+
+          if (Get-Command cargo -ErrorAction SilentlyContinue) {
+            cargo --version
+          }
+
+          if (Get-Command rustc -ErrorAction SilentlyContinue) {
+            rustc --version
+          }
+
+      - name: Remove preinstalled Rust managed by rustup
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Continue"
+
+          if (Get-Command rustup -ErrorAction SilentlyContinue) {
+            Write-Host "Running: rustup self uninstall -y"
+            rustup self uninstall -y
+          } else {
+            Write-Host "rustup is not visible; skipping rustup self uninstall"
+          }
+
+          Write-Host "Removing user Rust directories if they exist"
+          Remove-Item -Recurse -Force "$env:USERPROFILE\.cargo" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "$env:USERPROFILE\.rustup" -ErrorAction SilentlyContinue
+
+      - name: Hide remaining Rust paths from PATH
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $filtered = $env:PATH -split ';' | Where-Object {
+            $_ -and
+            ($_ -notmatch '\\\.cargo\\bin') -and
+            ($_ -notmatch '\\\.rustup') -and
+            ($_ -notmatch '\\Rust\\') -and
+            ($_ -notmatch '\\rustup\\') -and
+            ($_ -notmatch 'hostedtoolcache\\windows\\Rust')
+          }
+
+          $newPath = ($filtered -join ';')
+          "PATH=$newPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          Write-Host "Filtered PATH:"
+          Write-Host $newPath
+
+      - name: Assert no system Rust is visible
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          if (Get-Command cargo -ErrorAction SilentlyContinue) {
+            Get-Command cargo -ErrorAction SilentlyContinue | Format-List *
+            throw "cargo is still visible in PATH"
+          }
+
+          if (Get-Command rustc -ErrorAction SilentlyContinue) {
+            Get-Command rustc -ErrorAction SilentlyContinue | Format-List *
+            throw "rustc is still visible in PATH"
+          }
+
+          if (Get-Command rustup -ErrorAction SilentlyContinue) {
+            Get-Command rustup -ErrorAction SilentlyContinue | Format-List *
+            throw "rustup is still visible in PATH"
+          }
+
+          julia -e '
+            @info "Julia version" VERSION
+            @info "Sys.which cargo" Sys.which("cargo")
+            @info "Sys.which rustc" Sys.which("rustc")
+            @info "Sys.which rustup" Sys.which("rustup")
+
+            @assert Sys.which("cargo") === nothing
+            @assert Sys.which("rustc") === nothing
+            @assert Sys.which("rustup") === nothing
+          '
+
+      - name: Checkout tensor4all-rs backend
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $pin = (Get-Content -Raw deps/TENSOR4ALL_RS_PIN).Trim()
+          git clone --filter=blob:none https://github.com/tensor4all/tensor4all-rs.git ../tensor4all-rs
+          git -C ../tensor4all-rs checkout $pin
+          Write-Host "Checked out tensor4all-rs at $pin"
+
+      - name: Assert RustToolChain Windows installer fallback
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          julia --project=. -e '
+            using Pkg
+            Pkg.instantiate()
+
+            using RustToolChain: cargo, rustc
+
+            @assert Sys.which("cargo") === nothing
+            @assert Sys.which("rustc") === nothing
+
+            c = cargo()
+            r = rustc()
+
+            @info "cargo() command" c
+            @info "rustc() command" r
+
+            run(`$c --version`)
+            run(`$r --version`)
+          '
+
+      - name: Build
+        shell: pwsh
+        env:
+          TENSOR4ALL_RS_PATH: ${{ github.workspace }}/../tensor4all-rs
+        run: |
+          $ErrorActionPreference = "Stop"
+          julia --project=. -e '
+            using Pkg
+            Pkg.instantiate()
+            Pkg.build()
+          '
+
+      - name: Test
+        shell: pwsh
+        env:
+          TENSOR4ALL_RS_PATH: ${{ github.workspace }}/../tensor4all-rs
+        run: |
+          $ErrorActionPreference = "Stop"
+          julia --project=. -e '
+            using Pkg
+            Pkg.test()
+          '

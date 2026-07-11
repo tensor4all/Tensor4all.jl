@@ -98,6 +98,10 @@ end
     Q2, R2 = qr(t, i)
     @test isapprox(t, contract(Q2, R2); atol=1e-12)
 
+    # Explicit exact-QR sentinel (rtol=0) must match the default path.
+    Q0, R0 = qr(t, [i]; rtol=0.0)
+    @test isapprox(t, contract(Q0, R0); atol=1e-12)
+
     k = Index(2; tags=["k"])
     t3 = Tensor(reshape(collect(1.0:24.0), 3, 4, 2), [i, j, k])
     Q3, R3 = qr(t3, [i, j])
@@ -106,4 +110,6 @@ end
     @test_throws ArgumentError qr(t, Index[])
     @test_throws ArgumentError qr(t, [Index(5; tags=["x"])])
     @test_throws ArgumentError qr(t, [i, j])
+    @test_throws ArgumentError qr(t, [i]; rtol=-1.0)
+    @test_throws ArgumentError qr(t, [i]; rtol=Inf)
 end
