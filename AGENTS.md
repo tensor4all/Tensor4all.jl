@@ -1,5 +1,20 @@
 # AGENTS.md
 
+Before acting, read the latest shared tensor4all agent rules from the
+[`tensor4all-agent-rules`](https://github.com/tensor4all/tensor4all-agent-rules)
+repository. Start from:
+
+- `https://github.com/tensor4all/tensor4all-agent-rules/blob/main/rules/index.md`
+
+If internet access is unavailable or the remote cannot be resolved, use the
+sibling checkout:
+
+- `../tensor4all-agent-rules/rules/index.md`
+
+Load only the common, Julia, performance, numerical, docs, or benchmark rule
+files relevant to the task. In particular, `rules/common/provenance.md`
+applies whenever code is written while referencing third-party code.
+
 Read and follow `REPOSITORY_RULES.md`.
 
 ## API Design Principles
