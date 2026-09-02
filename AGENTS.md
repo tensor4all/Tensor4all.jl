@@ -379,6 +379,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contribution flow.
 - Before starting work, open a GitHub issue using the appropriate template.
 - Wait for maintainer feedback before writing code.
 - AI tool skills for each phase are in `.claude/skills/`.
+- Before merging performance-relevant or AI-assisted changes, run the
+  `audit-ai-failure-modes` skill (`.claude/skills/audit-ai-failure-modes/`);
+  it also audits downstream repositories when pointed at a path.
 
 ### Proactive guidance for AI agents
 
