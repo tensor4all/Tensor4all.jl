@@ -78,7 +78,7 @@ the real incident where one is known. IDs are stable; cite them in findings.
   size of quantics grids is easy to forget.
 - **Symptom:** validation takes longer than the interpolation it validates;
   memory blows up with R.
-- **Triage:** `rg -n 'Iterators\.product|CartesianIndices|1:2\^' -g '*.jl'`.
+- **Triage:** `rg -n 'Iterators\.product|CartesianIndices|\b2\^' -g '*.jl'`.
 - **Fix:** sampled random points, structural checks, or batch readout of a
   bounded index set.
 
@@ -103,9 +103,10 @@ the real incident where one is known. IDs are stable; cite them in findings.
 - **Symptom:** every lookup pays an O(length) hash+equality walk; every
   insert clones the vector; retained keys rival the payload in memory.
 - **Triage:** `rg -n 'Dict\{ *Vector\{Int' -g '*.jl'`.
-- **Fix:** mixed-radix flat integer keys, widening to `Int128` or fixed-width
-  big integers when the index space overflows (this is what
-  `TCI.CachedFunction` does internally — prefer it over a hand-rolled cache).
+- **Fix:** mixed-radix flat integer keys, widening to `UInt128` (the
+  `TCI.CachedFunction` default) or fixed-width unsigned big integers when the
+  index space overflows — prefer `TCI.CachedFunction`, which does exactly
+  this internally, over a hand-rolled cache.
 
 ## Group B — conventions and semantics (silently wrong answers)
 
