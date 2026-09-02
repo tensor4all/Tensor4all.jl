@@ -446,3 +446,30 @@ This is the proof the Iron Law was followed.
   `makebatchevaluatable`, `crossinterpolate2` kwargs (`tolerance`,
   `normalizeerror`, `maxbonddim`), `unfoldingscheme=:fused`,
   `grididx_to_quantics` family.
+
+---
+
+## Test evidence (recorded 2026-09-02)
+
+**Fixture:** as planned, with one authenticity fix found by the RED reviewer:
+`Tensor4all.TensorCI.crossinterpolate2` returns only `tci`, so fixture v2
+calls raw `TCI.crossinterpolate2` (the 3-tuple destructure and the FM10
+discarded-`ranks, errors` plant are then real). Only that line differs from
+v1; RED ran on v1, GREEN on v2.
+
+**RED (fresh subagent, no skill):** caught FM10 (relative `normalizeerror`
+semantics, unchecked convergence) and FM11 (bare `catch` masking), did not
+falsely flag the `peak_value` control — but for FM1 it recommended the
+anti-fix, verbatim: "use `TCI.fulltensor(tt)` ... for full-grid readout",
+i.e. dense materialization (FM4), exponentially worse on quantics grids.
+Batch readout / `BatchEvaluator` was never named. Gate conclusion: skill
+needed; catalog must name the batch route and forbid the `fulltensor`
+anti-fix (added to FM1 and to a SKILL.md rule).
+
+**GREEN (fresh subagent, skill loaded):** all four criteria passed on the
+first iteration — FM1 flagged with `TCI.TTCache` batch readout and an
+explicit "do not replace it with `TCI.fulltensor` (that would be FM4)";
+FM10 flagged with normalization and `maxbonddim`/rank-check reasoning;
+FM11 flagged at the silent fallback; `peak_value` dropped as a false
+positive and borderline FM2 raised as a question, not a finding. No
+REFACTOR iteration was required.
