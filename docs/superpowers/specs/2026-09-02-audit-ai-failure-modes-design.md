@@ -144,3 +144,14 @@ Per the skill-writing Iron Law (no skill without a failing test first):
 - Broad AI failure modes not tied to tensor4all APIs (tolerance weakening,
   benchmark cherry-picking) — covered by shared rules and generic review
   tooling.
+
+## Post-review revision (PR #126)
+
+Maintainer review asked for harness-agnostic packaging and an author-neutral
+name. The catalog and procedure moved unchanged in substance to the single
+canonical document `rules/tensor4all-usage-audit.md`; the public name is now
+`audit-tensor4all-usage` ("usage" rather than "performance" because Groups B
+and C are correctness/robustness, per the review's own scope note); harness
+skill files under `.claude/skills/` and `.agents/skills/` are thin launchers
+holding only discovery metadata and a pointer; and `AGENTS.md` carries a
+short routing rule as the portable entry point for every harness.
