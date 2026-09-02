@@ -379,6 +379,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contribution flow.
 - Before starting work, open a GitHub issue using the appropriate template.
 - Wait for maintainer feedback before writing code.
 - AI tool skills for each phase are in `.claude/skills/`.
+- For performance-sensitive changes or reviews of tensor4all API usage, read
+  and run the usage audit in `rules/tensor4all-usage-audit.md` (canonical for
+  every harness; thin launchers exist under `.claude/skills/` and
+  `.agents/skills/`).
 
 ### Proactive guidance for AI agents
 
