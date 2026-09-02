@@ -51,3 +51,24 @@ full before auditing; findings must cite catalog IDs (FM1-FM12).
 - This skill covers tensor4all-specific misuse only. For generic
   performance review, load `tensor4all-agent-rules`
   (`rules/common/performance.md`, `rules/julia/performance.md`).
+
+## Using this skill from another repository
+
+Inside Tensor4all.jl the skill is auto-discovered from `.claude/skills/`;
+invoke it as `/audit-ai-failure-modes` (optionally with `full` or a path).
+
+A repository that builds on Tensor4all.jl (e.g. ReFrequenTT) references it
+from its own AGENTS.md the same way Tensor4all.jl references
+`tensor4all-agent-rules` — remote first, sibling checkout as fallback:
+
+```markdown
+Before merging changes that call tensor4all / TensorCrossInterpolation /
+Quantics APIs, read and follow the audit skill at
+https://github.com/tensor4all/Tensor4all.jl/blob/main/.claude/skills/audit-ai-failure-modes/SKILL.md
+(and its references/catalog.md). If the remote cannot be resolved, use the
+sibling checkout: ../Tensor4all.jl/.claude/skills/audit-ai-failure-modes/SKILL.md
+```
+
+Alternatively, copy or symlink the skill directory into the downstream
+repository's own `.claude/skills/` to make it directly invocable there —
+then keep it in sync with this canonical copy.
