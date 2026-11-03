@@ -696,6 +696,12 @@ end
 
 copy_data(t::Tensor, requested_inds::AbstractVector{<:Index}) = copy_data(t, requested_inds...)
 
+# Broadcasting over a rank-0 tensor data yields a bare scalar instead of a 0-dimensional
+# array, so the arithmetic below normalises the result back. Without this,
+# `2 * Tensor(3.0)` would try to build `Tensor(6.0, Index[])`, which has no constructor.
+_dense_broadcast(x::AbstractArray) = x
+_dense_broadcast(x::Number) = fill(x)
+
 """
     prime(t, n=1)
 
@@ -880,12 +886,12 @@ end
 
 function Base.:+(a::Tensor, b::Tensor)
     b_data = _permute_to_match(a, b)
-    return Tensor(copy_data(a) .+ b_data, inds(a))
+    return Tensor(_dense_broadcast(copy_data(a) .+ b_data), inds(a))
 end
 
 function Base.:-(a::Tensor, b::Tensor)
     b_data = _permute_to_match(a, b)
-    return Tensor(copy_data(a) .- b_data, inds(a))
+    return Tensor(_dense_broadcast(copy_data(a) .- b_data), inds(a))
 end
 
 Base.:-(t::Tensor) = Tensor(
@@ -896,7 +902,7 @@ Base.:-(t::Tensor) = Tensor(
 
 function Base.:*(α::Number, t::Tensor)
     return Tensor(
-        α .* copy_data(t),
+        _dense_broadcast(α .* copy_data(t)),
         inds(t);
         structured_storage=_map_structured_payload(x -> α * x, _structured_storage_from_tensor(t)),
     )
@@ -907,7 +913,7 @@ Base.:*(a::Tensor, b::Tensor) = contract(a, b)
 
 function Base.:/(t::Tensor, α::Number)
     return Tensor(
-        copy_data(t) ./ α,
+        _dense_broadcast(copy_data(t) ./ α),
         inds(t);
         structured_storage=_map_structured_payload(x -> x / α, _structured_storage_from_tensor(t)),
     )

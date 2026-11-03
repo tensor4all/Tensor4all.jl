@@ -77,3 +77,26 @@ using LinearAlgebra: norm
         @test copy_data(c) ≈ (2.0 + 1.0im) .* data_ij
     end
 end
+
+@testset "rank-0 tensor arithmetic" begin
+    s = Tensor(3.0)
+    @test rank(s) == 0
+    @test isempty(inds(s))
+
+    cases = (
+        ("2 * s", 2 * s, 6.0),
+        ("s * 2", s * 2, 6.0),
+        ("s / 2", s / 2, 1.5),
+        ("-s", -s, -3.0),
+        ("s + Tensor(4.0)", s + Tensor(4.0), 7.0),
+        ("s - Tensor(4.0)", s - Tensor(4.0), -1.0),
+    )
+    for (label, got, want) in cases
+        @test rank(got) == 0
+        @test size(copy_data(got)) == ()
+        @test copy_data(got)[] ≈ want
+        @test Tensor4all.scalar(got) ≈ want
+    end
+    @test isapprox(s + Tensor(4.0), Tensor(7.0))
+    @test !isapprox(s, Tensor(4.0))
+end
