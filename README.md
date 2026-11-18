@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/tensor4all/tensor4all-meta/main/branding/logo/svg/tensor4all-wordmark-dark.svg">
+  <img alt="tensor4all" src="https://raw.githubusercontent.com/tensor4all/tensor4all-meta/main/branding/logo/svg/tensor4all-wordmark.svg" height="64">
+</picture>
+
 # Tensor4all.jl
 
 Julia frontend for [tensor4all-rs](https://github.com/tensor4all/tensor4all-rs).
